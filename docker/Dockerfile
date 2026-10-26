@@ -43,7 +43,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release -p desilium-compositor --example layer_client; \
     cp target/release/examples/layer_client /usr/local/bin/layer-client; \
     cargo build --release -p desilium-ui --example layer_demo; \
-    cp target/release/examples/layer_demo /usr/local/bin/ui-demo
+    cp target/release/examples/layer_demo /usr/local/bin/ui-demo; \
+    cargo build --release -p desilium-shell; \
+    cp target/release/desilium-shell /usr/local/bin/desilium-shell; \
+    cargo build --release -p desilium-settings; \
+    cp target/release/desilium-settings /usr/local/bin/desilium-settings
 
 # ---------------------------------------------------------------------------
 # Runtime
@@ -67,6 +71,7 @@ RUN apt-get update \
         libdrm2 \
         xkb-data \
         foot \
+        hicolor-icon-theme \
         fonts-dejavu-core \
         fonts-inter \
     && rm -rf /var/lib/apt/lists/*
@@ -79,6 +84,11 @@ COPY --from=builder /usr/local/bin/desilium-compositor /usr/local/bin/desilium-c
 COPY --from=builder /usr/local/bin/layer-client /usr/local/bin/layer-client
 COPY --from=builder /usr/local/bin/ui-demo /usr/local/bin/ui-demo
 COPY assets/wallpapers /usr/share/desilium/wallpapers
+COPY --from=builder /usr/local/bin/desilium-shell /usr/local/bin/desilium-shell
+COPY --from=builder /usr/local/bin/desilium-settings /usr/local/bin/desilium-settings
+# Fake applications and icons for shell screenshots. NOT on the default XDG_DATA_DIRS:
+# pass XDG_DATA_DIRS=/usr/share/desilium-demo:/usr/share and DESILIUM_ICON_THEME=desilium-demo to the shell to see them.
+COPY assets/demo-apps /usr/share/desilium-demo
 
 # The root filesystem is mounted read-only at run time; /tmp is the only
 # writable location (tmpfs). Mesa and other libraries fall back to $HOME.

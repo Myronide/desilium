@@ -1,0 +1,26 @@
+[package]
+name = "desilium-settings"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+description = "Graphical settings application: every user-facing option, live applied, validated and reversible"
+
+[[bin]]
+name = "desilium-settings"
+path = "src/main.rs"
+
+[dependencies]
+desilium-config = { path = "../desilium-config" }
+desilium-config-types = { path = "../desilium-config-types" }
+desilium-theme = { path = "../desilium-theme" }
+desilium-ui = { path = "../desilium-ui", default-features = true }
+desilium-wallpaper = { path = "../desilium-wallpaper" }
+calloop = "0.14"
+inotify = "0.11"
+png = "0.17"
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile = "3.27.0"

@@ -62,6 +62,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 
 [[package]]
+name = "android_system_properties"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae221649c9976a6f6c56ae1facf410f3ddb33cc661c4b7b61020a912d4237fbc"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "anyrender"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -576,6 +585,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "chrono"
+version = "0.4.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
+dependencies = [
+ "iana-time-zone",
+ "num-traits",
+ "windows-link",
+]
+
+[[package]]
 name = "color"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -918,10 +938,52 @@ name = "desilium-session"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "serde_json",
  "signal-hook",
  "thiserror 2.0.21",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "desilium-settings"
+version = "0.1.0"
+dependencies = [
+ "calloop 0.14.5",
+ "desilium-config",
+ "desilium-config-types",
+ "desilium-theme",
+ "desilium-ui",
+ "desilium-wallpaper",
+ "inotify",
+ "png 0.17.16",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "desilium-shell"
+version = "0.1.0"
+dependencies = [
+ "calloop 0.14.5",
+ "chrono",
+ "desilium-apps",
+ "desilium-config",
+ "desilium-config-types",
+ "desilium-protocols",
+ "desilium-theme",
+ "desilium-ui",
+ "inotify",
+ "png 0.17.16",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml 0.8.23",
+ "tracing",
+ "tracing-subscriber",
+ "wayland-client",
 ]
 
 [[package]]
@@ -961,6 +1023,7 @@ dependencies = [
  "parley",
  "png 0.17.16",
  "smithay-client-toolkit",
+ "tempfile",
  "thiserror 2.0.21",
  "tracing",
 ]
@@ -1578,6 +1641,30 @@ checksum = "918d3568bebf352712bc2ef3d46a8bcf1a75b373be6539de198e9105cbbf9ce0"
 dependencies = [
  "bytes",
  "itoa",
+]
+
+[[package]]
+name = "iana-time-zone"
+version = "0.1.65"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470"
+dependencies = [
+ "android_system_properties",
+ "core-foundation-sys",
+ "iana-time-zone-haiku",
+ "js-sys",
+ "log",
+ "wasm-bindgen",
+ "windows-core",
+]
+
+[[package]]
+name = "iana-time-zone-haiku"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
