@@ -48,14 +48,17 @@ RUN pacman -Syu --noconfirm --needed git sudo \
     && echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
 USER builder
 WORKDIR /home/builder
-# The -bin packages ship upstream's release binaries, so no Go or Rust toolchain is needed.
+# yay-bin ships a static release binary. paru-bin does not: it links against a fixed libalpm
+# soname and breaks whenever Arch moves to a newer pacman, so paru is built from source here
+# (a few minutes, pulls in rust as a build dependency) against the libalpm of this image.
 RUN set -eux; \
-    for helper in yay-bin paru-bin; do \
+    for helper in yay-bin paru; do \
         git clone --depth 1 "https://aur.archlinux.org/${helper}.git"; \
         (cd "${helper}" && makepkg --syncdeps --noconfirm --cleanbuild); \
     done; \
     mkdir /home/builder/pkgs; \
-    cp yay-bin/*.pkg.tar.zst paru-bin/*.pkg.tar.zst /home/builder/pkgs/
+    find yay-bin paru -maxdepth 1 -name '*.pkg.tar.zst' ! -name '*-debug-*' \
+        -exec cp {} /home/builder/pkgs/ \;
 
 # ---------------------------------------------------------------------------
 # Runtime
