@@ -118,8 +118,9 @@ brightnessctl and bluez-utils. Add `--net` to attach the container to the bridge
 network (the default is no network) so the Ethernet state can be tested.
 The container has no Wi-Fi radio, so only the Ethernet path is exercisable there.
 
-Besides pacman the image has the AUR helpers `yay` and `paru` (built from `yay-bin` and
-`paru-bin` while the image is built, which needs network access then), `base-devel`,
+Besides pacman the image has the AUR helpers `yay` and `paru` (`yay-bin`, and `paru` built from
+source because `paru-bin` breaks when pacman's libalpm moves on; both are built while
+the image is built, which needs network access and a few minutes), `base-devel`,
 `git` and everyday tools (`curl`, `wget`, `vim`, `nano`, `htop`, `fastfetch`, `rsync`,
 `openssh`, `unzip`, `pacman-contrib`, `reflector`). Example: `yay -S librewolf-bin`.
 
