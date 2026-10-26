@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="desilium_shell_unstable_v1">
+  <copyright>
+    Copyright (c) Desilium contributors. See the LICENSE file of the project.
+  </copyright>
+
+  <description summary="private protocol between the Desilium compositor and its desktop shell">
+    This protocol lets the desktop shell (top bar, dock, launcher, window
+    switcher) observe and control the compositor. It covers what layer-shell
+    cannot express: the window list, workspaces, output geometry, compositor
+    key bindings handed to the shell, and visual effects behind the shell's
+    own layer surfaces.
+
+    The global is only advertised to trusted clients; see docs/shell-protocol.md.
+    The shell being absent or crashing is a normal state for the compositor.
+
+    Batching: the compositor groups related changes and ends each group with
+    a done event. A client should apply the state received since the previous
+    done event atomically. Each toplevel handle has its own done event that
+    ends a group of property events for that handle; the manager done event
+    ends the whole update (new handles, closed handles, workspaces, output).
+
+    Versioning: new requests, events, enum entries and error codes may be
+    added in later versions. A client must ignore unknown state values in the
+    state array and unknown shortcut names.
+  </description>
+
+  <interface name="desilium_shell_manager_v1" version="1">
+    <description summary="entry point for the desktop shell">
+      The manager announces windows, workspaces and the output, and accepts
+      workspace and effect requests. When it is bound, the compositor sends the
+      complete current state followed by a done event, and from then on only
+      the changes, each batch followed by a done event.
+    </description>
+
+    <enum name="error">
+      <description summary="protocol errors of the manager">
+        Protocol errors are fatal for the connection. Values that merely
+        become stale (for example a workspace index that no longer exists
+        after the workspace count shrank) are never errors; the request is
+        ignored.
+      </description>
+      <entry name="invalid_surface" value="0"
+             summary="the surface is not a layer surface"/>
+      <entry name="invalid_rectangle" value="1"
+             summary="a rectangle has a negative size"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Stops all updates. Existing toplevel handles stay valid until they are
+        destroyed, but receive no further events. Effects set through
+        set_surface_effects stay in place until their surface is destroyed.
+      </description>
+    </request>
+
+    <request name="switch_workspace">
+      <description summary="show a workspace">
+        Makes the workspace with the given zero-based index the active one.
+        Ignored when the index is out of range.
+      </description>
+      <arg name="index" type="uint" summary="zero-based workspace index"/>
+    </request>
+
+    <request name="set_surface_effects">
+      <description summary="ask for effects behind a layer surface">
+        Asks the compositor to draw a backdrop blur and/or rounded corners
+        for the given layer surface of this client. The effects replace
+        any earlier ones for the surface; all zeros removes them. The
+        compositor clamps every value to 0..64 and may ignore the request
+        when it cannot render the effect. The effects are dropped when the
+        surface is destroyed.
+
+        The corners are in surface-local logical pixels and describe the
+        shape of the visible panel (the blur and the clip follow it).
+      </description>
+      <arg name="surface" type="object" interface="wl_surface"
+           summary="a layer surface of this client"/>
+      <arg name="blur_radius" type="uint" summary="backdrop blur radius in logical pixels"/>
+      <arg name="radius_top_left" type="uint" summary="corner radius in logical pixels"/>
+      <arg name="radius_top_right" type="uint" summary="corner radius in logical pixels"/>
+      <arg name="radius_bottom_right" type="uint" summary="corner radius in logical pixels"/>
+      <arg name="radius_bottom_left" type="uint" summary="corner radius in logical pixels"/>
+    </request>
+
+    <event name="toplevel">
+      <description summary="a window appeared">
+        A new window exists. The handle is followed by its window_id, title, app_id,
+        state and workspace events and a done event. Sent once per window for
+        the lifetime of this manager.
+      </description>
+      <arg name="handle" type="new_id" interface="desilium_toplevel_handle_v1"/>
+    </event>
+
+    <event name="workspaces">
+      <description summary="workspace count or active workspace changed">
+        Sent on bind and whenever the number of workspaces or the active
+        workspace changes. The active index is always smaller than the count.
+      </description>
+      <arg name="count" type="uint" summary="number of workspaces, at least 1"/>
+      <arg name="active" type="uint" summary="zero-based index of the active workspace"/>
+    </event>
+
+    <event name="output_geometry">
+      <description summary="geometry of the output changed">
+        Sent on bind and whenever the output, its scale or its work area
+        changes. All rectangles are in logical pixels in the compositor's
+        global space. The work area is the output minus the exclusive zones
+        of layer surfaces (the area maximized windows fill).
+      </description>
+      <arg name="x" type="int" summary="output x"/>
+      <arg name="y" type="int" summary="output y"/>
+      <arg name="width" type="uint" summary="output width"/>
+      <arg name="height" type="uint" summary="output height"/>
+      <arg name="work_x" type="int" summary="work area x"/>
+      <arg name="work_y" type="int" summary="work area y"/>
+      <arg name="work_width" type="uint" summary="work area width"/>
+      <arg name="work_height" type="uint" summary="work area height"/>
+      <arg name="scale_120ths" type="uint"
+           summary="output scale in 120ths, like wp_fractional_scale (120 = 1.0)"/>
+    </event>
+
+    <event name="shortcut">
+      <description summary="a key binding owned by the shell was pressed">
+        The compositor handled a key binding that the shell is meant to act
+        on, for example "toggle_launcher". Unlike the state events this one
+        is not batched and is not repeated on bind. Unknown names must be
+        ignored.
+      </description>
+      <arg name="name" type="string" summary="stable binding name"/>
+    </event>
+
+    <event name="done">
+      <description summary="end of an update batch">
+        All events since the previous done event form one consistent state.
+      </description>
+    </event>
+  </interface>
+
+  <interface name="desilium_toplevel_handle_v1" version="1">
+    <description summary="a window known to the shell">
+      A handle for one window. Property events are only sent when a value
+      changed (and all of them on creation), each group ends with done.
+      After the closed event the handle is inert and the client should
+      destroy it.
+    </description>
+
+    <enum name="state">
+      <description summary="window states reported in the state array">
+        Unknown values must be ignored. A minimized window is never reported
+        as activated, maximized or fullscreen.
+      </description>
+      <entry name="activated" value="0" summary="the window has focus"/>
+      <entry name="minimized" value="1" summary="the window is hidden to the dock"/>
+      <entry name="maximized" value="2" summary="the window fills the work area"/>
+      <entry name="fullscreen" value="3" summary="the window fills the output"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the handle">
+        Does not affect the window.
+      </description>
+    </request>
+
+    <request name="activate">
+      <description summary="focus and raise the window">
+        Switches to the window's workspace, restores the window if it is
+        minimized, raises and focuses it.
+      </description>
+    </request>
+
+    <request name="close">
+      <description summary="ask the window to close">
+        The application decides whether it closes.
+      </description>
+    </request>
+
+    <request name="set_minimized">
+      <description summary="minimize or restore the window"/>
+      <arg name="minimized" type="uint" summary="0 restores, anything else minimizes"/>
+    </request>
+
+    <request name="set_maximized">
+      <description summary="maximize or unmaximize the window"/>
+      <arg name="maximized" type="uint" summary="0 unmaximizes, anything else maximizes"/>
+    </request>
+
+    <request name="move_to_workspace">
+      <description summary="move the window to a workspace">
+        Ignored when the index is out of range.
+      </description>
+      <arg name="index" type="uint" summary="zero-based workspace index"/>
+    </request>
+
+    <request name="set_minimize_rectangle">
+      <description summary="tell where the window's dock icon is">
+        The compositor animates minimizing towards this rectangle. The
+        rectangle is relative to the top-left of the given layer surface of
+        the shell (the compositor follows the surface if it moves). A null
+        surface clears the rectangle. A zero-sized rectangle is allowed and
+        means a point.
+      </description>
+      <arg name="surface" type="object" interface="wl_surface" allow-null="true"
+           summary="layer surface holding the icon, or null to clear"/>
+      <arg name="x" type="int" summary="x in surface coordinates"/>
+      <arg name="y" type="int" summary="y in surface coordinates"/>
+      <arg name="width" type="int" summary="width, not negative"/>
+      <arg name="height" type="int" summary="height, not negative"/>
+    </request>
+
+    <event name="window_id">
+      <description summary="stable window id">
+        Identifies the window for the lifetime of the compositor. The same
+        window always has the same id, also across several manager objects,
+        and ids are not reused. Sent first, once.
+      </description>
+      <arg name="id" type="uint" summary="window id"/>
+    </event>
+
+    <event name="title">
+      <description summary="the window title changed"/>
+      <arg name="title" type="string" summary="title, possibly truncated"/>
+    </event>
+
+    <event name="app_id">
+      <description summary="the application id changed"/>
+      <arg name="app_id" type="string" summary="application id, possibly empty"/>
+    </event>
+
+    <event name="state">
+      <description summary="the window state changed">
+        The array holds uint32 values of the state enum, each at most once.
+      </description>
+      <arg name="state" type="array" summary="array of state enum values"/>
+    </event>
+
+    <event name="workspace">
+      <description summary="the window moved to another workspace"/>
+      <arg name="index" type="uint" summary="zero-based workspace index"/>
+    </event>
+
+    <event name="closed">
+      <description summary="the window is gone">
+        Always followed by done. No further events follow.
+      </description>
+    </event>
+
+    <event name="done">
+      <description summary="end of a group of property events for this window"/>
+    </event>
+  </interface>
+</protocol>

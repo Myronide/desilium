@@ -1,0 +1,40 @@
+[package]
+name = "desilium-ui"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+description = "HTML/CSS UI host for Desilium shell surfaces (Blitz behind our own types)"
+
+[features]
+default = ["wayland", "multithreading"]
+# Layer-shell host built on smithay-client-toolkit. Off for pure render/test use.
+wayland = ["dep:smithay-client-toolkit"]
+# Rayon-based multithreaded rasteriser: 1080p 58 ms -> 11 ms, 480x300 4.6 -> 1.0 ms,
+# but a 1920x32 bar gets 0.2 -> 0.3 ms slower (thread hand-off). Worth it overall.
+multithreading = ["anyrender_vello_cpu/multithreading"]
+
+[dependencies]
+desilium-theme = { path = "../desilium-theme" }
+thiserror.workspace = true
+tracing.workspace = true
+
+# Pinned exactly: Blitz is a beta and its crates only work in lock-step with the
+# anyrender/vello versions below (see spikes/blitz/REPORT.md).
+blitz-dom = { version = "=0.3.0-beta.4", default-features = false, features = ["svg", "system-fonts"] }
+blitz-html = { version = "=0.3.0-beta.4", default-features = false }
+blitz-paint = { version = "=0.3.0-beta.4", default-features = false, features = ["svg"] }
+blitz-traits = { version = "=0.3.0-beta.4", default-features = false }
+anyrender = "=0.14.0"
+anyrender_vello_cpu = "=0.18.0"
+# Direct deps only for types that appear in our adapters (already in the Blitz tree).
+parley = { version = "0.12", default-features = false, features = ["std"] }
+keyboard-types = { version = "0.8", default-features = false }
+atomic_refcell = "0.1"
+cursor-icon = "1"
+
+# xkbcommon gives us layout-aware keysyms; calloop stays out (the shell owns the loop).
+smithay-client-toolkit = { version = "0.19", optional = true, default-features = false, features = ["xkbcommon"] }
+
+[dev-dependencies]
+png = "0.17"
+calloop = "0.14"

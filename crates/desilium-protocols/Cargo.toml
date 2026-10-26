@@ -1,0 +1,23 @@
+[package]
+name = "desilium-protocols"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[features]
+default = []
+# Server-side bindings, used by the compositor.
+server = ["dep:wayland-server", "dep:wayland-backend"]
+# Client-side bindings, used by the desktop shell.
+client = ["dep:wayland-client", "dep:wayland-backend"]
+
+[dependencies]
+wayland-scanner = "0.31"
+wayland-backend = { version = "0.3", optional = true }
+wayland-server = { version = "0.31", optional = true }
+wayland-client = { version = "0.31", optional = true }
+
+[dev-dependencies]
+wayland-backend = "0.3"
+wayland-server = "0.31"
+wayland-client = "0.31"
