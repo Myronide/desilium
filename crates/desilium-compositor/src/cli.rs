@@ -33,6 +33,10 @@ pub struct Args {
     pub freeze_time: Option<crate::animation::Freeze>,
     /// `--demo ACTION`: scripted window action for animation captures.
     pub demo: Option<crate::animation::Demo>,
+    /// `--shell PATH`: the desktop shell to start, overriding the one found next to the compositor.
+    pub shell: Option<PathBuf>,
+    /// `--no-shell`: start no desktop shell, not even the default one.
+    pub no_shell: bool,
 }
 
 /// Where the pointer starts, in logical pixels, and optionally which cursor shape it shows.
@@ -59,6 +63,8 @@ impl Default for Args {
             pointer: None,
             freeze_time: None,
             demo: None,
+            shell: None,
+            no_shell: false,
         }
     }
 }
@@ -88,6 +94,8 @@ pub fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, Compos
                         .ok_or_else(|| usage("--demo needs one of: maximize, close"))?,
                 );
             }
+            "--shell" => parsed.shell = Some(PathBuf::from(value(&mut args, &arg)?)),
+            "--no-shell" => parsed.no_shell = true,
             "--screenshot" => parsed.screenshot = Some(PathBuf::from(value(&mut args, &arg)?)),
             "--screenshot-delay" => {
                 let millis = value(&mut args, &arg)?
@@ -103,6 +111,9 @@ pub fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Args, Compos
     }
     if parsed.no_config && parsed.config_dir.is_some() {
         return Err(usage("--no-config and --config-dir cannot be combined"));
+    }
+    if parsed.no_shell && parsed.shell.is_some() {
+        return Err(usage("--no-shell and --shell cannot be combined"));
     }
     Ok(parsed)
 }
@@ -255,6 +266,20 @@ mod tests {
         );
         assert_eq!(parse(&["--theme", "dark"]).unwrap().theme, Some(Mode::Dark));
         assert!(parse(&["--theme", "sepia"]).is_err());
+    }
+
+    #[test]
+    fn shell_flags_parse_and_conflict() {
+        assert_eq!(parse(&[]).unwrap().shell, None);
+        assert!(!parse(&[]).unwrap().no_shell);
+        let explicit = parse(&["--shell", "/opt/desilium/desilium-shell"]).unwrap();
+        assert_eq!(
+            explicit.shell,
+            Some(PathBuf::from("/opt/desilium/desilium-shell"))
+        );
+        assert!(parse(&["--no-shell"]).unwrap().no_shell);
+        assert!(parse(&["--no-shell", "--shell", "x"]).is_err());
+        assert!(parse(&["--shell"]).is_err());
     }
 
     #[test]

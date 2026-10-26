@@ -1,6 +1,6 @@
 //! All windows' animation state, keyed by window id.
 
-use super::motion::{Pose, Presence, WindowMotion};
+use super::motion::{MinimizeAim, Pose, Presence, WindowMotion};
 use super::timing::Timing;
 use desilium_wm::WindowId;
 use std::collections::{HashMap, HashSet};
@@ -46,9 +46,9 @@ impl MotionBook {
             .retain(|_, motion| !motion.is_finished_closing(now));
     }
 
-    /// The pose of `id` at `now`; `None` when it is not drawn.
-    pub fn pose(&self, id: WindowId, now: Duration, anchor: (f32, f32)) -> Option<Pose> {
-        self.windows.get(&id)?.pose(now, anchor)
+    /// The pose of `id` at `now` when it is minimized toward `aim`; `None` when it is not drawn.
+    pub fn pose(&self, id: WindowId, now: Duration, aim: MinimizeAim) -> Option<Pose> {
+        self.windows.get(&id)?.pose(now, aim)
     }
 
     /// Forgets `id` without any animation.
@@ -87,7 +87,7 @@ mod tests {
     use desilium_theme::Motion;
     use desilium_wm::{Rect, Size, WindowManager, WindowState};
 
-    const ANCHOR: (f32, f32) = (640.0, 800.0);
+    const AIM: MinimizeAim = MinimizeAim::Point((640.0, 800.0));
 
     fn ms(millis: u64) -> Duration {
         Duration::from_millis(millis)
@@ -124,7 +124,7 @@ mod tests {
             &[(id(1), visible()), (id(2), Presence::Minimized)],
         );
         assert_eq!(book.len(), 1);
-        let start = book.pose(id(1), ms(0), ANCHOR).map(|pose| pose.alpha);
+        let start = book.pose(id(1), ms(0), AIM).map(|pose| pose.alpha);
         assert_eq!(start, Some(0.0));
         assert!(book.is_active(ms(10)));
         assert!(!book.is_active(ms(300)));

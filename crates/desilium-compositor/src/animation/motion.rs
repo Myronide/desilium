@@ -13,6 +13,8 @@ use std::time::Duration;
 
 /// Size of a minimized window relative to its normal size, at the end of the minimize motion.
 const MINIMIZED_SCALE: f32 = 0.1;
+/// Smallest size a window shrinks to when it flies into a dock tile.
+const MIN_TILE_SCALE: f32 = 0.02;
 const SHOWN: f32 = 1.0;
 const HIDDEN: f32 = 0.0;
 const FOCUSED: f32 = 1.0;
@@ -77,6 +79,62 @@ impl Pose {
             .then(Xform::scale_about(self.displayed.centre(), self.scale))
             .with_alpha(self.alpha)
     }
+}
+
+/// Where minimized windows go and how small they get.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MinimizeAim {
+    /// Shrink toward a point at the default scale (no dock tile is known).
+    Point((f32, f32)),
+    /// Fly into the dock tile reported by the shell, shrunk until it fits.
+    Tile(Rect),
+}
+
+impl MinimizeAim {
+    /// The aim for a window: its dock tile when the shell reported one, else the bottom centre
+    /// of the work `area`, where minimized windows used to go.
+    pub fn for_tile(tile: Option<Rect>, area: Rect) -> MinimizeAim {
+        match tile {
+            Some(tile) => MinimizeAim::Tile(tile),
+            None => {
+                let x = area.loc.x as f32 + area.size.w as f32 / 2.0;
+                let y = area.loc.y as f32 + area.size.h as f32;
+                MinimizeAim::Point((x, y))
+            }
+        }
+    }
+
+    /// The frame a fully minimized window of layout `layout` ends up in.
+    fn goal(self, layout: Rect) -> RectF {
+        let (centre, scale) = match self {
+            MinimizeAim::Point(point) => (point, MINIMIZED_SCALE),
+            MinimizeAim::Tile(tile) => (RectF::from_rect(tile).centre(), tile_scale(tile, layout)),
+        };
+        let width = layout.size.w as f32 * scale;
+        let height = layout.size.h as f32 * scale;
+        RectF {
+            x: centre.0 - width / 2.0,
+            y: centre.1 - height / 2.0,
+            w: width,
+            h: height,
+        }
+    }
+}
+
+/// Scale that makes a window of `layout` fit into `tile`, kept between the minimum and the
+/// default minimized scale.
+fn tile_scale(tile: Rect, layout: Rect) -> f32 {
+    fit_ratio(tile.size.w, layout.size.w)
+        .min(fit_ratio(tile.size.h, layout.size.h))
+        .clamp(MIN_TILE_SCALE, MINIMIZED_SCALE)
+}
+
+/// How many times `available` fits into `needed`; a window without size never constrains it.
+fn fit_ratio(available: i32, needed: i32) -> f32 {
+    if needed <= 0 {
+        return f32::INFINITY;
+    }
+    available as f32 / needed as f32
 }
 
 /// Animation state of one window.
@@ -161,8 +219,8 @@ impl WindowMotion {
 
     /// The pose at `now`, or `None` when nothing of the window is visible.
     ///
-    /// `anchor` is the point minimized windows shrink toward.
-    pub fn pose(&self, now: Duration, anchor: (f32, f32)) -> Option<Pose> {
+    /// `aim` is where the window goes when it is minimized; it may change between frames.
+    pub fn pose(&self, now: Duration, aim: MinimizeAim) -> Option<Pose> {
         let shown = self.shown.value(now);
         let hidden = match self.phase {
             Phase::Elsewhere => true,
@@ -175,7 +233,7 @@ impl WindowMotion {
         let (open_scale, open_alpha) = open_scale_alpha(self.open.value(now));
         let (close_scale, close_alpha) = close_scale_alpha(self.closing.value(now));
         let framed = RectF::from_array(self.rect.value(now));
-        let displayed = toward_anchor(framed, anchor, 1.0 - shown);
+        let displayed = toward_aim(framed, self.layout, aim, 1.0 - shown);
         Some(Pose {
             layout: RectF::from_rect(self.layout),
             displayed,
@@ -308,18 +366,13 @@ fn minimize_tween(timing: &Timing, from: f32, to: f32) -> Tween<f32> {
     Tween::new(from, to, start, duration, timing.standard())
 }
 
-/// Shrinks and moves `rect` toward `anchor`; `amount` of 0 leaves it, 1 is the minimized pose.
-fn toward_anchor(rect: RectF, anchor: (f32, f32), amount: f32) -> RectF {
+/// Moves `rect` toward the minimized frame of `aim`; `amount` of 0 leaves it, 1 is the minimized pose.
+fn toward_aim(rect: RectF, layout: Rect, aim: MinimizeAim, amount: f32) -> RectF {
     if amount <= 0.0 {
         return rect;
     }
-    let target = RectF {
-        x: anchor.0 + (rect.x - anchor.0) * MINIMIZED_SCALE,
-        y: anchor.1 + (rect.y - anchor.1) * MINIMIZED_SCALE,
-        w: rect.w * MINIMIZED_SCALE,
-        h: rect.h * MINIMIZED_SCALE,
-    };
-    RectF::from_array(rect.to_array().lerp(target.to_array(), amount))
+    let goal = aim.goal(layout);
+    RectF::from_array(rect.to_array().lerp(goal.to_array(), amount))
 }
 
 #[cfg(test)]
@@ -329,6 +382,7 @@ mod tests {
     use desilium_theme::Motion;
 
     const ANCHOR: (f32, f32) = (640.0, 800.0);
+    const AIM: MinimizeAim = MinimizeAim::Point(ANCHOR);
 
     fn ms(millis: u64) -> Duration {
         Duration::from_millis(millis)
@@ -352,8 +406,12 @@ mod tests {
         observation(Rect::new(100, 100, 400, 300), WindowState::Normal)
     }
 
+    fn normal_centre() -> (f32, f32) {
+        RectF::from_rect(normal().rect).centre()
+    }
+
     fn pose(motion: &WindowMotion, millis: u64) -> Pose {
-        motion.pose(ms(millis), ANCHOR).expect("window is drawn")
+        motion.pose(ms(millis), AIM).expect("window is drawn")
     }
 
     #[test]
@@ -461,8 +519,97 @@ mod tests {
         let mid = pose(&motion, 1100);
         assert!(mid.alpha > 0.0 && mid.alpha < 1.0);
         assert!(mid.displayed.w < 400.0);
-        assert!(motion.pose(ms(1200), ANCHOR).is_none());
+        assert!(motion.pose(ms(1200), AIM).is_none());
         assert!(!motion.is_active(ms(1200)));
+    }
+
+    #[test]
+    fn without_a_dock_tile_the_aim_is_the_bottom_centre() {
+        let area = Rect::new(0, 0, 1280, 800);
+        assert_eq!(
+            MinimizeAim::for_tile(None, area),
+            MinimizeAim::Point((640.0, 800.0))
+        );
+        let offset = Rect::new(100, 50, 800, 600);
+        assert_eq!(
+            MinimizeAim::for_tile(None, offset),
+            MinimizeAim::Point((500.0, 650.0))
+        );
+    }
+
+    #[test]
+    fn a_dock_tile_becomes_the_aim() {
+        let tile = Rect::new(900, 760, 48, 40);
+        let area = Rect::new(0, 0, 1280, 800);
+        assert_eq!(
+            MinimizeAim::for_tile(Some(tile), area),
+            MinimizeAim::Tile(tile)
+        );
+    }
+
+    #[test]
+    fn a_minimized_window_ends_centred_on_the_dock_tile() {
+        let tile = Rect::new(900, 760, 48, 40);
+        let layout = Rect::new(100, 100, 400, 300);
+        let goal = MinimizeAim::Tile(tile).goal(layout);
+        assert_eq!(goal.centre(), RectF::from_rect(tile).centre());
+    }
+
+    #[test]
+    fn the_tile_shrink_factor_fits_the_window_into_the_tile() {
+        let tile = Rect::new(0, 0, 40, 40);
+        let large = Rect::new(0, 0, 800, 600);
+        assert!((tile_scale(tile, large) - 0.05).abs() < 1e-6);
+        let small = Rect::new(0, 0, 200, 100);
+        assert_eq!(tile_scale(tile, small), MINIMIZED_SCALE);
+    }
+
+    #[test]
+    fn the_tile_shrink_factor_is_bounded_and_survives_empty_windows() {
+        let tile = Rect::new(0, 0, 10, 10);
+        let huge = Rect::new(0, 0, 10_000, 10_000);
+        assert_eq!(tile_scale(tile, huge), MIN_TILE_SCALE);
+        let empty = Rect::new(0, 0, 0, 0);
+        assert_eq!(tile_scale(tile, empty), MINIMIZED_SCALE);
+        let broken_tile = Rect::new(0, 0, -5, 40);
+        assert_eq!(tile_scale(broken_tile, huge), MIN_TILE_SCALE);
+    }
+
+    #[test]
+    fn minimize_flies_into_the_dock_tile() {
+        let mut motion = WindowMotion::appear(&timing_at(0), &normal());
+        motion.observe(&timing_at(1000), Presence::Minimized);
+        let tile = Rect::new(900, 760, 48, 40);
+        let aim = MinimizeAim::Tile(tile);
+        let mid = motion.pose(ms(1100), aim).expect("still visible");
+        let centre = mid.displayed.centre();
+        let tile_centre = RectF::from_rect(tile).centre();
+        let start_centre = normal_centre();
+        // Between the window and the tile, closer to the tile than the window was.
+        assert!(centre.0 > start_centre.0 && centre.0 < tile_centre.0);
+        assert!(mid.displayed.w < 400.0);
+    }
+
+    #[test]
+    fn a_tile_that_moves_mid_flight_retargets_without_a_jump() {
+        let mut motion = WindowMotion::appear(&timing_at(0), &normal());
+        motion.observe(&timing_at(1000), Presence::Minimized);
+        let first = MinimizeAim::Tile(Rect::new(900, 760, 48, 40));
+        let moved = MinimizeAim::Tile(Rect::new(20, 760, 48, 40));
+        let before = motion.pose(ms(1100), first).expect("visible");
+        let after = motion.pose(ms(1100), moved).expect("visible");
+        // Same instant, same progress: only the destination changed, so the alpha is unchanged.
+        assert_eq!(before.alpha, after.alpha);
+        assert_ne!(before.displayed, after.displayed);
+    }
+
+    #[test]
+    fn the_aim_does_not_change_the_motion_before_it_starts() {
+        let mut motion = WindowMotion::appear(&timing_at(0), &normal());
+        motion.observe(&timing_at(1000), Presence::Minimized);
+        let tile = MinimizeAim::Tile(Rect::new(900, 760, 48, 40));
+        let early = motion.pose(ms(1000), tile).expect("visible");
+        assert_eq!(early.displayed, RectF::from_rect(normal().rect));
     }
 
     #[test]
@@ -488,7 +635,7 @@ mod tests {
     fn other_desktops_neither_draw_nor_animate_on_return() {
         let mut motion = WindowMotion::appear(&timing_at(0), &normal());
         motion.observe(&timing_at(1000), Presence::Elsewhere);
-        assert!(motion.pose(ms(1000), ANCHOR).is_none());
+        assert!(motion.pose(ms(1000), AIM).is_none());
         motion.observe(&timing_at(2000), Presence::Visible(normal()));
         assert!(pose(&motion, 2000).xform().is_identity());
     }

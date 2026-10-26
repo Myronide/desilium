@@ -59,6 +59,7 @@ impl Default for CompositorSettings {
                 Shortcut::new(alt_shift, key, *moved),
             ]
         }));
+        shortcuts.push(Shortcut::new(alt, "space", Action::ToggleLauncher));
         Self {
             shortcuts,
             terminal: None,
@@ -112,6 +113,7 @@ mod tests {
                 Shortcut::new(alt_shift, "3", Action::MoveToDesktop3),
                 Shortcut::new(alt, "4", Action::SwitchToDesktop4),
                 Shortcut::new(alt_shift, "4", Action::MoveToDesktop4),
+                Shortcut::new(alt, "space", Action::ToggleLauncher),
             ]
         );
         assert_eq!(settings.terminal, None);
@@ -149,6 +151,27 @@ mod tests {
                 .any(|other| other.modifiers == shortcut.modifiers && other.key == shortcut.key);
             assert!(!duplicate, "{} is bound twice", shortcut.key);
         }
+    }
+
+    #[test]
+    fn toggle_launcher_uses_kebab_case_and_defaults_to_alt_space() {
+        let text = r#"
+            [[shortcuts]]
+            key = "space"
+            action = "toggle-launcher"
+            [shortcuts.modifiers]
+            alt = true
+        "#;
+        let parsed: CompositorSettings = toml::from_str(text).expect("parse");
+        assert_eq!(parsed.shortcuts[0].action, Action::ToggleLauncher);
+        let default_binding = CompositorSettings::default()
+            .shortcuts
+            .into_iter()
+            .find(|shortcut| shortcut.action == Action::ToggleLauncher)
+            .expect("toggle launcher has a default");
+        assert_eq!(default_binding.key, "space");
+        assert!(default_binding.modifiers.alt);
+        assert!(!default_binding.modifiers.shift && !default_binding.modifiers.ctrl);
     }
 
     #[test]

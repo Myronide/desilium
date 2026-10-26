@@ -11,6 +11,6 @@ mod xform;
 pub use book::MotionBook;
 pub use clock::Clock;
 pub use dev::{Demo, parse_freeze};
-pub use motion::{ButtonFade, Observation, Pose, Presence};
+pub use motion::{ButtonFade, MinimizeAim, Observation, Pose, Presence};
 pub use timing::{Freeze, Pace, Timing};
 pub use xform::{RectF, Xform};

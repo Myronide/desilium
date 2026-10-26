@@ -54,6 +54,8 @@ pub struct AppearanceSettings {
     pub animations: bool,
     /// Animation speed multiplier; `1.0` is normal speed.
     pub animation_speed: f32,
+    /// Replace slides, zooms and tweens with short fades (accessibility).
+    pub reduce_motion: bool,
     /// Cursor theme name; `None` uses the system default.
     pub cursor_theme: Option<String>,
     /// Cursor size in logical pixels.
@@ -69,8 +71,32 @@ impl Default for AppearanceSettings {
             wallpaper_mode: DEFAULT_WALLPAPER_MODE.to_owned(),
             animations: true,
             animation_speed: DEFAULT_ANIMATION_SPEED,
+            reduce_motion: false,
             cursor_theme: None,
             cursor_size: DEFAULT_CURSOR_SIZE,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reduce_motion_defaults_to_off_when_absent() {
+        let parsed: AppearanceSettings =
+            toml::from_str("theme = \"desilium-light\"").expect("parse");
+        assert!(!parsed.reduce_motion);
+    }
+
+    #[test]
+    fn reduce_motion_round_trips() {
+        let original = AppearanceSettings {
+            reduce_motion: true,
+            ..AppearanceSettings::default()
+        };
+        let text = toml::to_string(&original).expect("serialize");
+        let parsed: AppearanceSettings = toml::from_str(&text).expect("parse");
+        assert!(parsed.reduce_motion);
     }
 }

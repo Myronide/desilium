@@ -347,7 +347,7 @@ fn shortcuts_reach_the_shell() {
         .unwrap();
     harness.pump();
     harness.take_log();
-    harness.state.shell_shortcut("toggle_launcher");
+    assert!(harness.state.shell_shortcut("toggle_launcher"));
     harness.pump();
     assert_eq!(harness.take_log(), vec!["shortcut toggle_launcher"]);
 }

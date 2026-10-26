@@ -54,7 +54,7 @@ fn run() -> Result<(), CompositorError> {
     stop_on_signals(&event_loop.handle(), event_loop.get_signal())?;
     let status = init_backend(&event_loop.handle(), &mut state, &args)?;
     place_pointer(&mut state, &args);
-    autostart(&state, &args.commands);
+    autostart(&state, &args);
 
     info!("desilium compositor running");
     event_loop.run(None, &mut state, |state| {
@@ -98,11 +98,19 @@ fn place_pointer(state: &mut DesiliumState, args: &Args) {
     state.set_cursor_override(start.shape);
 }
 
-fn autostart(state: &DesiliumState, commands: &[String]) {
-    if !commands.is_empty() {
-        for program in commands {
+/// Starts the desktop shell and the requested clients.
+///
+/// With `--command` only those clients start, unless `--shell` asks for a shell too. Without
+/// commands the shell starts (it provides the launcher), and a terminal only if no shell exists.
+fn autostart(state: &DesiliumState, args: &cli::Args) {
+    let shell_started = start_shell(state, args);
+    if !args.commands.is_empty() {
+        for program in &args.commands {
             launch::spawn(program, &state.socket_name);
         }
+        return;
+    }
+    if shell_started {
         return;
     }
     match launch::find_terminal(state.settings.terminal.as_deref()) {
@@ -112,6 +120,26 @@ fn autostart(state: &DesiliumState, commands: &[String]) {
             state.socket_name
         ),
     }
+}
+
+/// Starts the shell given by `--shell`, or the one next to this binary or on `PATH` when no
+/// commands were requested. Returns whether a shell was started.
+fn start_shell(state: &DesiliumState, args: &cli::Args) -> bool {
+    if args.no_shell {
+        return false;
+    }
+    let shell = match &args.shell {
+        Some(path) => path.clone(),
+        None if args.commands.is_empty() => match launch::find_shell() {
+            Some(path) => path,
+            None => {
+                info!("no desilium-shell found; falling back to a terminal");
+                return false;
+            }
+        },
+        None => return false,
+    };
+    launch::start_shell(&shell, &[], &state.socket_name)
 }
 
 /// Lets `docker stop`, Ctrl+C and the session manager end the compositor cleanly.

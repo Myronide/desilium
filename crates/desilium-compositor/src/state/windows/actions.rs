@@ -1,11 +1,13 @@
 //! Window and desktop actions triggered by shortcuts and client requests.
 
 use super::desktops::DesktopStep;
+use crate::launch;
 use crate::state::DesiliumState;
 use desilium_config_types::Action;
 use desilium_wm::{Placement, SnapZone, WindowId, WindowManager, WindowState};
 use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State;
 use smithay::wayland::shell::xdg::{ToplevelStateSet, ToplevelSurface};
+use std::time::Instant;
 
 /// What a client asks of its own toplevel through xdg-shell.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,7 +47,17 @@ impl DesiliumState {
             Action::MoveToDesktop2 => self.move_focused_window_to_desktop(1),
             Action::MoveToDesktop3 => self.move_focused_window_to_desktop(2),
             Action::MoveToDesktop4 => self.move_focused_window_to_desktop(3),
+            Action::ToggleLauncher => self.toggle_launcher(),
         }
+    }
+
+    /// Tells the desktop shell that the launcher key was pressed; without a shell running,
+    /// a shell is started for the launcher (see `launch::open_launcher`).
+    fn toggle_launcher(&mut self) {
+        if self.shell_shortcut(desilium_protocols::shortcut::TOGGLE_LAUNCHER) {
+            return;
+        }
+        launch::open_launcher(&self.socket_name, Instant::now());
     }
 
     /// Asks the window to close (the client decides whether to). Title-bar and keyboard closes

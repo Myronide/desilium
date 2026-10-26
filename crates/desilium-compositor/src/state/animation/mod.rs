@@ -6,11 +6,11 @@
 
 use super::{ClosingWindow, SceneWindow};
 use crate::animation::{
-    Clock, Demo, Freeze, MotionBook, Observation, Pace, Pose, Presence, Timing,
+    Clock, Demo, Freeze, MinimizeAim, MotionBook, Observation, Pace, Pose, Presence, Timing,
 };
 use crate::decoration::{Button, ButtonState};
 use crate::state::DesiliumState;
-use desilium_wm::{Placement, Rect, WindowId, WindowState};
+use desilium_wm::{Placement, WindowId, WindowState};
 use smithay::desktop::Window;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -83,13 +83,12 @@ impl DesiliumState {
             .iter()
             .map(|(id, window)| (*id, self.presence_of(*id, window, placements, grabbed)))
             .collect();
-        let anchor = self.minimize_anchor();
         let mut book = self.motion.book.borrow_mut();
         book.sync(&timing, &seen);
         self.motion.sampled.set(now);
         book.ids()
             .into_iter()
-            .filter_map(|id| Some((id, book.pose(id, now, anchor)?)))
+            .filter_map(|id| Some((id, book.pose(id, now, self.minimize_aim(id))?)))
             .collect()
     }
 
@@ -127,8 +126,12 @@ impl DesiliumState {
 
     fn is_drawn(&self, id: WindowId) -> bool {
         let book = self.motion.book.borrow();
-        book.pose(id, self.motion.sampled.get(), (0.0, 0.0))
-            .is_some()
+        book.pose(
+            id,
+            self.motion.sampled.get(),
+            MinimizeAim::Point((0.0, 0.0)),
+        )
+        .is_some()
     }
 
     /// Starts the close animation of a destroyed window, or forgets it when there is no
@@ -231,7 +234,7 @@ impl DesiliumState {
             .into_iter()
             .filter(|id| book.is_closing(*id))
             .filter_map(|id| {
-                let pose = book.pose(id, now, (0.0, 0.0))?;
+                let pose = book.pose(id, now, MinimizeAim::Point((0.0, 0.0)))?;
                 Some(ClosingWindow {
                     id,
                     layout: pose.layout.to_rect(),
@@ -279,11 +282,8 @@ impl DesiliumState {
         })
     }
 
-    /// Bottom centre of the output: where minimized windows shrink to.
-    fn minimize_anchor(&self) -> (f32, f32) {
-        let area: Rect = self.wm.area();
-        let x = area.loc.x as f32 + area.size.w as f32 / 2.0;
-        let y = area.loc.y as f32 + area.size.h as f32;
-        (x, y)
+    /// Where window `id` goes when minimized: its dock tile, or the bottom centre of the output.
+    fn minimize_aim(&self, id: WindowId) -> MinimizeAim {
+        MinimizeAim::for_tile(self.minimize_target(id), self.wm.area())
     }
 }

@@ -274,6 +274,7 @@ fn action_label(action: Action) -> &'static str {
         Action::MoveToDesktop2 => "move window to desktop 2",
         Action::MoveToDesktop3 => "move window to desktop 3",
         Action::MoveToDesktop4 => "move window to desktop 4",
+        Action::ToggleLauncher => "toggle launcher",
     }
 }
 
@@ -541,6 +542,39 @@ mod tests {
         cfg.compositor.desktops = 200;
         validate(&mut cfg);
         assert_eq!(cfg.compositor.desktops, MAX_DESKTOPS);
+    }
+
+    #[test]
+    fn toggle_launcher_is_optional_and_never_restored() {
+        let mut cfg = valid();
+        cfg.compositor
+            .shortcuts
+            .retain(|s| s.action != Action::ToggleLauncher);
+        let report = validate(&mut cfg);
+        assert!(
+            !cfg.compositor
+                .shortcuts
+                .iter()
+                .any(|s| s.action == Action::ToggleLauncher)
+        );
+        assert!(report.is_clean(), "{report:?}");
+    }
+
+    #[test]
+    fn toggle_launcher_label_is_user_facing() {
+        assert_eq!(action_label(Action::ToggleLauncher), "toggle launcher");
+    }
+
+    #[test]
+    fn default_space_binding_is_clean() {
+        let mut cfg = valid();
+        assert!(validate(&mut cfg).is_clean());
+        assert!(
+            cfg.compositor
+                .shortcuts
+                .iter()
+                .any(|s| s.action == Action::ToggleLauncher && s.key == "space")
+        );
     }
 
     #[test]

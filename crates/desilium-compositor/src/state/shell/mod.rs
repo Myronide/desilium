@@ -89,15 +89,16 @@ impl DesiliumState {
         }
     }
 
-    /// Tells the shell that a compositor key binding it owns was pressed.
-    ///
-    /// The next wave wires key bindings to this, for example the launcher key
-    /// (`desilium_protocols::shortcut::TOGGLE_LAUNCHER`).
-    #[allow(dead_code)] // called by the key binding work
-    pub fn shell_shortcut(&mut self, name: &str) {
+    /// Tells every bound shell that a compositor key binding it owns was pressed (for example
+    /// `desilium_protocols::shortcut::TOGGLE_LAUNCHER`). Returns whether any shell received it,
+    /// so callers can fall back to starting one.
+    pub fn shell_shortcut(&mut self, name: &str) -> bool {
+        let mut delivered = false;
         for client in self.shell.clients.iter().filter(|c| c.manager.is_alive()) {
             client.manager.shortcut(name.to_owned());
+            delivered = true;
         }
+        delivered
     }
 
     /// Decides whether `client` may see the shell global and records it on the client.

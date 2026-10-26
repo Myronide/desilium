@@ -32,4 +32,6 @@ pub enum Action {
     MoveToDesktop2,
     MoveToDesktop3,
     MoveToDesktop4,
+    /// Shows or hides the application launcher of the desktop shell.
+    ToggleLauncher,
 }

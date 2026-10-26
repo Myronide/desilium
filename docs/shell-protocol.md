@@ -73,11 +73,20 @@ Clients apply everything between two `done` events atomically.
 - **Minimize target.** `set_minimize_rectangle` stores a rectangle relative to one of the shell's layer
   surfaces. `DesiliumState::minimize_target(WindowId) -> Option<Rect>` resolves it to output coordinates
   at query time, so it follows a moving or resizing dock. `None` means: use the default target.
-- **Shortcuts.** `DesiliumState::shell_shortcut("toggle_launcher")` sends the `shortcut` event to all
-  bound shells (names live in `desilium_protocols::shortcut`). Wiring a key binding to it (for example an
-  `Action::ToggleLauncher` in the shortcut table) is done where the key bindings are handled: call
-  `state.shell_shortcut(...)` from `run_action`. When no shell is bound the call does nothing, so the
-  binding may fall back to something else if desired.
+- **Shortcuts.** Alt+Space is bound to `Action::ToggleLauncher` (`toggle-launcher` in the settings).
+  `run_window_action` calls `DesiliumState::shell_shortcut(desilium_protocols::shortcut::TOGGLE_LAUNCHER)`,
+  which sends the `shortcut` event to all bound shells, and then `launch::open_launcher`. That starts
+  `desilium-shell --open-launcher` when no shell is running, at most once per second. The shell is
+  looked up next to the compositor executable first, then on `PATH`; the first missing shell is logged
+  once. `shell_shortcut` does not report whether a shell received the event, so the fallback is decided by
+  the shell this compositor started (autostart or a previous fallback). A shell started by another
+  supervisor is not seen, and then the fallback may start a second instance. Returning a `bool` from
+  `shell_shortcut` would close that gap.
+- **Startup.** Without `--command` the compositor starts `desilium-shell` (from `--shell`, or found next to
+  its executable or on `PATH`) and no terminal; a terminal is only started when no shell exists. With
+  `--command` only those clients start, unless `--shell` is also given. A shell started by the compositor
+  is watched: its exit is logged as a warning and it is not restarted, because the session supervisor owns
+  restarts.
 - **Requests** reuse the compositor's own window actions (`minimize_window`, `toggle_maximize_window`,
   `request_close_animated`, `switch_desktop`, `move_window_to_desktop`), so they behave exactly like
   the same action from the keyboard or title bar.
