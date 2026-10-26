@@ -1,0 +1,12 @@
+[package]
+name = "desilium-wallpaper"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[dependencies]
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3.27.0"

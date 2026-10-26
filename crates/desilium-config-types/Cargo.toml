@@ -1,0 +1,11 @@
+[package]
+name = "desilium-config-types"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+toml = "0.8"

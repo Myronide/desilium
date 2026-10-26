@@ -1,0 +1,173 @@
+# Desilium dark theme. Generated from the Rust built-in; a unit test keeps both identical.
+# Every key is optional in user themes: missing keys fall back to the matching built-in.
+
+name = "Desilium Dark"
+mode = "dark"
+
+[palette]
+background = "#0E1016"
+surface = "#151821"
+surface_raised = "#1D212D"
+overlay = "#262B3A"
+text_primary = "#ECEEF5"
+text_secondary = "#A3A9BC"
+text_disabled = "#7A8199"
+text_on_accent = "#0C0A1E"
+accent = "#7B61FF"
+accent_hover = "#8D77FF"
+accent_pressed = "#6F54F5"
+accent_subtle = "#7B61FF29"
+success = "#4CC38A"
+warning = "#F0B54A"
+danger = "#F2616F"
+border = "#2C3244"
+divider = "#1F2430"
+selection = "#7B61FF52"
+
+[window]
+corner_radius = 12.0
+control_radius = 8.0
+border_width = 1.0
+border_active = "#484285"
+border_inactive = "#1F2430"
+title_bar_height = 36.0
+title_bar_active = "#1D212D"
+title_bar_inactive = "#151821"
+title_text_active = "#ECEEF5"
+title_text_inactive = "#A3A9BC"
+title_font_size = 13.0
+title_font_weight = 500
+
+[window.buttons]
+width = 32.0
+height = 28.0
+corner_radius = 8.0
+spacing = 2.0
+side_inset = 4.0
+alignment = "right"
+rest_fill = "#00000000"
+hover_fill = "#ECEEF50F"
+pressed_fill = "#ECEEF51A"
+close_hover_fill = "#F2616F"
+close_pressed_fill = "#DF5966"
+glyph_active = "#A3A9BC"
+glyph_inactive = "#7A8199"
+glyph_on_danger = "#0C0A1E"
+glyph_size = 16.0
+glyph_stroke = 1.5
+
+[shadow.unfocused]
+blur = 24.0
+spread = 0.0
+offset_x = 0.0
+offset_y = 6.0
+color = "#0A0C1F59"
+
+[shadow.focused]
+blur = 48.0
+spread = -4.0
+offset_x = 0.0
+offset_y = 16.0
+color = "#0A0C1F8C"
+
+[shadow.popup]
+blur = 56.0
+spread = -4.0
+offset_x = 0.0
+offset_y = 20.0
+color = "#0A0C1F99"
+
+[shadow.modal]
+blur = 96.0
+spread = -10.0
+offset_x = 0.0
+offset_y = 32.0
+color = "#0A0C1FA6"
+
+[spacing]
+unit = 4.0
+xxs = 4.0
+xs = 8.0
+sm = 12.0
+md = 16.0
+lg = 24.0
+xl = 32.0
+xxl = 48.0
+xxxl = 64.0
+
+[typography]
+ui_families = [
+    "Inter",
+    "Noto Sans",
+    "Cantarell",
+    "DejaVu Sans",
+    "sans-serif",
+]
+mono_families = [
+    "JetBrains Mono",
+    "Noto Sans Mono",
+    "DejaVu Sans Mono",
+    "monospace",
+]
+
+[typography.sizes]
+caption = 11.0
+small = 12.0
+body = 13.0
+subtitle = 15.0
+title = 18.0
+headline = 24.0
+display = 32.0
+
+[typography.weights]
+regular = 400
+medium = 500
+semibold = 600
+bold = 700
+
+[typography.line_heights]
+tight = 1.2
+normal = 1.45
+relaxed = 1.65
+
+[motion]
+fast_ms = 120
+normal_ms = 200
+slow_ms = 320
+window_open_ms = 240
+window_close_ms = 160
+workspace_switch_ms = 360
+standard = "ease-in-out-cubic"
+enter = "ease-out-expo"
+exit = "ease-in-cubic"
+reduce_motion = false
+
+[motion.spring]
+stiffness = 320.0
+damping = 28.0
+mass = 1.0
+
+[background]
+noise = 0.025
+
+[background.gradient]
+angle_deg = 160.0
+
+[[background.gradient.stops]]
+position = 0.0
+color = "#0A0817"
+
+[[background.gradient.stops]]
+position = 0.55
+color = "#15102D"
+
+[[background.gradient.stops]]
+position = 1.0
+color = "#31184E"
+
+[effects]
+blur_radius = 24.0
+backdrop_saturation = 1.35
+panel_translucency = 0.28
+titlebar_translucency = 0.12
+popup_translucency = 0.18

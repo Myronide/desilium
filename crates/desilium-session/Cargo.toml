@@ -1,0 +1,12 @@
+[package]
+name = "desilium-session"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[dependencies]
+libc = "0.2"
+signal-hook = "0.3"
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

@@ -1,0 +1,15 @@
+[package]
+name = "desilium-config"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[dependencies]
+desilium-config-types = { path = "../desilium-config-types" }
+serde.workspace = true
+thiserror.workspace = true
+toml = "0.8"
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile = "3.27.0"
