@@ -103,10 +103,12 @@ brightnessctl and bluez-utils. Add `--net` to attach the container to the bridge
 network (the default is no network) so the Ethernet state can be tested.
 The container has no Wi-Fi radio, so only the Ethernet path is exercisable there.
 
-The `desilium` user in the Arch image has passwordless `sudo`. It only works with
-`--sudo`, which also keeps the root filesystem writable (for `sudo pacman -S ...`),
-turns off `no-new-privileges` and adds the capabilities sudo and pacman need. Use it
-only for interactive testing; the default run stays locked down.
+The `desilium` user in the Arch image has passwordless `sudo`, and `--arch` runs
+the container so that it works: the root filesystem stays writable (for
+`sudo pacman -S ...`), `no-new-privileges` is off and the capabilities sudo and
+pacman need are added. Packages need `--net`. Pass `--no-sudo` for the fully
+locked-down run (sudo then fails with "no new privileges"). The Debian image is
+unaffected.
 
 ## Validation
 

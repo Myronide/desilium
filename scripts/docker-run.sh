@@ -5,8 +5,9 @@
 #   scripts/docker-run.sh [--no-build] [--arch] [--net] [compositor args...]
 #     --arch  run on an Arch Linux image (pacman packages) instead of Debian
 #     --net   attach the container to the bridge network instead of none
-#     --sudo  (with --arch) allow passwordless sudo/pacman for the desilium user; this turns off
+#             --arch allows passwordless sudo/pacman for the desilium user; this turns off
 #             no-new-privileges and the read-only root and adds a few capabilities
+#     --no-sudo  with --arch: keep the fully locked-down run (sudo then cannot work)
 #   scripts/docker-run.sh --command kitty
 #
 # The compositor is a Wayland client of the host session (winit backend), so
@@ -38,11 +39,14 @@ while (($#)); do
         --arch)
             dockerfile="Dockerfile.arch"
             IMAGE="desilium-dev-arch"
+            sudo_mode=1
             ;;
         # Container network (bridge) instead of none: enables the Ethernet quick settings.
         --net) network="bridge" ;;
-        # Let the container user run sudo/pacman (Arch image only): weakens the isolation below.
+        # sudo/pacman for the container user (Arch image only): weakens the isolation below.
+        # On by default with --arch; --no-sudo restores the fully locked-down run.
         --sudo) sudo_mode=1 ;;
+        --no-sudo) sudo_mode=0 ;;
         *) break ;;
     esac
     shift
