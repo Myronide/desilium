@@ -13,6 +13,7 @@ FROM ${RUST_IMAGE} AS builder
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         pkg-config \
+        libglib2.0-dev \
         libwayland-dev \
         libxkbcommon-dev \
         libegl-dev \
@@ -47,7 +48,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release -p desilium-shell; \
     cp target/release/desilium-shell /usr/local/bin/desilium-shell; \
     cargo build --release -p desilium-settings; \
-    cp target/release/desilium-settings /usr/local/bin/desilium-settings
+    cp target/release/desilium-settings /usr/local/bin/desilium-settings; \
+    cargo build --release -p desilium-files; \
+    cp target/release/doria /usr/local/bin/doria
 
 # ---------------------------------------------------------------------------
 # Runtime
@@ -70,7 +73,10 @@ RUN apt-get update \
         libseat1 \
         libdrm2 \
         xkb-data \
+        kitty \
         foot \
+        libglib2.0-0t64 \
+        gvfs-backends \
         hicolor-icon-theme \
         fonts-dejavu-core \
         fonts-inter \
@@ -86,6 +92,10 @@ COPY --from=builder /usr/local/bin/ui-demo /usr/local/bin/ui-demo
 COPY assets/wallpapers /usr/share/desilium/wallpapers
 COPY --from=builder /usr/local/bin/desilium-shell /usr/local/bin/desilium-shell
 COPY --from=builder /usr/local/bin/desilium-settings /usr/local/bin/desilium-settings
+COPY --from=builder /usr/local/bin/doria /usr/local/bin/doria
+COPY packaging/applications/org.desilium.Doria.desktop /usr/share/applications/org.desilium.Doria.desktop
+COPY packaging/icons/org.desilium.Doria.svg /usr/share/icons/hicolor/scalable/apps/org.desilium.Doria.svg
+COPY packaging/applications/desilium-settings.desktop /usr/share/applications/desilium-settings.desktop
 # Fake applications and icons for shell screenshots. NOT on the default XDG_DATA_DIRS:
 # pass XDG_DATA_DIRS=/usr/share/desilium-demo:/usr/share and DESILIUM_ICON_THEME=desilium-demo to the shell to see them.
 COPY assets/demo-apps /usr/share/desilium-demo

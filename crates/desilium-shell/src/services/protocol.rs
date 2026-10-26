@@ -254,6 +254,12 @@ impl ShellProtocol {
         }
     }
 
+    pub fn close_window(&self, id: WindowId) {
+        if let Some(handle) = self.handle(id) {
+            handle.close();
+        }
+    }
+
     /// Minimizes or restores a window.
     pub fn set_minimized(&self, id: WindowId, minimized: bool) {
         if let Some(handle) = self.handle(id) {

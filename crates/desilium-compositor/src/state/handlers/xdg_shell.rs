@@ -26,6 +26,7 @@ impl XdgShellHandler for DesiliumState {
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         let id = self.wm.open_window(DEFAULT_WINDOW_SIZE);
+        self.initial_windows.insert(id);
         self.windows.insert(id, Window::new_wayland_window(surface));
         info!(window = id.get(), "window opened");
         self.sync_space();
@@ -36,6 +37,7 @@ impl XdgShellHandler for DesiliumState {
         let Some(id) = self.window_id_for_surface(surface.wl_surface()) else {
             return;
         };
+        self.initial_windows.remove(&id);
         self.wm.close_window(id);
         self.forget_decorated(id);
         self.begin_close_motion(id);

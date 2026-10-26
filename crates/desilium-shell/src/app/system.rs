@@ -135,3 +135,56 @@ mod tests {
         assert!(now.hour < 24 && now.minute < 60);
     }
 }
+
+/// GUI pin edits are atomic and never replace a file before a complete write.
+pub(super) fn persist_pins(dir: &Path, config: &DockConfig) -> io::Result<()> {
+    use std::{io::Write, os::unix::fs::OpenOptionsExt};
+    fs::create_dir_all(dir)?;
+    let temporary = dir.join(format!("dock.{}.tmp", std::process::id()));
+    let mut file = fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .mode(0o600)
+        .open(&temporary)?;
+    let result = (|| {
+        file.write_all(config.render().map_err(io::Error::other)?.as_bytes())?;
+        file.sync_all()?;
+        fs::rename(&temporary, dir.join(DOCK_FILE_NAME))
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+#[cfg(test)]
+mod pin_write_tests {
+    use super::*;
+    #[test]
+    fn gui_pins_save_atomically_and_refuse_an_existing_temporary_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let config = DockConfig {
+            pinned: vec!["kitty.desktop".into()],
+            ..Default::default()
+        };
+        persist_pins(directory.path(), &config).unwrap();
+        assert_eq!(
+            DockConfig::parse(&fs::read_to_string(directory.path().join(DOCK_FILE_NAME)).unwrap())
+                .unwrap(),
+            config
+        );
+        fs::write(
+            directory
+                .path()
+                .join(format!("dock.{}.tmp", std::process::id())),
+            "another writer",
+        )
+        .unwrap();
+        let before = fs::read(directory.path().join(DOCK_FILE_NAME)).unwrap();
+        assert!(persist_pins(directory.path(), &Default::default()).is_err());
+        assert_eq!(
+            fs::read(directory.path().join(DOCK_FILE_NAME)).unwrap(),
+            before
+        );
+    }
+}

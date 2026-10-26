@@ -107,7 +107,7 @@ impl DesiliumState {
             return;
         };
         window.on_commit();
-        self.send_initial_configure(root, &window);
+        self.send_initial_configure(root, &window, id);
 
         let size = window.geometry().size;
         if size.w <= 0 || size.h <= 0 {
@@ -120,12 +120,18 @@ impl DesiliumState {
                 h: size.h,
             },
         );
-        if self.wm.on_commit(id, frame) {
+        let changed = self.wm.on_commit(id, frame);
+        let placed = self.initial_windows.remove(&id)
+            && self
+                .wm
+                .with_window_manager(id, |manager| manager.fit_window_in_work_area(id))
+                .unwrap_or(false);
+        if changed || placed {
             self.sync_space();
         }
     }
 
-    fn send_initial_configure(&self, root: &WlSurface, window: &Window) {
+    fn send_initial_configure(&self, root: &WlSurface, window: &Window, id: WindowId) {
         let Some(toplevel) = window.toplevel() else {
             return;
         };
@@ -136,6 +142,13 @@ impl DesiliumState {
                 .is_some_and(|data| data.lock().is_ok_and(|data| data.initial_configure_sent))
         });
         if !sent {
+            let area = self.wm.work_area();
+            if area.size.w > 0 && area.size.h > 0 {
+                let bounds = self.client_size_for_frame(id, area.size);
+                toplevel.with_pending_state(|state| {
+                    state.bounds = Some((bounds.w.max(1), bounds.h.max(1)).into())
+                });
+            }
             toplevel.send_configure();
         }
     }

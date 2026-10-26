@@ -26,6 +26,7 @@ pub struct DesiliumConfig {
     pub version: u32,
     pub compositor: CompositorSettings,
     pub appearance: AppearanceSettings,
+    pub shell: crate::ShellSettings,
 }
 
 impl Default for DesiliumConfig {
@@ -34,6 +35,7 @@ impl Default for DesiliumConfig {
             version: CURRENT_VERSION,
             compositor: CompositorSettings::default(),
             appearance: AppearanceSettings::default(),
+            shell: crate::ShellSettings::default(),
         }
     }
 }

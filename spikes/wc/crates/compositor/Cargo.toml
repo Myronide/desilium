@@ -1,0 +1,13 @@
+[package]
+name = "wc-compositor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+wc-core.workspace = true
+serde_json.workspace = true
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+bitflags = "2"
+smithay = { git = "https://github.com/Smithay/smithay", rev = "76118ad7796e3edc46875f44c437485996a8e39d", default-features = false, features = ["backend_winit", "backend_drm", "wayland_frontend", "desktop"] }

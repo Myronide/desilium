@@ -1,0 +1,12 @@
+[package]
+name = "wc-settings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+wc-core.workspace = true
+dioxus = { version = "0.7", default-features = false, features = ["macro", "html", "signals", "hooks"] }
+dioxus-native = { version = "=0.7.0", default-features = false, features = ["system-fonts", "html", "net"] }
+async-channel = "2"
+winit = "0.30"

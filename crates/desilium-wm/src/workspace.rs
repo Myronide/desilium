@@ -118,6 +118,15 @@ impl Workspace {
         true
     }
 
+    /// Pointer focus can change activation without changing stacking order.
+    pub(crate) fn focus_without_raise(&mut self, id: WindowId) -> bool {
+        if !self.is_visible(id) {
+            return false;
+        }
+        self.focused = Some(id);
+        true
+    }
+
     pub(crate) fn clear_focus(&mut self) {
         self.focused = None;
     }

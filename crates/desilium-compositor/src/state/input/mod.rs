@@ -92,6 +92,9 @@ impl DesiliumState {
         };
         let location =
             event.position_transformed(output_geometry.size) + output_geometry.loc.to_f64();
+        if !pointer.is_grabbed() {
+            self.focus_on_pointer_motion(location);
+        }
         self.decoration_pointer_moved(location);
         let under = if self.decoration_covers(location) && !self.layer_covers(location) {
             None
@@ -109,6 +112,32 @@ impl DesiliumState {
             },
         );
         pointer.frame(self);
+    }
+
+    pub(super) fn focus_on_pointer_motion(&mut self, location: LogicalPoint<f64, Logical>) {
+        if self.settings.focus != desilium_config_types::FocusPolicy::Sloppy
+            || self.layer_covers(location)
+            || self.exclusive_layer_surface().is_some()
+        {
+            return;
+        }
+        let point = desilium_wm::Point {
+            x: location.x.round() as i32,
+            y: location.y.round() as i32,
+        };
+        let Some(id) = self.wm.window_at(point) else {
+            return;
+        };
+        if self.wm.focused() == Some(id) {
+            return;
+        }
+        if self.settings.raise_on_focus {
+            self.wm.focus(id);
+            self.sync_space();
+        } else {
+            self.wm.focus_without_raise(id);
+        }
+        self.apply_focus();
     }
 
     fn on_pointer_button<I: InputBackend>(&mut self, event: I::PointerButtonEvent) {

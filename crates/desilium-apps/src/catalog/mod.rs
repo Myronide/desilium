@@ -21,6 +21,8 @@ pub struct Catalog {
     env: Environment,
     items: BTreeMap<String, Item>,
     stamps: Vec<DirStamp>,
+    seen: std::collections::BTreeSet<String>,
+    fallbacks: Vec<DesktopEntry>,
 }
 
 impl Catalog {
@@ -31,6 +33,8 @@ impl Catalog {
             env: env.clone(),
             items: scanned.items,
             stamps: scanned.stamps,
+            seen: scanned.seen,
+            fallbacks: Vec::new(),
         }
     }
 
@@ -43,8 +47,31 @@ impl Catalog {
             return false;
         }
         let env = self.env.clone();
+        let fallbacks = std::mem::take(&mut self.fallbacks);
         *self = Self::load(&env);
+        for entry in fallbacks {
+            self.add_fallback(entry);
+        }
         true
+    }
+
+    /// Bundled desktop apps remain discoverable in an uninstalled development build.
+    /// Real XDG entries, including Hidden=true overrides, always win.
+    pub fn add_fallback(&mut self, entry: DesktopEntry) {
+        let id = entry.id.as_str().to_owned();
+        self.fallbacks.retain(|other| other.id != entry.id);
+        self.fallbacks.push(entry.clone());
+        if self.seen.contains(&id) {
+            return;
+        }
+        let listed = !entry.hidden
+            && !entry.no_display
+            && entry.shown_in(&self.env.desktops)
+            && entry
+                .try_exec
+                .as_deref()
+                .is_none_or(|program| self.env.find_program(program).is_some());
+        self.items.insert(id, Item { entry, listed });
     }
 
     /// Environment this catalog was built from.

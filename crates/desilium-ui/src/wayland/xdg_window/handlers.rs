@@ -34,7 +34,7 @@ use smithay_client_toolkit::{
 
 use super::{
     WindowEvent,
-    state::{Entry, InputState, State, resolve_size},
+    state::{Entry, InputState, State},
 };
 use crate::wayland::{
     input_map::{content_scroll, cursor_shape, to_button, to_modifiers, wheel_delta},
@@ -126,7 +126,12 @@ impl WindowHandler for State {
             return;
         };
         let current = entry.ui.size();
-        let size = resolve_size(configure.new_size, current, entry.min_size);
+        let size = super::state::resolve_bounded_size(
+            configure.new_size,
+            configure.suggested_bounds,
+            current,
+            entry.min_size,
+        );
         if size != current {
             match entry.ui.resize(size.0, size.1) {
                 Ok(()) => self.events.push(WindowEvent::Resized {

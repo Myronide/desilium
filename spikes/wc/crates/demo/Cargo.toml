@@ -1,0 +1,10 @@
+[package]
+name = "wc-demo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+winit = { version = "0.30", default-features = false, features = ["wayland", "wayland-dlopen", "wayland-csd-adwaita"] }
+softbuffer = { version = "0.4", default-features = false, features = ["wayland", "wayland-dlopen"] }
+font8x8 = "0.3"

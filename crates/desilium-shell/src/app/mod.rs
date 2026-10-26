@@ -1,8 +1,10 @@
 //! The shell process: owns the UI host, the models and the single event loop.
 
+mod context;
 mod demo;
 mod events;
 mod launcher_glue;
+mod quick;
 mod stats;
 mod system;
 mod timers;
@@ -70,6 +72,9 @@ pub(crate) struct PendingTip {
 
 /// Everything the shell process owns.
 pub struct Shell {
+    quick: crate::quick::QuickSettings,
+    quick_focused: bool,
+    controls: Option<crate::services::controls::Worker>,
     host: LayerHost,
     proto: Option<ShellProtocol>,
     args: Args,
@@ -121,7 +126,13 @@ impl Shell {
         let store = ConfigStore::open(&config_dir).store;
         let theme = resolve_theme(&store.get().appearance, args.theme);
         let env = Environment::from_env();
-        let catalog = Catalog::load(&env);
+        let catalog = crate::services::bundled::catalog(
+            &env,
+            std::env::current_exe()
+                .ok()
+                .as_deref()
+                .and_then(std::path::Path::parent),
+        );
         let icon_theme = std::env::var(ICON_THEME_VAR).unwrap_or_else(|_| ICON_THEME.to_owned());
         let icons = IconResolver::new(&icon_theme, &env);
         let usage = UsageStats::load(UsageStats::default_path(&env.state_home));
@@ -152,6 +163,9 @@ impl Shell {
             .map_err(|error| tracing::warn!(%error, "live configuration reload is disabled"))
             .ok();
         let mut shell = Self {
+            quick: crate::quick::QuickSettings::new(&theme)?,
+            quick_focused: false,
+            controls: None,
             host,
             proto,
             theme,
@@ -196,6 +210,7 @@ impl Shell {
         if let Some(limit) = shell.args.exit_after {
             shell.deadlines.set(Due::Exit, Instant::now() + limit);
         }
+        shell.refresh_bar();
         shell.refresh_dock();
         shell.start_demo();
         Ok(shell)
@@ -223,7 +238,11 @@ impl Shell {
             (
                 Some(self.dock.id()),
                 views::DOCK_BLUR,
-                [crate::dock::RADIUS; 4],
+                [if self.store.get().shell.mode == desilium_config_types::PanelMode::Taskbar {
+                    8
+                } else {
+                    crate::dock::RADIUS
+                }; 4],
             ),
             (
                 self.launcher.id(),
@@ -280,13 +299,23 @@ impl Shell {
         if let Some(workspaces) = update.workspaces {
             self.workspaces = workspaces;
         }
+        let output_changed = update.output.is_some();
         let windows_changed = update.windows.is_some();
         if let Some(windows) = update.windows {
             self.windows.replace(windows);
         }
-        if windows_changed || update.workspaces.is_some() {
+        if windows_changed || update.workspaces.is_some() || output_changed {
             self.refresh_bar();
             self.refresh_dock();
+        }
+        if output_changed && self.quick.is_open() {
+            let output = self.output_size().unwrap_or((1280, 800));
+            if let Err(error) =
+                self.quick
+                    .reposition(&mut self.host, &self.store.get().shell, output)
+            {
+                tracing::warn!(%error,"popup resize failed");
+            }
         }
         for name in update.shortcuts {
             self.handle_shortcut(&name);
@@ -302,9 +331,17 @@ impl Shell {
     /// Re-renders the clock; arms the next boundary.
     fn tick_clock(&mut self) {
         let local = system::local_now();
-        self.clock = format_clock(&local, HourCycle::H24, false);
+        let cycle = if self.store.get().shell.clock_24h {
+            HourCycle::H24
+        } else {
+            HourCycle::H12
+        };
+        self.clock = format_clock(&local, cycle, false);
         self.arm_clock(local);
         self.refresh_bar();
+        if self.store.get().shell.mode == desilium_config_types::PanelMode::Taskbar {
+            self.refresh_dock();
+        }
     }
 
     fn housekeeping(&mut self) {
@@ -361,7 +398,19 @@ impl Shell {
             return;
         }
         if let Some(ReloadOutcome::Applied { .. }) = self.store.reload_if_changed() {
+            let terminal = self
+                .store
+                .get()
+                .compositor
+                .terminal
+                .clone()
+                .map(TerminalSpec::custom)
+                .or_else(|| TerminalSpec::detect(&Environment::from_env()));
+            self.starter.set_terminal(terminal);
             self.apply_theme();
+            self.tick_clock();
+            self.refresh_dock();
+            self.apply_effects();
         }
         let pins = system::load_pins(&self.config_dir, &self.catalog);
         if pins != self.pins {
@@ -380,6 +429,7 @@ impl Shell {
         }
         self.launcher.set_theme(&mut self.host, &theme);
         self.tooltip.set_theme(&mut self.host, &theme);
+        self.quick.theme(&mut self.host, &theme);
         self.theme = theme;
     }
 
@@ -409,6 +459,18 @@ pub fn run(args: Args) -> Result<(), ShellError> {
     let mut event_loop: EventLoop<Shell> =
         EventLoop::try_new().map_err(|error| ShellError::EventLoop(error.to_string()))?;
     let handle = event_loop.handle();
+    let (control_tx, control_rx) = calloop::channel::channel();
+    shell.controls = crate::services::controls::Worker::spawn(control_tx)
+        .map_err(|error| tracing::warn!(%error,"system controls are unavailable"))
+        .ok();
+    handle
+        .insert_source(control_rx, |event, _, shell: &mut Shell| {
+            if let calloop::channel::Event::Msg(state) = event {
+                shell.quick_updated(state);
+            }
+        })
+        .map_err(|error| ShellError::EventLoop(error.to_string()))?;
+
     let wayland_fd = shell
         .host
         .poll_fd()

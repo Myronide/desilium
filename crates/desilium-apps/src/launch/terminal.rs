@@ -5,9 +5,9 @@ use crate::env::Environment;
 /// Probe order for auto-detection, each with the flag that introduces its command.
 /// `None` means the emulator takes the command as trailing arguments.
 const CANDIDATES: [(&str, Option<&str>); 5] = [
+    ("kitty", None),
     ("xdg-terminal-exec", None),
     ("foot", None),
-    ("kitty", None),
     ("konsole", Some("-e")),
     ("alacritty", Some("-e")),
 ];
@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn detect_follows_probe_order() {
         let dir = TempDir::new("terminal");
-        for name in ["kitty", "alacritty"] {
+        for name in ["kitty", "foot", "xdg-terminal-exec", "alacritty"] {
             let path = dir.write(name, "#!/bin/sh\n");
             let _ = std::fs::set_permissions(&path, Permissions::from_mode(0o755));
         }

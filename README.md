@@ -13,6 +13,20 @@ testable interfaces. The compositor is built on [Smithay](https://github.com/Smi
 > with floating window management) is implemented. Most desktop components are
 > still being built. Expect breaking changes.
 
+## Current desktop work
+
+- **Kitty** is the default terminal; explicit user choices are preserved.
+- **Doria**, the native Rust/Blitz file manager, browses files, disks, pinned
+  folders and GIO/GVfs network locations. See [Doria](docs/doria.md).
+- **Dock and taskbar modes**, right-click app controls and a configurable panel.
+- **Quick settings** for real audio, radios, brightness and energy services.
+- **Panel & Dock** in Settings exposes fourteen live, reversible preferences.
+- WC's focus, snapping and key-repeat controls use the existing configuration path.
+
+See [desktop controls](docs/desktop-controls.md) and
+[WC integration](docs/wc-integration.md). The original prototype is retained as
+an excluded workspace in `spikes/wc`; Desilium remains the primary desktop.
+
 ## Principles
 
 - **Zero-config.** Sensible defaults for everything. Users never need to edit a
@@ -56,6 +70,9 @@ All crates live under `crates/` and share one workspace version.
 | `desilium-text` | Text shaping and glyph rendering for UI and window decorations. |
 | `desilium-cursor` | Cursor theme loading and cursor image selection. |
 | `desilium-wallpaper` | Wallpaper loading and scaling for outputs. |
+| `desilium-files` / `doria` | Native file manager: local files, removable volumes, pinned folders and network locations. |
+| `desilium-shell` | Top panel, dock/taskbar, application menus, launcher and quick settings. |
+| `desilium-settings` | Graphical appearance, desktop, keyboard and Panel & Dock preferences. |
 | `desilium-session` | Session lifecycle: starts and supervises the desktop components. |
 
 Several crates are still scaffolds for upcoming phases. The descriptions above
@@ -64,7 +81,7 @@ implemented so far.
 
 ## Building
 
-Desilium needs Rust 1.85 or newer (edition 2024). The repository includes a
+Desilium needs a current stable Rust toolchain (edition 2024). The repository includes a
 `rust-toolchain.toml` that selects the stable channel with `rustfmt` and
 `clippy` through [rustup](https://rustup.rs).
 
@@ -73,14 +90,14 @@ System libraries are needed for the compositor's native dependencies.
 **Arch Linux**
 
 ```sh
-sudo pacman -S --needed base-devel pkgconf wayland libxkbcommon libglvnd mesa libinput libdrm systemd seatd
+sudo pacman -S --needed base-devel pkgconf wayland libxkbcommon libglvnd mesa libinput libdrm systemd seatd glib2 kitty
 ```
 
 **Debian and Ubuntu**
 
 ```sh
 sudo apt install build-essential pkg-config libwayland-dev libxkbcommon-dev \
-    libegl-dev libgles-dev libgbm-dev libdrm-dev libinput-dev libudev-dev libseat-dev
+    libegl-dev libgles-dev libgbm-dev libdrm-dev libinput-dev libudev-dev libseat-dev libglib2.0-dev kitty
 ```
 
 Then build and test:

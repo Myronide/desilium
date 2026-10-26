@@ -40,6 +40,23 @@ impl Bar {
         self.id
     }
 
+    pub fn configure(
+        &mut self,
+        host: &mut LayerHost,
+        settings: &desilium_config_types::ShellSettings,
+    ) {
+        host.update(self.id, |ui| {
+            for (selector, visible) in [
+                (".ws-dots", settings.show_workspaces),
+                ("#clock", settings.show_clock),
+                (".bat", settings.show_battery),
+                (".tb-group", settings.quick_settings),
+            ] {
+                let _ = ui.set_attr(selector, "style", if visible { "" } else { "display:none" });
+            }
+        });
+    }
+
     /// Updates only the parts of the bar that changed.
     pub fn show(&mut self, host: &mut LayerHost, view: BarView) {
         if view == self.shown {

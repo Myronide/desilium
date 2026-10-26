@@ -26,6 +26,9 @@ pub const BOTTOM_MARGIN: i32 = 14;
 pub struct DockLayout {
     /// Surface width.
     pub width: u32,
+    pub height: u32,
+    /// Reserved system cluster; application scrolling never overlaps it.
+    pub system: Option<Rect>,
     /// The launcher button.
     pub launcher: Rect,
     /// App cells in order.
@@ -60,6 +63,76 @@ pub fn layout(count: usize, separator: Option<usize>) -> DockLayout {
     }
     DockLayout {
         width: x + PAD_X + BORDER,
+        height: HEIGHT,
+        system: None,
+        launcher,
+        items,
+    }
+}
+
+/// Runtime layout shares its hit rectangles with minimize animations.
+pub fn configured(
+    count: usize,
+    separator: Option<usize>,
+    settings: &desilium_config_types::ShellSettings,
+    output_width: u32,
+) -> DockLayout {
+    use desilium_config_types::PanelMode;
+    let taskbar = settings.mode == PanelMode::Taskbar;
+    let icon = u32::from(settings.icon_size);
+    let cell_width = icon
+        + if taskbar && settings.show_labels {
+            100
+        } else {
+            0
+        };
+    let gap = u32::from(settings.spacing);
+    let available = output_width
+        .saturating_sub(2 * u32::from(settings.margin))
+        .max(1);
+    let mut x = BORDER + PAD_X;
+    let rectangle = |x| Rect {
+        x: f64::from(x),
+        y: f64::from(BORDER + PAD_Y),
+        width: f64::from(cell_width),
+        height: f64::from(icon),
+    };
+    let launcher = Rect {
+        width: f64::from(icon),
+        ..rectangle(x)
+    };
+    x += icon;
+    let mut items = Vec::with_capacity(count);
+    for index in 0..count {
+        x += gap;
+        if separator == Some(index) {
+            x += SEPARATOR + gap;
+        }
+        items.push(rectangle(x));
+        x += cell_width;
+    }
+    if separator == Some(count) {
+        x += gap + SEPARATOR;
+    }
+    let width = if taskbar {
+        available
+    } else {
+        (x + PAD_X + BORDER).min(available)
+    };
+    DockLayout {
+        width,
+        height: icon + 2 * (PAD_Y + BORDER),
+        system: taskbar
+            .then(|| {
+                let reserved = 120.min(width.saturating_sub(icon + 2 * (PAD_X + BORDER) + gap));
+                Rect {
+                    x: f64::from(width.saturating_sub(PAD_X + BORDER + reserved)),
+                    y: f64::from(PAD_Y + BORDER),
+                    width: f64::from(reserved),
+                    height: f64::from(icon),
+                }
+            })
+            .filter(|rect| rect.width > 0.0),
         launcher,
         items,
     }
@@ -99,5 +172,57 @@ mod tests {
     #[test]
     fn height_matches_the_mockup() {
         assert_eq!(HEIGHT, 64);
+    }
+}
+
+#[cfg(test)]
+mod configured_tests {
+    use super::*;
+    #[test]
+    fn taskbar_uses_available_width_and_named_cells() {
+        let settings = desilium_config_types::ShellSettings {
+            mode: desilium_config_types::PanelMode::Taskbar,
+            icon_size: 40,
+            margin: 10,
+            ..Default::default()
+        };
+        let layout = configured(3, None, &settings, 1280);
+        assert_eq!(layout.width, 1260);
+        assert_eq!(layout.height, 56);
+        assert_eq!(layout.items[0].width, 140.0);
+    }
+    #[test]
+    fn dock_geometry_follows_icon_size_spacing_and_output_limit() {
+        let small = desilium_config_types::ShellSettings {
+            icon_size: 32,
+            spacing: 4,
+            ..Default::default()
+        };
+        let large = desilium_config_types::ShellSettings {
+            icon_size: 64,
+            spacing: 12,
+            ..small.clone()
+        };
+        assert!(configured(4, None, &large, 1920).width > configured(4, None, &small, 1920).width);
+        assert!(configured(40, None, &large, 800).width <= 800);
+    }
+}
+
+/// Output-local surface rectangle, matching the layer-shell anchor contract.
+pub fn screen_rect(
+    settings: &desilium_config_types::ShellSettings,
+    layout: &DockLayout,
+    output: (i32, i32),
+) -> Rect {
+    let y = if settings.edge == desilium_config_types::PanelEdge::Top {
+        crate::bar::BAR_HEIGHT as i32 + i32::from(settings.margin)
+    } else {
+        output.1 - i32::from(settings.margin) - layout.height as i32
+    };
+    Rect {
+        x: f64::from((output.0 - layout.width as i32) / 2),
+        y: f64::from(y.max(0)),
+        width: f64::from(layout.width),
+        height: f64::from(layout.height),
     }
 }

@@ -64,7 +64,9 @@ desilium/
 Rules:
 
 - `desilium-config-types` is the only crate every component may depend on for settings. Compositor depends on **types**, not on the config service implementation.
-- No crate depends on `desilium-shell` or `desilium-ui` except the shell itself.
+- No crate depends on `desilium-shell`. Graphical Wayland clients (`desilium-shell`,
+  `desilium-settings`, and `desilium-files` / Doria) may depend on `desilium-ui`;
+  the compositor and pure window manager do not.
 - Nothing may hardcode Myronide paths or services (`concept.md` §10).
 - Phase 1 creates `desilium-compositor`, `desilium-wm` and `desilium-config-types`; others are added when they have content.
 - `desilium-wm` is a separate crate (instead of a `wm/` folder) so the compiler enforces that window-management logic cannot depend on Smithay.
@@ -207,3 +209,24 @@ Pureline 1.5 is the binding style for all Rust code. How its rules map onto the 
 | PL-CORE-020 / PL-ARCH-001 | Dependencies are passed explicitly (no global state / service locators); `wm/` takes everything through parameters. |
 
 Open check: whether the Pureline Checker already supports the Rust profile as a CLI we can run in CI, or if CI uses only `fmt` + `clippy` for now.
+
+
+## Desktop integration: WC, Doria and panels
+
+The WC spike is preserved as an excluded nested workspace. Production controls
+are ported onto the existing typed configuration, not a second compositor IPC
+API. See [wc-integration.md](wc-integration.md).
+
+Doria (`desilium-files`, binary `doria`) is an ordinary XDG Wayland client, not
+a compositor dependency or a mandatory session daemon. Its pure model, GUI,
+places storage and GIO filesystem worker have separate modules. Mounts and
+remote filesystems use the host's established services. Passwords stay outside
+configuration. See [doria.md](doria.md).
+
+Panel preferences live in `DesiliumConfig.shell`; graphical registry controls
+and quick-panel edits use the existing transactions. Shell rendering keeps
+hit geometry/minimize targets synchronized with configurable dock/taskbar
+geometry. System controls use a dedicated worker with fixed argv and bounded
+external commands. They never block the compositor or shell event loop.
+See [desktop-controls.md](desktop-controls.md) and
+[desktop-validation.md](desktop-validation.md).

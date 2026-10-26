@@ -11,9 +11,10 @@ A Debian source package should use the same script instead of hand-written insta
   - Depends: libwayland-server0 | libwayland-client0, libxkbcommon0, libgbm1, libegl1,
     libinput10, libudev1, libseat1, libdrm2, libfontconfig1, fonts-inter
   - Recommends: xdg-desktop-portal-gtk, dbus-user-session
-  - Suggests: foot
+  - Depends: kitty, libglib2.0-0t64
+  - Recommends: gvfs-backends, udisks2, network-manager, wireplumber, bluez, brightnessctl, power-profiles-daemon
   - In debian/rules, run: cargo build --release --locked -p desilium-compositor -p desilium-session
-    -p desilium-shell -p desilium-settings -p desilium-notifications, then
+    -p desilium-shell -p desilium-settings -p desilium-notifications -p desilium-files, then
     DESTDIR=debian/tmp packaging/install.sh --prefix /usr
 
 Use the package names of the release you target; names above follow current Debian conventions.

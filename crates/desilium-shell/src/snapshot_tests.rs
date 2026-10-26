@@ -440,3 +440,80 @@ fn surfaces_render_at_fractional_and_double_scale() {
         );
     }
 }
+
+#[test]
+fn quick_settings_and_taskbar_render_in_both_themes() {
+    use crate::services::controls::State;
+    let state = State {
+        volume: Some(42),
+        microphone: Some(false),
+        wifi: Some(true),
+        bluetooth: Some(false),
+        brightness: Some(75),
+        profile: Some("balanced".into()),
+        ..Default::default()
+    };
+    for (name, theme, wallpaper) in themes() {
+        let mut options = SurfaceOptions::new(410, 620);
+        options.theme = theme.clone();
+        let html = crate::quick::html_for_tests(&state, &Default::default());
+        let mut ui =
+            UiSurface::new(&html, &[BASE_CSS, include_str!("quick/style.css")], options).unwrap();
+        let (rgba, _) = snapshot(&mut ui, &format!("quick-{name}"), wallpaper);
+        assert!(rgba.iter().any(|byte| *byte != 0));
+        let settings = desilium_config_types::ShellSettings {
+            mode: desilium_config_types::PanelMode::Taskbar,
+            ..Default::default()
+        };
+        let view = dock_view(false);
+        let layout = crate::dock::layout::configured(view.cells.len(), None, &settings, 1280);
+        let html = crate::dock::configured_html_for_tests(&view, &layout, &settings, "14:32");
+        assert!(html.contains("task-label"));
+        let mut options = SurfaceOptions::new(layout.width, layout.height);
+        options.theme = theme;
+        let mut ui = UiSurface::new(&html, &[BASE_CSS, DOCK_CSS], options).unwrap();
+        snapshot(&mut ui, &format!("taskbar-{name}"), wallpaper);
+    }
+}
+
+#[test]
+fn configured_dock_hit_rectangles_match_rendered_cells_and_keep_status_separate() {
+    use desilium_config_types::{PanelMode, ShellSettings};
+    for mode in [PanelMode::Dock, PanelMode::Taskbar] {
+        for icon_size in [32, 48, 72] {
+            let settings = ShellSettings {
+                mode,
+                icon_size,
+                spacing: 12,
+                ..Default::default()
+            };
+            let view = dock_view(true);
+            let layout =
+                crate::dock::layout::configured(view.cells.len(), view.separator, &settings, 1280);
+            let html = crate::dock::configured_html_for_tests(&view, &layout, &settings, "14:32");
+            let mut ui = UiSurface::new(
+                &html,
+                &[BASE_CSS, DOCK_CSS],
+                SurfaceOptions::new(layout.width, layout.height),
+            )
+            .unwrap();
+            for (index, expected) in layout.items.iter().enumerate() {
+                let rect = ui.element_rect(&format!("#dock-{index}")).unwrap();
+                assert!(
+                    (rect.x - expected.x).abs() < 0.1,
+                    "{mode:?} {icon_size}: {rect:?} != {expected:?}"
+                );
+                assert!((rect.y - expected.y).abs() < 0.1);
+                assert_eq!(rect.width, expected.width);
+                assert_eq!(rect.height, expected.height);
+            }
+            if let Some(expected) = layout.system {
+                let system = ui.element_rect(".task-system").unwrap();
+                let strip = ui.element_rect(".dock-strip").unwrap();
+                assert_eq!(system.x, expected.x);
+                assert!(strip.x + strip.width <= system.x);
+                assert!(system.x + system.width <= f64::from(layout.width));
+            }
+        }
+    }
+}

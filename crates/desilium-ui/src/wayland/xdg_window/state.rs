@@ -65,6 +65,32 @@ pub(super) fn resolve_size(
     (width.max(min_w).max(1), height.max(min_h).max(1))
 }
 
+/// Bounds constrain a client-chosen initial size, not explicit compositor resize requests.
+pub(super) fn resolve_bounded_size(
+    suggested: (Option<NonZeroU32>, Option<NonZeroU32>),
+    bounds: Option<(u32, u32)>,
+    current: (u32, u32),
+    min: Option<(u32, u32)>,
+) -> (u32, u32) {
+    let current = if let Some((width, height)) = bounds {
+        (
+            if width > 0 {
+                current.0.min(width)
+            } else {
+                current.0
+            },
+            if height > 0 {
+                current.1.min(height)
+            } else {
+                current.1
+            },
+        )
+    } else {
+        current
+    };
+    resolve_size(suggested, current, min)
+}
+
 impl From<DecorationMode> for Decorations {
     fn from(mode: DecorationMode) -> Self {
         match mode {
@@ -286,5 +312,36 @@ mod tests {
     #[test]
     fn size_is_never_zero() {
         assert_eq!(resolve_size((None, None), (0, 0), None), (1, 1));
+    }
+}
+
+#[cfg(test)]
+mod bounds_tests {
+    use super::*;
+    #[test]
+    fn natural_window_size_respects_bounds_but_explicit_configures_win() {
+        let natural = (1120, 760);
+        let minimum = Some((860, 520));
+        assert_eq!(
+            resolve_bounded_size((None, None), Some((1278, 730)), natural, minimum),
+            (1120, 730)
+        );
+        assert_eq!(
+            resolve_bounded_size(
+                (NonZeroU32::new(1200), NonZeroU32::new(800)),
+                Some((1000, 700)),
+                natural,
+                minimum
+            ),
+            (1200, 800)
+        );
+        assert_eq!(
+            resolve_bounded_size((None, None), Some((0, 0)), natural, minimum),
+            natural
+        );
+        assert_eq!(
+            resolve_bounded_size((None, None), None, natural, minimum),
+            natural
+        );
     }
 }

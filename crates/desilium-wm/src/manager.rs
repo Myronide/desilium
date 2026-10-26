@@ -67,9 +67,29 @@ impl WindowManager {
 
     /// Opens a window under an id minted elsewhere (used by `Desktops` for global uniqueness).
     pub(crate) fn open_window_with_id(&mut self, size: Size, id: WindowId) {
-        let loc = cascade_location(self.area, size, self.opened);
+        let loc = cascade_location(self.work_area, size, self.opened);
         self.opened = self.opened.saturating_add(1);
         self.workspace.open(id, Rect { loc, size });
+    }
+
+    /// Fit the first real client size, rather than the provisional cascade hint.
+    /// This is not applied to later user moves or interactive resizes.
+    pub fn fit_window_in_work_area(&mut self, id: WindowId) -> bool {
+        if self.window_state(id) != Some(WindowState::Normal) {
+            return false;
+        }
+        let Some(rect) = self.workspace.rect(id) else {
+            return false;
+        };
+        let area = self.work_area;
+        let location = Point {
+            x: fit_axis(rect.loc.x, area.loc.x, area.right(), rect.size.w),
+            y: fit_axis(rect.loc.y, area.loc.y, area.bottom(), rect.size.h),
+        };
+        if location == rect.loc {
+            return false;
+        }
+        self.workspace.move_to(id, location)
     }
 
     pub fn close_window(&mut self, id: WindowId) -> bool {
@@ -78,6 +98,11 @@ impl WindowManager {
 
     pub fn focus(&mut self, id: WindowId) -> bool {
         self.workspace.focus(id)
+    }
+
+    /// Gives a visible window focus while preserving the stacking order.
+    pub fn focus_without_raise(&mut self, id: WindowId) -> bool {
+        self.workspace.focus_without_raise(id)
     }
 
     pub fn clear_focus(&mut self) {

@@ -161,17 +161,48 @@ impl Shell {
             self.battery,
         );
         self.bar.show(&mut self.host, view);
+        self.bar.configure(&mut self.host, &self.store.get().shell);
     }
 
     pub(super) fn refresh_dock(&mut self) {
         self.icon_scale = self.current_icon_scale();
-        let (view, items) = dock_view(
+        let (mut view, mut items) = dock_view(
             &self.pins,
             &self.windows,
             &self.catalog,
             &mut self.icons,
             self.icon_scale,
         );
+        let settings = &self.store.get().shell;
+        if !settings.show_running {
+            let keep: Vec<_> = items
+                .iter()
+                .enumerate()
+                .filter(|(_, item)| item.pinned)
+                .map(|(index, _)| index)
+                .collect();
+            view.cells = keep
+                .iter()
+                .filter_map(|index| view.cells.get(*index).cloned())
+                .collect();
+            items.retain(|item| item.pinned);
+            view.separator = None;
+        }
+        let settings = settings.clone();
+        let width = self
+            .output_size()
+            .map_or(1920, |(width, _)| width.max(120) as u32);
+        let status = if settings.show_clock {
+            self.clock.time.clone()
+        } else {
+            "System".into()
+        };
+        if let Err(error) = self
+            .dock
+            .configure(&mut self.host, &settings, width, status)
+        {
+            tracing::warn!(%error,"panel layout could not be applied");
+        }
         self.dock_items = items;
         match self.dock.show(&mut self.host, view) {
             Ok(_) => {}
@@ -196,7 +227,12 @@ impl Shell {
             return;
         };
         for (index, item) in self.dock_items.iter().enumerate() {
-            let Some(rect) = self.dock.cell_rect(index) else {
+            let Some(rect) = self.dock.visible_cell_rect(&mut self.host, index) else {
+                for window in &item.windows {
+                    if self.minimize_sent.remove(window).is_some() {
+                        proto.set_minimize_rectangle(*window, None, (0, 0, 0, 0));
+                    }
+                }
                 continue;
             };
             let target = (

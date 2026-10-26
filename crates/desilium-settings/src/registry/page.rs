@@ -9,13 +9,20 @@ pub enum Page {
     Desktop,
     /// Keyboard shortcuts.
     Keyboard,
+    Panel,
     /// Version and system information.
     About,
 }
 
 impl Page {
     /// All pages in sidebar order.
-    pub const ALL: [Page; 4] = [Page::Appearance, Page::Desktop, Page::Keyboard, Page::About];
+    pub const ALL: [Page; 5] = [
+        Page::Appearance,
+        Page::Desktop,
+        Page::Panel,
+        Page::Keyboard,
+        Page::About,
+    ];
 
     /// Page heading and sidebar label.
     pub fn title(self) -> &'static str {
@@ -23,6 +30,7 @@ impl Page {
             Page::Appearance => "Appearance",
             Page::Desktop => "Desktop",
             Page::Keyboard => "Keyboard",
+            Page::Panel => "Panel & Dock",
             Page::About => "About",
         }
     }
@@ -31,8 +39,9 @@ impl Page {
     pub fn subtitle(self) -> &'static str {
         match self {
             Page::Appearance => "Make Desilium look the way you want. Changes apply instantly.",
-            Page::Desktop => "Virtual desktops and the programs the desktop starts for you.",
-            Page::Keyboard => "The shortcuts that drive windows and desktops.",
+            Page::Desktop => "Window focus, snapping, virtual desktops and the programs you start.",
+            Page::Keyboard => "Key repeat and shortcuts for windows and desktops.",
+            Page::Panel => "Choose a dock or taskbar and make it your own.",
             Page::About => "What is running on this computer.",
         }
     }
@@ -43,6 +52,7 @@ impl Page {
             Page::Appearance => "palette",
             Page::Desktop => "layers",
             Page::Keyboard => "keyboard",
+            Page::Panel => "layers",
             Page::About => "info",
         }
     }
@@ -53,6 +63,7 @@ impl Page {
             Page::Appearance => "appearance",
             Page::Desktop => "desktop",
             Page::Keyboard => "keyboard",
+            Page::Panel => "panel",
             Page::About => "about",
         }
     }
@@ -86,9 +97,10 @@ pub enum NavEntry {
 }
 
 /// Sidebar layout.
-pub const NAV: [NavEntry; 8] = [
+pub const NAV: [NavEntry; 9] = [
     NavEntry::Page(Page::Appearance),
     NavEntry::Page(Page::Desktop),
+    NavEntry::Page(Page::Panel),
     NavEntry::Page(Page::Keyboard),
     NavEntry::Separator,
     NavEntry::Planned {

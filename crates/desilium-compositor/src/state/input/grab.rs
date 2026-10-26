@@ -146,7 +146,7 @@ impl WindowGrab {
         match &self.mode {
             Mode::Move {
                 snap: Some(zone), ..
-            } if live => data.snap_window_to(self.id, *zone),
+            } if live && data.settings.snap_enabled => data.snap_window_to(self.id, *zone),
             Mode::Move { .. } => {}
             Mode::Resize { last_size, .. } => {
                 data.configure_resize(self.id, *last_size, false);

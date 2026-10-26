@@ -52,7 +52,18 @@ pub fn validate(cfg: &mut DesiliumConfig) -> ValidationReport {
     let mut report = ValidationReport::default();
     validate_appearance(&mut cfg.appearance, &mut report);
     validate_compositor(&mut cfg.compositor, &mut report);
+    validate_shell(&mut cfg.shell, &mut report);
     report
+}
+
+fn validate_shell(
+    settings: &mut desilium_config_types::ShellSettings,
+    report: &mut ValidationReport,
+) {
+    clamp_field(&mut settings.icon_size, 32, 72, "shell.icon_size", report);
+    clamp_field(&mut settings.spacing, 0, 24, "shell.spacing", report);
+    clamp_field(&mut settings.margin, 0, 40, "shell.margin", report);
+    clamp_field(&mut settings.opacity, 40, 100, "shell.opacity", report);
 }
 
 fn validate_appearance(appearance: &mut AppearanceSettings, report: &mut ValidationReport) {
@@ -141,7 +152,32 @@ fn validate_compositor(compositor: &mut CompositorSettings, report: &mut Validat
         "compositor.desktops",
         report,
     );
+    validate_window_controls(compositor, report);
     repair_shortcuts(&mut compositor.shortcuts, report);
+}
+
+fn validate_window_controls(compositor: &mut CompositorSettings, report: &mut ValidationReport) {
+    clamp_field(
+        &mut compositor.snap_distance,
+        4,
+        96,
+        "compositor.snap_distance",
+        report,
+    );
+    clamp_field(
+        &mut compositor.keyboard_repeat_delay,
+        100,
+        1500,
+        "compositor.keyboard_repeat_delay",
+        report,
+    );
+    clamp_field(
+        &mut compositor.keyboard_repeat_rate,
+        1,
+        100,
+        "compositor.keyboard_repeat_rate",
+        report,
+    );
 }
 
 fn repair_shortcuts(shortcuts: &mut Vec<Shortcut>, report: &mut ValidationReport) {
@@ -583,6 +619,36 @@ mod tests {
             let mut cfg = valid();
             cfg.compositor.desktops = count;
             assert!(validate(&mut cfg).is_clean());
+        }
+    }
+}
+
+#[cfg(test)]
+mod window_controls_tests {
+    use super::*;
+
+    #[test]
+    fn window_control_bounds_are_repaired_and_reported() {
+        for (distance, delay, rate, expected) in [
+            (0, 0, 0, (4, 100, 1)),
+            (u16::MAX, u16::MAX, u16::MAX, (96, 1500, 100)),
+        ] {
+            let mut config = DesiliumConfig::default();
+            config.compositor.snap_distance = distance;
+            config.compositor.keyboard_repeat_delay = delay;
+            config.compositor.keyboard_repeat_rate = rate;
+            let report = validate(&mut config);
+            let settings = &config.compositor;
+            assert_eq!(
+                (
+                    settings.snap_distance,
+                    settings.keyboard_repeat_delay,
+                    settings.keyboard_repeat_rate
+                ),
+                expected
+            );
+            assert_eq!(report.repairs.len(), 3);
+            assert!(validate(&mut config).is_clean());
         }
     }
 }

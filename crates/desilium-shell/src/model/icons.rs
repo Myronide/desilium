@@ -20,7 +20,7 @@ const TERMINAL_WORDS: [&str; 7] = [
     "xterm",
     "wezterm",
 ];
-const FILE_WORDS: [&str; 5] = ["nautilus", "dolphin", "thunar", "nemo", "pcmanfm"];
+const FILE_WORDS: [&str; 6] = ["doria", "nautilus", "dolphin", "thunar", "nemo", "pcmanfm"];
 
 /// Ordered rules: the first rule with a matching category wins.
 const CATEGORY_RULES: [(&[&str], Tile); 11] = [

@@ -5,3 +5,7 @@ pub mod apps;
 pub mod battery;
 pub mod protocol;
 pub mod watch;
+
+pub mod controls;
+
+pub mod bundled;

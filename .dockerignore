@@ -1,6 +1,7 @@
 # Build outputs and VCS metadata
 target
 **/target
+screenshots
 .git
 .gitignore
 

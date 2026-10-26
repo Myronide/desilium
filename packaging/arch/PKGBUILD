@@ -20,10 +20,18 @@ depends=(
   'seatd'           # libseat for seat access without logind
   'libdrm'
   'fontconfig'
+  'glib2'
+  'kitty'
   'inter-font'      # default UI typeface
 )
 optdepends=(
-  'foot: default terminal for launchers and debugging'
+  'gvfs: device and network locations for Doria'
+  'gvfs-smb: SMB shares in Doria'
+  'networkmanager: Wi-Fi quick settings'
+  'wireplumber: volume and microphone controls'
+  'bluez-utils: Bluetooth quick settings'
+  'brightnessctl: screen brightness controls'
+  'power-profiles-daemon: energy profiles'
   'xdg-desktop-portal-gtk: file chooser and settings portal backend used by packaging/xdg-desktop-portal'
 )
 makedepends=(
@@ -47,7 +55,8 @@ build() {
     -p desilium-session \
     -p desilium-shell \
     -p desilium-settings \
-    -p desilium-notifications
+    -p desilium-notifications \
+    -p desilium-files
 }
 
 check() {

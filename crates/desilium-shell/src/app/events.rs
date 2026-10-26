@@ -27,6 +27,18 @@ impl Shell {
                 self.launcher_text_changed(&value);
             }
             HostEvent::Hover { surface, target } => self.handle_hover(surface, target),
+            HostEvent::Key { surface, event }
+                if self.quick.owns(surface) && event.key == desilium_ui::Key::Escape =>
+            {
+                self.quick.close(&mut self.host);
+            }
+            HostEvent::KeyboardFocus { surface, focused } if self.quick.owns(surface) => {
+                if focused {
+                    self.quick_focused = true;
+                } else if self.quick_focused {
+                    self.quick.close(&mut self.host);
+                }
+            }
             HostEvent::Key { surface, event } if self.launcher.owns(surface) => {
                 self.launcher_key(&event);
             }
@@ -48,6 +60,8 @@ impl Shell {
             self.bar_action(&action.action, arg);
         } else if surface == self.dock.id() {
             self.dock_action(&action.action, arg);
+        } else if self.quick.owns(surface) {
+            self.quick_action(&action.action, arg);
         } else if self.launcher.owns(surface) {
             self.launcher_action(&action.action, arg);
         }
@@ -61,10 +75,7 @@ impl Shell {
                     proto.switch_workspace(index);
                 }
             }
-            // The quick-settings panel and the power menu are separate tasks.
-            "quick-settings" | "power" | "calendar" => {
-                tracing::info!(action, "not implemented yet")
-            }
+            "quick-settings" | "power" | "calendar" => self.toggle_quick_settings(false),
             _ => {}
         }
     }
@@ -72,7 +83,9 @@ impl Shell {
     fn dock_action(&mut self, action: &str, key: &str) {
         match action {
             "launcher" => self.toggle_launcher(),
+            "quick-settings" => self.toggle_quick_settings(true),
             "app" => self.dock_click(key),
+            "app-menu" => self.open_context(key),
             "app-new" => self.dock_new_instance(key),
             _ => {}
         }
@@ -96,7 +109,7 @@ impl Shell {
         }
     }
 
-    fn dock_new_instance(&mut self, key: &str) {
+    pub(super) fn dock_new_instance(&mut self, key: &str) {
         let desktop_id = self
             .dock_items
             .iter()
@@ -179,10 +192,18 @@ impl Shell {
         }
         let (width, height) = output?;
         let (origin_x, origin_y, placement) = if surface == self.dock.id() {
-            let dock_width = i32::try_from(self.dock.layout().width).ok()?;
-            let y =
-                height - crate::dock::BOTTOM_MARGIN - i32::try_from(crate::dock::HEIGHT).ok()?;
-            ((width - dock_width) / 2, y, Placement::Above)
+            let settings = &self.store.get().shell;
+            let bounds =
+                crate::dock::layout::screen_rect(settings, self.dock.layout(), (width, height));
+            (
+                bounds.x as i32,
+                bounds.y as i32,
+                if settings.edge == desilium_config_types::PanelEdge::Top {
+                    Placement::Below
+                } else {
+                    Placement::Above
+                },
+            )
         } else if self.launcher.owns(surface) {
             let (top, _) = self.launcher.top_and_height();
             let x = (width - i32::try_from(LAUNCHER_WIDTH).ok()?) / 2;

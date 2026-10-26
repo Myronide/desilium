@@ -84,6 +84,10 @@ impl Starter {
         Self { display, terminal }
     }
 
+    pub fn set_terminal(&mut self, terminal: Option<TerminalSpec>) {
+        self.terminal = terminal;
+    }
+
     fn run(&self, command: &LaunchCommand) -> Result<(), StartError> {
         launch::spawn(command, self.display.as_deref())?;
         Ok(())

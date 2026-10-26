@@ -1,0 +1,29 @@
+[package]
+name = "desilium-files"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+description = "Doria: Desilium's native file manager, volumes, pinned places and network locations"
+
+[[bin]]
+name = "doria"
+path = "src/main.rs"
+
+[dependencies]
+desilium-ui = { path = "../desilium-ui" }
+desilium-theme = { path = "../desilium-theme" }
+desilium-config = { path = "../desilium-config" }
+calloop = "0.14"
+inotify = "0.11"
+gio = "0.21.5"
+serde.workspace = true
+toml = "0.8"
+thiserror.workspace = true
+url = "2"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+async-channel = "2"
+png = "0.17"
+
+[dev-dependencies]
+tempfile = "3"

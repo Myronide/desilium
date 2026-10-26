@@ -120,7 +120,8 @@ fn the_planned_sidebar_entry_has_a_tooltip_and_does_nothing_when_clicked() {
     let mut ui = build_surface(&mut app, SIZE, 1.0, Instant::now()).expect("surface");
     paint(&mut ui);
     // "Notifications" is the first planned entry, below the first separator.
-    let at = (80.0, 222.0);
+    let rect = ui.element_rect(".dis").expect("planned navigation entry");
+    let at = (rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
     ui.pointer_move(at.0, at.1);
     let hover = ui.hover_target().expect("hover target");
     assert_eq!(hover.tooltip.as_deref(), Some("Coming soon"));

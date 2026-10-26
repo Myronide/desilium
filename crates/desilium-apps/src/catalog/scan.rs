@@ -21,6 +21,7 @@ const MAX_DESKTOP_FILES: usize = 4096;
 pub(crate) struct Scanned {
     pub(crate) items: BTreeMap<String, Item>,
     pub(crate) stamps: Vec<DirStamp>,
+    pub(crate) seen: BTreeSet<String>,
 }
 
 /// Walks every data directory in precedence order. The first file that yields a given
@@ -48,7 +49,11 @@ pub(crate) fn scan(env: &Environment) -> Scanned {
             admit(env, id, &path, &mut items);
         }
     }
-    Scanned { items, stamps }
+    Scanned {
+        items,
+        stamps,
+        seen,
+    }
 }
 
 /// Derives the desktop file id from a path relative to an `applications` root:

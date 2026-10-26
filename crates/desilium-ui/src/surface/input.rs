@@ -27,6 +27,7 @@ const ARG_ATTR: &str = "data-arg";
 const TOOLTIP_ATTR: &str = "data-tooltip";
 const SUBMIT_ATTR: &str = "data-submit";
 const MIDDLE_ACTION_ATTR: &str = "data-middle-action";
+const SECONDARY_ACTION_ATTR: &str = "data-secondary-action";
 const KEY_ATTR: &str = "data-key";
 
 #[derive(Default)]
@@ -203,7 +204,7 @@ impl UiSurface {
         self.pointer.pressed_action = match button {
             PointerButton::Primary => self.action_node_at(pos.0, pos.1),
             PointerButton::Middle => self.middle_node_at(pos.0, pos.1),
-            PointerButton::Secondary => None,
+            PointerButton::Secondary => self.secondary_node_at(pos.0, pos.1),
         };
         let event = pointer_event(pos, native, self.pointer.buttons);
         self.dispatch(BlitzUiEvent::PointerDown(event));
@@ -225,7 +226,9 @@ impl UiSurface {
         let (released_on, attribute) = match button {
             PointerButton::Primary => (self.action_node_at(pos.0, pos.1), ACTION_ATTR),
             PointerButton::Middle => (self.middle_node_at(pos.0, pos.1), MIDDLE_ACTION_ATTR),
-            PointerButton::Secondary => return,
+            PointerButton::Secondary => {
+                (self.secondary_node_at(pos.0, pos.1), SECONDARY_ACTION_ATTR)
+            }
         };
         if released_on != Some(pressed) {
             return;
@@ -240,6 +243,13 @@ impl UiSurface {
         self.ensure_layout();
         let hit = self.doc.hit(x, y)?;
         let node = self.ancestor_with(hit.node_id, MIDDLE_ACTION_ATTR)?;
+        (!self.is_disabled(node)).then_some(node)
+    }
+
+    fn secondary_node_at(&mut self, x: f32, y: f32) -> Option<NodeId> {
+        self.ensure_layout();
+        let hit = self.doc.hit(x, y)?;
+        let node = self.ancestor_with(hit.node_id, SECONDARY_ACTION_ATTR)?;
         (!self.is_disabled(node)).then_some(node)
     }
 

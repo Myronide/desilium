@@ -17,6 +17,15 @@ const DESKTOP_KEYS: [(&str, Action, Action); 4] = [
     ("4", Action::SwitchToDesktop4, Action::MoveToDesktop4),
 ];
 
+/// How a window receives keyboard focus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FocusPolicy {
+    #[default]
+    Click,
+    Sloppy,
+}
+
 /// User-facing compositor settings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -26,6 +35,15 @@ pub struct CompositorSettings {
     pub terminal: Option<String>,
     /// Number of virtual desktops, `MIN_DESKTOPS..=MAX_DESKTOPS`.
     pub desktops: u8,
+    pub focus: FocusPolicy,
+    /// Bring a window forward when it receives pointer focus.
+    pub raise_on_focus: bool,
+    /// Drag-to-edge snapping; keyboard snapping remains available.
+    pub snap_enabled: bool,
+    /// Distance from a work area edge in logical pixels.
+    pub snap_distance: u16,
+    pub keyboard_repeat_delay: u16,
+    pub keyboard_repeat_rate: u16,
 }
 
 impl Default for CompositorSettings {
@@ -62,8 +80,14 @@ impl Default for CompositorSettings {
         shortcuts.push(Shortcut::new(alt, "space", Action::ToggleLauncher));
         Self {
             shortcuts,
-            terminal: None,
+            terminal: Some("kitty".to_owned()),
             desktops: DEFAULT_DESKTOPS,
+            focus: FocusPolicy::Click,
+            raise_on_focus: true,
+            snap_enabled: true,
+            snap_distance: 8,
+            keyboard_repeat_delay: 200,
+            keyboard_repeat_rate: 25,
         }
     }
 }
@@ -116,7 +140,7 @@ mod tests {
                 Shortcut::new(alt, "space", Action::ToggleLauncher),
             ]
         );
-        assert_eq!(settings.terminal, None);
+        assert_eq!(settings.terminal.as_deref(), Some("kitty"));
         assert_eq!(settings.desktops, DEFAULT_DESKTOPS);
     }
 
@@ -240,5 +264,33 @@ mod tests {
             [shortcuts.modifiers]
         "#;
         assert!(toml::from_str::<CompositorSettings>(text).is_err());
+    }
+    #[test]
+    fn old_documents_keep_existing_input_and_focus_defaults() {
+        let settings: CompositorSettings = toml::from_str("desktops = 6").expect("old document");
+        assert_eq!(settings.focus, FocusPolicy::Click);
+        assert!(settings.raise_on_focus && settings.snap_enabled);
+        assert_eq!(settings.snap_distance, 8);
+        assert_eq!(settings.keyboard_repeat_delay, 200);
+        assert_eq!(settings.keyboard_repeat_rate, 25);
+    }
+
+    #[test]
+    fn window_controls_round_trip_and_unknown_focus_is_rejected() {
+        let settings = CompositorSettings {
+            focus: FocusPolicy::Sloppy,
+            raise_on_focus: false,
+            snap_enabled: false,
+            snap_distance: 24,
+            keyboard_repeat_delay: 300,
+            keyboard_repeat_rate: 30,
+            ..CompositorSettings::default()
+        };
+        let raw = toml::to_string(&settings).expect("serialize");
+        assert_eq!(
+            toml::from_str::<CompositorSettings>(&raw).expect("parse"),
+            settings
+        );
+        assert!(toml::from_str::<CompositorSettings>("focus = 'unknown'").is_err());
     }
 }

@@ -6,10 +6,12 @@
 mod action;
 mod root;
 mod settings;
+mod shell;
 mod shortcut;
+pub use shell::{PanelEdge, PanelMode, ShellSettings};
 
 pub use root::*;
 
 pub use action::Action;
-pub use settings::{CompositorSettings, DEFAULT_DESKTOPS, MAX_DESKTOPS, MIN_DESKTOPS};
+pub use settings::{CompositorSettings, DEFAULT_DESKTOPS, FocusPolicy, MAX_DESKTOPS, MIN_DESKTOPS};
 pub use shortcut::{Modifiers, Shortcut};

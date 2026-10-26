@@ -437,3 +437,93 @@ fn window_controls_and_closing_are_reported() {
     harness.pump();
     assert_eq!(harness.take_log(), vec!["closed", "handle_done", "done"]);
 }
+
+use smithay_client_toolkit::reexports::client::protocol::{
+    wl_keyboard::{self, WlKeyboard},
+    wl_seat::WlSeat,
+};
+delegate_noop!(Client: ignore WlSeat);
+
+impl Dispatch<WlKeyboard, ()> for Client {
+    fn event(
+        client: &mut Self,
+        _: &WlKeyboard,
+        event: wl_keyboard::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        if let wl_keyboard::Event::RepeatInfo { rate, delay } = event {
+            client.log.push(format!("repeat {rate} {delay}"));
+        }
+    }
+}
+
+#[test]
+fn keyboard_repeat_changes_reach_an_existing_wayland_keyboard() {
+    let Some(mut harness) = trusted_harness() else {
+        return;
+    };
+    let seat = harness.bind::<WlSeat>("wl_seat").expect("seat");
+    let _keyboard = seat.get_keyboard(&harness.qh(), ());
+    harness.pump();
+    assert!(harness.take_log().contains(&"repeat 25 200".to_owned()));
+    let mut config = desilium_config_types::DesiliumConfig::default();
+    config.compositor.keyboard_repeat_rate = 30;
+    config.compositor.keyboard_repeat_delay = 300;
+    harness.state.apply_config(&config);
+    harness.pump();
+    assert!(harness.take_log().contains(&"repeat 30 300".to_owned()));
+}
+
+#[test]
+fn pointer_focus_honors_click_mode_and_raise_preference() {
+    let Some(mut harness) = trusted_harness() else {
+        return;
+    };
+    let state = &mut harness.state;
+    let size = desilium_wm::Size { w: 200, h: 200 };
+    let bottom = state.wm.open_window(size);
+    let top = state.wm.open_window(size);
+    state.wm.move_to(bottom, desilium_wm::Point { x: 0, y: 0 });
+    state.wm.move_to(top, desilium_wm::Point { x: 400, y: 0 });
+    state.focus_on_pointer_motion((100.0, 100.0).into());
+    assert_eq!(state.wm.focused(), Some(top));
+    state.settings.focus = desilium_config_types::FocusPolicy::Sloppy;
+    state.settings.raise_on_focus = false;
+    let stack = state.wm.placements();
+    state.focus_on_pointer_motion((100.0, 100.0).into());
+    assert_eq!(state.wm.focused(), Some(bottom));
+    assert_eq!(state.wm.placements(), stack);
+    state.focus_on_pointer_motion((500.0, 100.0).into());
+    state.settings.raise_on_focus = true;
+    state.focus_on_pointer_motion((100.0, 100.0).into());
+    assert_eq!(
+        state.wm.placements().last().map(|window| window.id),
+        Some(bottom)
+    );
+    state.focus_on_pointer_motion((900.0, 700.0).into());
+    assert_eq!(state.wm.focused(), Some(bottom));
+}
+
+#[test]
+fn live_snap_controls_change_the_preview_and_disable_it_immediately() {
+    let Some(mut harness) = trusted_harness() else {
+        return;
+    };
+    let state = &mut harness.state;
+    let id = state.wm.open_window(desilium_wm::Size { w: 200, h: 200 });
+    let point = desilium_wm::Point { x: 20, y: 400 };
+    assert!(state.update_snap_preview(id, point).is_none());
+    let mut config = desilium_config_types::DesiliumConfig::default();
+    config.compositor.snap_distance = 24;
+    state.apply_config(&config);
+    assert_eq!(
+        state.update_snap_preview(id, point),
+        Some(desilium_wm::SnapZone::Left)
+    );
+    config.compositor.snap_enabled = false;
+    state.apply_config(&config);
+    assert!(state.snap_preview().is_none());
+    assert!(state.update_snap_preview(id, point).is_none());
+}

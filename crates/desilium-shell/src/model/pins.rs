@@ -12,6 +12,7 @@ pub const DOCK_FILE_NAME: &str = "dock.toml";
 /// Order is the order in the dock: files, browser, editor, terminal, settings.
 const SLOT_CANDIDATES: [&[&str]; 5] = [
     &[
+        "org.desilium.Doria.desktop",
         "org.gnome.Nautilus.desktop",
         "org.kde.dolphin.desktop",
         "thunar.desktop",
@@ -42,8 +43,8 @@ const SLOT_CANDIDATES: [&[&str]; 5] = [
         "sublime_text.desktop",
     ],
     &[
-        "foot.desktop",
         "kitty.desktop",
+        "foot.desktop",
         "org.kde.konsole.desktop",
         "Alacritty.desktop",
         "alacritty.desktop",

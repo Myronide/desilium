@@ -50,7 +50,7 @@ through install.sh with DESTDIR=$pkgdir and --prefix /usr. The source line is a 
 must point at a release archive; then run updpkgsums. Runtime dependencies are the native libraries
 the Smithay and -sys crates link against (wayland, libxkbcommon, mesa for gbm/EGL/GLES, libinput,
 systemd-libs for libudev, seatd for libseat, libdrm, fontconfig) plus the inter-font default face.
-foot is optional.
+Kitty is the default terminal. Doria is the native file manager. GVfs backends provide network locations; the quick settings use WirePlumber, NetworkManager, BlueZ, brightnessctl and power-profiles-daemon when available.
 
 Debian
 ------

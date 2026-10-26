@@ -10,6 +10,7 @@ mod dock;
 mod error;
 mod launcher;
 mod model;
+mod quick;
 mod services;
 mod slot;
 #[cfg(test)]

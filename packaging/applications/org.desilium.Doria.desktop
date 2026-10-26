@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Doria
+GenericName=File Manager
+Comment=Browse files, drives and network locations
+Exec=doria %u
+Icon=org.desilium.Doria
+Terminal=false
+Categories=System;FileTools;FileManager;
+MimeType=inode/directory;
+StartupNotify=true
+StartupWMClass=org.desilium.Doria
+Keywords=Files;Folders;Explorer;Network;Disks;

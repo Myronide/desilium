@@ -7,7 +7,7 @@ use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use tracing::{info, warn};
 
-const TERMINAL_CANDIDATES: [&str; 5] = ["foot", "kitty", "konsole", "alacritty", "weston-terminal"];
+const TERMINAL_CANDIDATES: [&str; 5] = ["kitty", "foot", "konsole", "alacritty", "weston-terminal"];
 
 /// File name of the desktop shell. The compositor trusts shell clients by this name
 /// (see `state/shell/trust.rs`), so a shell started from another file name cannot use the protocol.

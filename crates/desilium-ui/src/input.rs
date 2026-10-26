@@ -218,7 +218,7 @@ pub struct HoverTarget {
 /// Something observable that happened inside the document besides plain clicks.
 #[derive(Debug, Clone, PartialEq)]
 pub enum UiEvent {
-    /// A click on a `data-action` element.
+    /// A click on `data-action`, `data-middle-action` or `data-secondary-action`.
     Action(UiAction),
     /// The value of a text input changed (typing, deleting, paste).
     TextChanged {

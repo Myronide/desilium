@@ -183,3 +183,36 @@ fn resize_flow_through_manager_anchors_left_edge() {
     assert!(wm.on_commit(id, sz(160, 100)));
     assert_eq!(wm.rect(id), Some(Rect::new(140, 100, 160, 100)));
 }
+
+#[test]
+fn pointer_focus_can_preserve_stacking_and_refuses_hidden_windows() {
+    let mut wm = WindowManager::new(Rect::new(0, 0, 1000, 800));
+    let bottom = wm.open_window(sz(300, 200));
+    let top = wm.open_window(sz(300, 200));
+    let stack = wm.placements();
+    assert!(wm.focus_without_raise(bottom));
+    assert_eq!(wm.focused(), Some(bottom));
+    assert_eq!(wm.placements(), stack);
+    assert!(wm.minimize(bottom));
+    assert!(!wm.focus_without_raise(bottom));
+    assert_eq!(wm.focused(), Some(top));
+    let missing = wm.open_window(sz(100, 100));
+    wm.close_window(missing);
+    assert!(!wm.focus_without_raise(missing));
+    assert_eq!(wm.focused(), Some(top));
+}
+
+#[test]
+fn first_actual_client_size_fits_below_panels_without_changing_user_resizes() {
+    let mut wm = WindowManager::new(big_area());
+    wm.set_work_area(Rect::new(0, 32, 1000, 768));
+    let id = wm.open_window(sz(800, 600));
+    assert_eq!(wm.rect(id).unwrap().loc, Point { x: 48, y: 80 });
+    wm.on_commit(id, sz(950, 750));
+    assert!(wm.fit_window_in_work_area(id));
+    assert_eq!(wm.rect(id), Some(Rect::new(48, 50, 950, 750)));
+    assert!(!wm.fit_window_in_work_area(id));
+    wm.move_to(id, Point { x: -10, y: 100 });
+    wm.on_commit(id, sz(980, 700));
+    assert_eq!(wm.rect(id).unwrap().loc, Point { x: -10, y: 100 });
+}

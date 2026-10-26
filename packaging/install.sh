@@ -49,6 +49,7 @@ BINARIES=(
     desilium-shell
     desilium-settings
     desilium-notifications
+    doria
 )
 
 while (($#)); do
@@ -104,6 +105,7 @@ plan_entries() {
     add_entry 0644 "$SCRIPT_DIR/wayland-sessions/desilium.desktop" "$share/wayland-sessions/desilium.desktop"
     add_entry 0644 "$SCRIPT_DIR/xdg-desktop-portal/desilium-portals.conf" "$share/xdg-desktop-portal/desilium-portals.conf"
     add_entry 0644 "$SCRIPT_DIR/applications/desilium-settings.desktop" "$share/applications/desilium-settings.desktop"
+    add_entry 0644 "$SCRIPT_DIR/applications/org.desilium.Doria.desktop" "$share/applications/org.desilium.Doria.desktop"
 
     shopt -s nullglob
     for file in "$REPO_ROOT"/assets/wallpapers/*; do

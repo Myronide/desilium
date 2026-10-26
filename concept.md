@@ -249,6 +249,7 @@ Desilium consists of independently maintainable components.
 | desilium-shell | Desktop interface and panels |
 | desilium-ui | UI rendering abstraction |
 | desilium-settings | Graphical system configuration |
+| desilium-files (Doria) | Native file manager, drives, pinned places and network locations |
 | desilium-config | Configuration service |
 | desilium-theme | Themes and visual customization |
 | desilium-session | Desktop session lifecycle |

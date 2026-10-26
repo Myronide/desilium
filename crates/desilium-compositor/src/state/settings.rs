@@ -115,6 +115,15 @@ impl DesiliumState {
     fn apply_compositor(&mut self, settings: &CompositorSettings) {
         self.shortcuts = ShortcutTable::from_settings(settings);
         self.set_desktop_count(usize::from(settings.desktops));
+        if let Some(keyboard) = self.seat.get_keyboard() {
+            keyboard.change_repeat_info(
+                settings.keyboard_repeat_rate.into(),
+                settings.keyboard_repeat_delay.into(),
+            );
+        }
+        if !settings.snap_enabled {
+            self.clear_snap_preview();
+        }
         self.settings = settings.clone();
     }
 

@@ -29,12 +29,10 @@ use smithay::wayland::shell::wlr_layer::WlrLayerShellState;
 use smithay::wayland::shell::xdg::XdgShellState;
 use smithay::wayland::shell::xdg::decoration::XdgDecorationState;
 use smithay::wayland::shm::ShmState;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
 use std::time::Instant;
 
-const KEY_REPEAT_DELAY_MS: i32 = 200;
-const KEY_REPEAT_RATE_HZ: i32 = 25;
 const SEAT_NAME: &str = "desilium";
 
 /// Wakes the render loop; the compositor only draws when something changed.
@@ -66,6 +64,7 @@ pub struct DesiliumState {
     /// Virtual desktops; window operations act on the active one (see `Desktops`' `Deref`).
     pub wm: Desktops,
     windows: HashMap<WindowId, Window>,
+    initial_windows: HashSet<WindowId>,
     pub space: Space<Window>,
     popups: PopupManager,
     pub seat: Seat<Self>,
@@ -97,8 +96,12 @@ impl DesiliumState {
         let dh = display.handle();
         let mut seat_state = SeatState::new();
         let mut seat = seat_state.new_wl_seat(&dh, SEAT_NAME);
-        seat.add_keyboard(Default::default(), KEY_REPEAT_DELAY_MS, KEY_REPEAT_RATE_HZ)
-            .map_err(|error| CompositorError::Keyboard(error.to_string()))?;
+        seat.add_keyboard(
+            Default::default(),
+            settings.keyboard_repeat_delay.into(),
+            settings.keyboard_repeat_rate.into(),
+        )
+        .map_err(|error| CompositorError::Keyboard(error.to_string()))?;
         seat.add_pointer();
 
         let socket_name = handlers::init_listener(handle, display)?;
@@ -117,6 +120,7 @@ impl DesiliumState {
             settings_runtime: Default::default(),
             wm,
             windows: HashMap::new(),
+            initial_windows: HashSet::new(),
             space: Space::default(),
             popups: PopupManager::default(),
             seat,

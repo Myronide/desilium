@@ -464,3 +464,22 @@ fn middle_click_without_the_attribute_does_nothing() {
     s.pointer_up(20.0, 20.0, PointerButton::Middle);
     assert!(s.take_actions().is_empty());
 }
+
+#[test]
+fn secondary_click_fires_only_an_explicit_context_action() {
+    let mut ui = surface(
+        "<div class=box data-action=open data-secondary-action=context data-arg=file></div>",
+        BOX_CSS,
+        64,
+        48,
+    );
+    ui.pointer_down(20.0, 20.0, PointerButton::Secondary);
+    ui.pointer_up(20.0, 20.0, PointerButton::Secondary);
+    let actions = ui.take_actions();
+    assert_eq!(actions.len(), 1);
+    assert_eq!(actions[0].action, "context");
+    assert_eq!(actions[0].arg.as_deref(), Some("file"));
+    ui.pointer_down(20.0, 20.0, PointerButton::Primary);
+    ui.pointer_up(20.0, 20.0, PointerButton::Primary);
+    assert_eq!(ui.take_actions()[0].action, "open");
+}
