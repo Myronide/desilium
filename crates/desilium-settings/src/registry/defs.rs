@@ -1,6 +1,6 @@
 //! The settings table. Add a setting here and it shows up everywhere.
 
-use desilium_config_types::{DesiliumConfig, FocusPolicy, PanelEdge, PanelMode};
+use desilium_config_types::{DesiliumConfig, FocusPolicy, PanelEdge, PanelMode, Visibility};
 
 use super::{Choice, Control, Page, SettingDef, Slider, Stepper, value::Value};
 use crate::shortcuts;
@@ -35,6 +35,11 @@ const PANEL_MODES: &[Choice] = &[
     Choice::new("taskbar", "Taskbar"),
 ];
 const PANEL_EDGES: &[Choice] = &[Choice::new("bottom", "Bottom"), Choice::new("top", "Top")];
+const VISIBILITY_MODES: &[Choice] = &[
+    Choice::new("always", "Always visible"),
+    Choice::new("auto-hide", "Auto-hide"),
+    Choice::new("avoid-windows", "Dodge windows"),
+];
 const FOCUS_MODES: &[Choice] = &[
     Choice::new("click", "Click"),
     Choice::new("sloppy", "Pointer"),
@@ -54,6 +59,24 @@ const DESKTOPS: Stepper = Stepper { min: 1, max: 32 };
 
 fn text(value: &str) -> Value {
     Value::Text(value.to_owned())
+}
+
+fn visibility_name(mode: Visibility) -> &'static str {
+    match mode {
+        Visibility::Always => "always",
+        Visibility::AutoHide => "auto-hide",
+        Visibility::AvoidWindows => "avoid-windows",
+    }
+}
+
+fn parse_visibility(name: &str) -> Option<Visibility> {
+    [
+        Visibility::Always,
+        Visibility::AutoHide,
+        Visibility::AvoidWindows,
+    ]
+    .into_iter()
+    .find(|mode| visibility_name(*mode) == name)
 }
 
 fn optional_text(value: &Option<String>) -> Value {
@@ -364,6 +387,70 @@ pub(super) static ALL: &[SettingDef] = &[
         control: Control::Shortcuts,
         get: |c| Value::Text(shortcuts::fingerprint(&c.compositor.shortcuts)),
         set: restore_default_shortcuts,
+    },
+    SettingDef {
+        id: "shell.panel_enabled",
+        page: Page::Panel,
+        section: "Visibility",
+        title: "Show dock / taskbar",
+        description: "Turn the dock or taskbar off completely",
+        keywords: &["dock", "taskbar", "panel", "disable", "hide"],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.shell.panel_enabled),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.shell.panel_enabled = *enabled;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.panel_visibility",
+        page: Page::Panel,
+        section: "Visibility",
+        title: "Dock / taskbar behavior",
+        description: "Always visible, hidden until the pointer touches the edge, or hidden while a window overlaps it",
+        keywords: &["dock", "taskbar", "panel", "autohide", "hide", "dodge", "intellihide"],
+        control: Control::Segmented(VISIBILITY_MODES),
+        get: |config| text(visibility_name(config.shell.panel_visibility)),
+        set: |config, value| {
+            if let Value::Text(name) = value
+                && let Some(mode) = parse_visibility(name)
+            {
+                config.shell.panel_visibility = mode;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.bar_enabled",
+        page: Page::Panel,
+        section: "Visibility",
+        title: "Show top bar",
+        description: "Turn the top bar off completely",
+        keywords: &["top bar", "panel", "disable", "hide"],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.shell.bar_enabled),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.shell.bar_enabled = *enabled;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.bar_visibility",
+        page: Page::Panel,
+        section: "Visibility",
+        title: "Top bar behavior",
+        description: "Always visible, hidden until the pointer touches the edge, or hidden while a window overlaps it",
+        keywords: &["top bar", "panel", "autohide", "hide", "dodge", "intellihide"],
+        control: Control::Segmented(VISIBILITY_MODES),
+        get: |config| text(visibility_name(config.shell.bar_visibility)),
+        set: |config, value| {
+            if let Value::Text(name) = value
+                && let Some(mode) = parse_visibility(name)
+            {
+                config.shell.bar_visibility = mode;
+            }
+        },
     },
     SettingDef {
         id: "shell.mode",

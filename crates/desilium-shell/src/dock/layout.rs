@@ -215,7 +215,7 @@ pub fn screen_rect(
     output: (i32, i32),
 ) -> Rect {
     let y = if settings.edge == desilium_config_types::PanelEdge::Top {
-        crate::bar::BAR_HEIGHT as i32 + i32::from(settings.margin)
+        crate::visibility::bar_inset(settings) + i32::from(settings.margin)
     } else {
         output.1 - i32::from(settings.margin) - layout.height as i32
     };

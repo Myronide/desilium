@@ -20,21 +20,24 @@ pub enum Due {
     Exit,
     /// Next step of a demo script.
     Demo,
+    /// The pointer left an auto-hide panel long enough ago to hide it.
+    Panels,
 }
 
 /// One optional deadline per [`Due`] kind.
 #[derive(Debug, Default)]
 pub struct Deadlines {
-    slots: [Option<Instant>; 6],
+    slots: [Option<Instant>; 7],
 }
 
-const ALL: [Due; 6] = [
+const ALL: [Due; 7] = [
     Due::Clock,
     Due::Tooltip,
     Due::Housekeeping,
     Due::Config,
     Due::Exit,
     Due::Demo,
+    Due::Panels,
 ];
 
 /// Slot of `due`; an exhaustive match, so a new kind cannot be forgotten silently.
@@ -46,6 +49,7 @@ fn index(due: Due) -> usize {
         Due::Config => 3,
         Due::Exit => 4,
         Due::Demo => 5,
+        Due::Panels => 6,
     }
 }
 

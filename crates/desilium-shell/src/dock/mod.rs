@@ -9,7 +9,11 @@ use desilium_ui::{
     wayland::{Anchor, LayerConfig, LayerHost, SurfaceId},
 };
 
-use crate::view::{BASE_CSS, DOCK_CSS};
+use crate::{
+    view::{BASE_CSS, DOCK_CSS},
+    visibility::{Presence, bar_inset},
+};
+use desilium_config_types::Visibility;
 pub use layout::{BOTTOM_MARGIN, DockLayout, HEIGHT, RADIUS};
 pub use view::{DockCell, DockView};
 
@@ -25,6 +29,7 @@ pub struct Dock {
     output_width: u32,
     status: String,
     dirty: bool,
+    presence: Presence,
 }
 
 fn layout_for(view: &DockView) -> DockLayout {
@@ -51,6 +56,7 @@ impl Dock {
             output_width: 1920,
             status: String::new(),
             dirty: false,
+            presence: Presence::Shown,
         })
     }
 
@@ -109,7 +115,52 @@ impl Dock {
         self.settings = settings.clone();
         self.output_width = width;
         self.status = status;
+        self.apply_placement(host)
+    }
+
+    /// Moves the dock between full, edge strip and off.
+    pub fn place(&mut self, host: &mut LayerHost, presence: Presence) -> Result<(), UiError> {
+        if presence == self.presence {
+            return Ok(());
+        }
+        self.presence = presence;
+        self.apply_placement(host)
+    }
+
+    /// Anchor, margins, reserved space and height for the current settings and presence.
+    fn apply_placement(&mut self, host: &mut LayerHost) -> Result<(), UiError> {
+        let settings = &self.settings;
         let top = settings.edge == desilium_config_types::PanelEdge::Top;
+        let presence = self.presence;
+        // Margin at the attached edge: normal, none for the pointer strip, outside when off.
+        let edge_margin = match presence {
+            Presence::Shown => i32::from(settings.margin),
+            Presence::Peek => 0,
+            Presence::Off => -1,
+        };
+        // A dock below the top bar keeps clear of it; a taskbar is stacked by its exclusive zone.
+        let below_bar = if settings.mode == desilium_config_types::PanelMode::Dock
+            && presence != Presence::Off
+        {
+            bar_inset(settings)
+        } else {
+            0
+        };
+        let reserve = presence == Presence::Shown
+            && settings.panel_visibility == Visibility::Always
+            && settings.mode == desilium_config_types::PanelMode::Taskbar;
+        let zone = if reserve {
+            i32::from(settings.icon_size) + 16
+        } else if settings.mode == desilium_config_types::PanelMode::Taskbar {
+            0
+        } else {
+            -1
+        };
+        let height = presence.height(self.layout.height);
+        let width = self.layout.width;
+        if let Some(ui) = host.surface_mut(self.id) {
+            ui.resize(width, height)?;
+        }
         host.reconfigure(self.id, |config| {
             config.anchor = Anchor {
                 top,
@@ -117,22 +168,10 @@ impl Dock {
                 left: false,
                 right: false,
             };
-            config.margins.top = if top {
-                i32::from(settings.margin)
-                    + if settings.mode == desilium_config_types::PanelMode::Dock {
-                        crate::bar::BAR_HEIGHT as i32
-                    } else {
-                        0
-                    }
-            } else {
-                0
-            };
-            config.margins.bottom = if top { 0 } else { i32::from(settings.margin) };
-            config.exclusive_zone = if settings.mode == desilium_config_types::PanelMode::Taskbar {
-                i32::from(settings.icon_size) + 16
-            } else {
-                -1
-            };
+            config.margins.top = if top { edge_margin + below_bar } else { 0 };
+            config.margins.bottom = if top { 0 } else { edge_margin };
+            config.exclusive_zone = zone;
+            config.size = (width, height);
         })
     }
 
@@ -152,12 +191,11 @@ impl Dock {
         self.dirty = false;
         let moved = layout != self.layout;
         if resized {
+            let height = self.presence.height(layout.height);
             host.surface_mut(self.id)
-                .map(|ui| ui.resize(layout.width, layout.height))
+                .map(|ui| ui.resize(layout.width, height))
                 .transpose()?;
-            host.reconfigure(self.id, |config| {
-                config.size = (layout.width, layout.height)
-            })?;
+            host.reconfigure(self.id, |config| config.size = (layout.width, height))?;
         }
         if let Some(Err(error)) = host.update(self.id, |ui| ui.replace_children("#root", &html)) {
             tracing::warn!(%error, "dock update failed");

@@ -53,6 +53,7 @@ impl DesiliumState {
             app_id: clamp_text(&app_id),
             flags: WindowFlags::new(state, has_focus),
             workspace: desktop,
+            rect: self.wm.manager(desktop)?.rect(id)?,
         })
     }
 

@@ -14,9 +14,28 @@ pub enum PanelEdge {
     #[default]
     Bottom,
 }
+/// When a panel is shown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Visibility {
+    /// Always shown.
+    #[default]
+    Always,
+    /// Hidden until the pointer touches its screen edge.
+    AutoHide,
+    /// Hidden while a window overlaps it.
+    AvoidWindows,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ShellSettings {
+    /// Show the dock or taskbar at all.
+    pub panel_enabled: bool,
+    pub panel_visibility: Visibility,
+    /// Show the top bar at all.
+    pub bar_enabled: bool,
+    pub bar_visibility: Visibility,
     pub mode: PanelMode,
     pub edge: PanelEdge,
     pub icon_size: u16,
@@ -35,6 +54,10 @@ pub struct ShellSettings {
 impl Default for ShellSettings {
     fn default() -> Self {
         Self {
+            panel_enabled: true,
+            panel_visibility: Visibility::Always,
+            bar_enabled: true,
+            bar_visibility: Visibility::Always,
             mode: PanelMode::Dock,
             edge: PanelEdge::Bottom,
             icon_size: 48,

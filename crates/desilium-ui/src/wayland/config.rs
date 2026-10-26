@@ -172,6 +172,13 @@ pub enum HostEvent {
         /// New hover target.
         target: Option<HoverTarget>,
     },
+    /// The pointer entered (`true`) or left (`false`) a surface.
+    Pointer {
+        /// Surface concerned.
+        surface: SurfaceId,
+        /// Whether the pointer is over it now.
+        inside: bool,
+    },
     /// A key was pressed on a surface created with `report_keys` (including repeats).
     Key {
         /// Surface that has keyboard focus.

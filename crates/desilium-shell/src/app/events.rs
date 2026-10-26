@@ -27,6 +27,7 @@ impl Shell {
                 self.launcher_text_changed(&value);
             }
             HostEvent::Hover { surface, target } => self.handle_hover(surface, target),
+            HostEvent::Pointer { surface, inside } => self.panel_pointer(surface, inside),
             HostEvent::Key { surface, event }
                 if self.quick.owns(surface) && event.key == desilium_ui::Key::Escape =>
             {

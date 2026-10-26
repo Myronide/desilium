@@ -239,6 +239,18 @@
       <arg name="index" type="uint" summary="zero-based workspace index"/>
     </event>
 
+    <event name="geometry">
+      <description summary="the window rectangle changed">
+        Position and size of the window in the compositor's global space, in
+        logical pixels. Sent when the window is added and whenever it moves
+        or is resized. Panels use it to dodge windows.
+      </description>
+      <arg name="x" type="int" summary="window x"/>
+      <arg name="y" type="int" summary="window y"/>
+      <arg name="width" type="uint" summary="window width"/>
+      <arg name="height" type="uint" summary="window height"/>
+    </event>
+
     <event name="closed">
       <description summary="the window is gone">
         Always followed by done. No further events follow.

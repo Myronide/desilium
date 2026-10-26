@@ -4,6 +4,7 @@ mod context;
 mod demo;
 mod events;
 mod launcher_glue;
+mod panels;
 mod quick;
 mod stats;
 mod system;
@@ -74,6 +75,7 @@ pub(crate) struct PendingTip {
 pub struct Shell {
     quick: crate::quick::QuickSettings,
     quick_focused: bool,
+    hover: panels::Hover,
     controls: Option<crate::services::controls::Worker>,
     host: LayerHost,
     proto: Option<ShellProtocol>,
@@ -165,6 +167,7 @@ impl Shell {
         let mut shell = Self {
             quick: crate::quick::QuickSettings::new(&theme)?,
             quick_focused: false,
+            hover: Default::default(),
             controls: None,
             host,
             proto,
@@ -441,6 +444,7 @@ impl Shell {
             Due::Config => self.reload_config(),
             Due::Exit => self.quit = true,
             Due::Demo => self.demo_step(),
+            Due::Panels => self.update_panels(),
         }
     }
 

@@ -17,6 +17,7 @@ mod slot;
 mod snapshot_tests;
 mod tooltip;
 mod view;
+mod visibility;
 
 use std::process::ExitCode;
 

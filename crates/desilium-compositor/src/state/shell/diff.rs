@@ -12,6 +12,7 @@ pub struct WindowChange {
     pub app_id: Option<String>,
     pub flags: Option<WindowFlags>,
     pub workspace: Option<usize>,
+    pub rect: Option<desilium_wm::Rect>,
 }
 
 /// One step of a shell update. The sender ends a non-empty batch with `done`.
@@ -66,11 +67,13 @@ fn window_change(old: &WindowInfo, new: &WindowInfo) -> Option<WindowChange> {
         app_id: (old.app_id != new.app_id).then(|| new.app_id.clone()),
         flags: (old.flags != new.flags).then_some(new.flags),
         workspace: (old.workspace != new.workspace).then_some(new.workspace),
+        rect: (old.rect != new.rect).then_some(new.rect),
     };
     let unchanged = change.title.is_none()
         && change.app_id.is_none()
         && change.flags.is_none()
-        && change.workspace.is_none();
+        && change.workspace.is_none()
+        && change.rect.is_none();
     (!unchanged).then_some(change)
 }
 
@@ -93,6 +96,7 @@ mod tests {
             app_id: "app".to_owned(),
             flags: WindowFlags::default(),
             workspace: 0,
+            rect: Rect::new(0, 0, 10, 10),
         }
     }
 
@@ -164,6 +168,26 @@ mod tests {
                 app_id: None,
                 flags: None,
                 workspace: None,
+                rect: None,
+            })]
+        );
+    }
+
+    #[test]
+    fn moving_a_window_only_carries_the_rectangle() {
+        let ids = ids(1);
+        let old = snapshot(vec![window(ids[0], "a")]);
+        let mut moved = window(ids[0], "a");
+        moved.rect = Rect::new(5, 6, 10, 10);
+        assert_eq!(
+            diff(Some(&old), &snapshot(vec![moved.clone()])),
+            vec![ShellEvent::WindowChanged(WindowChange {
+                id: ids[0],
+                title: None,
+                app_id: None,
+                flags: None,
+                workspace: None,
+                rect: Some(moved.rect),
             })]
         );
     }
@@ -185,6 +209,7 @@ mod tests {
                 app_id: Some("other".to_owned()),
                 flags: Some(changed.flags),
                 workspace: Some(2),
+                rect: None,
             })]
         );
     }

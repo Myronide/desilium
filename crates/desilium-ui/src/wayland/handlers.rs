@@ -242,6 +242,17 @@ impl PointerHandler for State {
                 continue;
             };
             apply_pointer_event(entry, &mut self.input, event);
+            let inside = match event.kind {
+                PointerEventKind::Enter { .. } => Some(true),
+                PointerEventKind::Leave { .. } => Some(false),
+                _ => None,
+            };
+            if let Some(inside) = inside {
+                self.events.push(HostEvent::Pointer {
+                    surface: entry.id,
+                    inside,
+                });
+            }
         }
         self.sync_cursor();
     }

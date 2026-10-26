@@ -19,6 +19,8 @@ pub struct WindowInfo {
     pub minimized: bool,
     /// Zero-based workspace.
     pub workspace: u32,
+    /// Global logical rectangle as `(x, y, width, height)`.
+    pub rect: (i32, i32, i32, i32),
 }
 
 impl WindowInfo {
@@ -31,6 +33,7 @@ impl WindowInfo {
             activated: false,
             minimized: false,
             workspace: 0,
+            rect: (0, 0, 0, 0),
         }
     }
 }

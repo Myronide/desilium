@@ -8,7 +8,7 @@ mod root;
 mod settings;
 mod shell;
 mod shortcut;
-pub use shell::{PanelEdge, PanelMode, ShellSettings};
+pub use shell::{PanelEdge, PanelMode, ShellSettings, Visibility};
 
 pub use root::*;
 

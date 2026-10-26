@@ -8,7 +8,10 @@ use desilium_ui::{
     wayland::{Anchor, LayerConfig, LayerHost, SurfaceId},
 };
 
-use crate::view::{BAR_CSS, BASE_CSS};
+use crate::{
+    view::{BAR_CSS, BASE_CSS},
+    visibility::Presence,
+};
 pub use view::{ActiveApp, BAR_HEIGHT, BarView, bar_html};
 
 /// Namespace of the bar's layer surface.
@@ -20,6 +23,7 @@ const PLACEHOLDER_WIDTH: u32 = 1920;
 pub struct Bar {
     id: SurfaceId,
     shown: BarView,
+    placed: (Presence, bool),
 }
 
 impl Bar {
@@ -32,12 +36,45 @@ impl Bar {
         config.anchor = Anchor::TOP_BAR;
         config.exclusive_zone = i32::try_from(BAR_HEIGHT).unwrap_or(i32::MAX);
         let id = host.add_surface(config, ui)?;
-        Ok(Self { id, shown: view })
+        Ok(Self {
+            id,
+            shown: view,
+            placed: (Presence::Shown, true),
+        })
     }
 
     /// The layer surface id.
     pub fn id(&self) -> SurfaceId {
         self.id
+    }
+
+    /// Moves the bar between full, edge strip and off; `reserve` keeps windows out from under it.
+    pub fn place(
+        &mut self,
+        host: &mut LayerHost,
+        presence: Presence,
+        reserve: bool,
+    ) -> Result<(), UiError> {
+        if self.placed == (presence, reserve) {
+            return Ok(());
+        }
+        self.placed = (presence, reserve);
+        let height = presence.height(BAR_HEIGHT);
+        let width = host
+            .surface(self.id)
+            .map_or(PLACEHOLDER_WIDTH, |ui| ui.size().0);
+        if let Some(ui) = host.surface_mut(self.id) {
+            ui.resize(width, height)?;
+        }
+        host.reconfigure(self.id, |config| {
+            config.size = (0, height);
+            config.margins.top = if presence == Presence::Off { -1 } else { 0 };
+            config.exclusive_zone = if reserve {
+                i32::try_from(BAR_HEIGHT).unwrap_or(i32::MAX)
+            } else {
+                0
+            };
+        })
     }
 
     pub fn configure(

@@ -181,6 +181,15 @@ impl Dispatch<DesiliumToplevelHandleV1, ()> for ProtoState {
             Event::AppId { app_id } => tracked.info.app_id = app_id,
             Event::State { state: bytes } => parse_states(&bytes, &mut tracked.info),
             Event::Workspace { index } => tracked.info.workspace = index,
+            Event::Geometry {
+                x,
+                y,
+                width,
+                height,
+            } => {
+                let clamp = |value: u32| i32::try_from(value).unwrap_or(i32::MAX);
+                tracked.info.rect = (x, y, clamp(width), clamp(height));
+            }
             Event::Closed => tracked.closed = true,
             Event::Done => {}
             _ => return,

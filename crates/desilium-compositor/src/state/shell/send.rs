@@ -66,6 +66,7 @@ fn send_added(dh: &DisplayHandle, client: &mut ShellClient, info: &WindowInfo) {
     handle.app_id(info.app_id.clone());
     handle.state(state_array(info.flags));
     handle.workspace(wire_index(info.workspace));
+    send_rect(&handle, info.rect);
     handle.done();
     client.handles.insert(info.id, handle);
 }
@@ -87,7 +88,19 @@ fn send_changed(client: &ShellClient, change: &WindowChange) {
     if let Some(workspace) = change.workspace {
         handle.workspace(wire_index(workspace));
     }
+    if let Some(rect) = change.rect {
+        send_rect(handle, rect);
+    }
     handle.done();
+}
+
+fn send_rect(handle: &DesiliumToplevelHandleV1, rect: desilium_wm::Rect) {
+    handle.geometry(
+        rect.loc.x,
+        rect.loc.y,
+        wire_size(rect.size.w),
+        wire_size(rect.size.h),
+    );
 }
 
 fn send_output(client: &ShellClient, info: &OutputInfo) {

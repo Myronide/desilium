@@ -208,6 +208,7 @@ impl Shell {
             Ok(_) => {}
             Err(error) => tracing::warn!(%error, "dock update failed"),
         }
+        self.update_panels();
         self.sync_minimize_rects();
     }
 

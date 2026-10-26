@@ -1,7 +1,6 @@
 //! The shell's view of the compositor as plain data, so that diffing needs no Wayland objects.
 
 use desilium_wm::{Rect, WindowId, WindowState};
-
 /// Longest title or app id (in bytes) that is sent to the shell.
 pub const MAX_TEXT_BYTES: usize = 1024;
 
@@ -37,6 +36,8 @@ pub struct WindowInfo {
     pub app_id: String,
     pub flags: WindowFlags,
     pub workspace: usize,
+    /// Window rectangle in global logical pixels.
+    pub rect: Rect,
 }
 
 /// Workspace count and the one in view.
