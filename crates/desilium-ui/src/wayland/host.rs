@@ -6,11 +6,12 @@ use std::{
 };
 
 use smithay_client_toolkit::{
-    compositor::CompositorState,
+    compositor::{CompositorState, Region},
     output::OutputState,
     reexports::client::{
-        Connection, EventQueue, QueueHandle, globals::registry_queue_init,
-        protocol::wl_output::WlOutput,
+        Connection, EventQueue, QueueHandle,
+        globals::registry_queue_init,
+        protocol::{wl_output::WlOutput, wl_surface::WlSurface},
     },
     registry::RegistryState,
     seat::{SeatState, pointer::cursor_shape::CursorShapeManager},
@@ -159,6 +160,74 @@ impl LayerHost {
         Ok(id)
     }
 
+    /// The Wayland connection, for protocol objects the application dispatches itself
+    /// (create them on an own `EventQueue`; events are routed by the shared socket).
+    pub fn connection(&self) -> &Connection {
+        &self.conn
+    }
+
+    /// The `wl_surface` behind a layer surface, for protocols that take one as argument.
+    pub fn wl_surface(&self, id: SurfaceId) -> Option<WlSurface> {
+        let entry = self.state.entries.iter().find(|entry| entry.id == id)?;
+        Some(entry.layer.wl_surface().clone())
+    }
+
+    /// Whether the compositor has configured the surface (it is mapped and can be drawn).
+    pub fn is_configured(&self, id: SurfaceId) -> bool {
+        self.state
+            .entries
+            .iter()
+            .any(|entry| entry.id == id && entry.configured)
+    }
+
+    /// Logical size of the first output the compositor advertises, if it reported one.
+    pub fn output_logical_size(&self) -> Option<(i32, i32)> {
+        self.state
+            .outputs
+            .outputs()
+            .find_map(|output| self.state.outputs.info(&output)?.logical_size)
+    }
+
+    /// Restricts where the surface receives pointer input.
+    ///
+    /// `Some(rect)` (logical pixels) accepts input only inside `rect`; `None` makes
+    /// the whole surface transparent to the pointer (tooltips, decorations).
+    /// Call [`clear_input_region`](Self::clear_input_region) to restore the default.
+    pub fn set_input_region(&mut self, id: SurfaceId, rect: Option<crate::Rect>) {
+        let Some(entry) = self.state.entries.iter().find(|entry| entry.id == id) else {
+            return;
+        };
+        let region = Region::new(&self.state.compositor).ok();
+        let Some(region) = region else {
+            tracing::warn!("cannot create an input region");
+            return;
+        };
+        if let Some(rect) = rect {
+            region.add(
+                rect.x.round() as i32,
+                rect.y.round() as i32,
+                rect.width.round() as i32,
+                rect.height.round() as i32,
+            );
+        }
+        entry
+            .layer
+            .wl_surface()
+            .set_input_region(Some(region.wl_region()));
+        entry.layer.commit();
+        let _ = self.conn.flush();
+    }
+
+    /// Accepts pointer input on the whole surface again.
+    pub fn clear_input_region(&mut self, id: SurfaceId) {
+        let Some(entry) = self.state.entries.iter().find(|entry| entry.id == id) else {
+            return;
+        };
+        entry.layer.wl_surface().set_input_region(None);
+        entry.layer.commit();
+        let _ = self.conn.flush();
+    }
+
     /// Destroys a surface.
     pub fn remove_surface(&mut self, id: SurfaceId) {
         self.state.entries.retain(|entry| entry.id != id);
@@ -170,6 +239,26 @@ impl LayerHost {
         }
         // Best effort: a dead connection is reported by the next dispatch.
         let _ = self.conn.flush();
+    }
+
+    /// Destroys the layer surface but returns its placement and document.
+    ///
+    /// For surfaces that are hidden most of the time: the document stays in memory and
+    /// [`add_surface`](Self::add_surface) maps it again with a fresh layer surface. This
+    /// follows the layer-shell protocol exactly (an unmapped surface would have to wait
+    /// for a new configure, which not every compositor sends).
+    pub fn take_surface(&mut self, id: SurfaceId) -> Option<(LayerConfig, UiSurface)> {
+        let position = self.state.entries.iter().position(|entry| entry.id == id)?;
+        let entry = self.state.entries.remove(position);
+        if self.state.input.pointer_focus == Some(id) {
+            self.state.input.pointer_focus = None;
+        }
+        if self.state.input.keyboard_focus == Some(id) {
+            self.state.input.keyboard_focus = None;
+        }
+        // Best effort: a dead connection is reported by the next dispatch.
+        let _ = self.conn.flush();
+        Some((entry.config, entry.ui))
     }
 
     /// Read access to a surface's document.
@@ -217,7 +306,9 @@ impl LayerHost {
 
     /// Unmaps (`false`) or maps (`true`) a surface without destroying its document.
     ///
-    /// Mapping again waits for a new configure and redraws everything.
+    /// Mapping again waits for a new configure and redraws everything. Not every compositor
+    /// sends one after an unmap (Smithay does not): for overlays prefer
+    /// [`take_surface`](Self::take_surface) and [`add_surface`](Self::add_surface).
     pub fn set_visible(&mut self, id: SurfaceId, visible: bool) -> Result<(), UiError> {
         let Some(entry) = self.state.entry_mut(id) else {
             return Ok(());
@@ -258,9 +349,7 @@ impl LayerHost {
             .dispatch_pending(&mut self.state)
             .map_err(wayland_error)?;
         for (id, key) in self.state.input.repeat.due(now) {
-            if let Some(entry) = self.state.entry_mut(id) {
-                entry.ui.key_down(&key);
-            }
+            self.state.route_key(id, &key);
         }
         self.state.sync_cursor();
         self.state.collect_ui_events();

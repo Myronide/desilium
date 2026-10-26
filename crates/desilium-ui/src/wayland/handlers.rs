@@ -11,7 +11,6 @@ use smithay_client_toolkit::{
             protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_surface::WlSurface},
         },
         protocols::wp::{
-            cursor_shape::v1::client::wp_cursor_shape_device_v1::Shape,
             fractional_scale::v1::client::{
                 wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1,
                 wp_fractional_scale_v1::{self, WpFractionalScaleV1},
@@ -37,14 +36,10 @@ use smithay_client_toolkit::{
 
 use super::{
     config::HostEvent,
+    input_map::{cursor_shape, to_button, to_modifiers, wheel_delta},
     keys,
     state::{Entry, FRACTIONAL_DENOMINATOR, InputState, State},
 };
-use crate::{CursorHint, Modifiers, PointerButton, WheelDelta};
-
-const BTN_LEFT: u32 = 0x110;
-const BTN_RIGHT: u32 = 0x111;
-const BTN_MIDDLE: u32 = 0x112;
 
 impl CompositorHandler for State {
     fn scale_factor_changed(
@@ -194,15 +189,6 @@ impl SeatHandler for State {
     fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
 }
 
-fn to_button(code: u32) -> Option<PointerButton> {
-    match code {
-        BTN_LEFT => Some(PointerButton::Primary),
-        BTN_RIGHT => Some(PointerButton::Secondary),
-        BTN_MIDDLE => Some(PointerButton::Middle),
-        _ => None,
-    }
-}
-
 fn apply_pointer_event(entry: &mut Entry, input: &mut InputState, event: &PointerEvent) {
     let (x, y) = event.position;
     match &event.kind {
@@ -234,18 +220,7 @@ fn apply_pointer_event(entry: &mut Entry, input: &mut InputState, event: &Pointe
             vertical,
             ..
         } => {
-            let delta = if horizontal.discrete != 0 || vertical.discrete != 0 {
-                WheelDelta::Lines {
-                    x: f64::from(horizontal.discrete),
-                    y: f64::from(vertical.discrete),
-                }
-            } else {
-                WheelDelta::Pixels {
-                    x: horizontal.absolute,
-                    y: vertical.absolute,
-                }
-            };
-            entry.ui.wheel(x, y, delta);
+            entry.ui.wheel(x, y, wheel_delta(horizontal, vertical));
         }
     }
 }
@@ -307,22 +282,8 @@ impl State {
         if self.input.sent_cursor == Some(hint) {
             return;
         }
-        let shape = match hint {
-            CursorHint::Default => Shape::Default,
-            CursorHint::Pointer => Shape::Pointer,
-            CursorHint::Text => Shape::Text,
-        };
-        device.set_shape(self.input.enter_serial, shape);
+        device.set_shape(self.input.enter_serial, cursor_shape(hint));
         self.input.sent_cursor = Some(hint);
-    }
-}
-
-fn to_modifiers(modifiers: &SctkModifiers) -> Modifiers {
-    Modifiers {
-        shift: modifiers.shift,
-        ctrl: modifiers.ctrl,
-        alt: modifiers.alt,
-        logo: modifiers.logo,
     }
 }
 
@@ -344,8 +305,13 @@ impl KeyboardHandler for State {
         else {
             return;
         };
-        self.input.keyboard_focus = Some(entry.id);
+        let id = entry.id;
+        self.input.keyboard_focus = Some(id);
         entry.ui.focus_changed(true);
+        self.events.push(HostEvent::KeyboardFocus {
+            surface: id,
+            focused: true,
+        });
     }
 
     fn leave(
@@ -362,6 +328,11 @@ impl KeyboardHandler for State {
             .find(|e| e.layer.wl_surface() == surface)
         {
             entry.ui.focus_changed(false);
+            let surface = entry.id;
+            self.events.push(HostEvent::KeyboardFocus {
+                surface,
+                focused: false,
+            });
         }
         self.input.keyboard_focus = None;
         self.input.repeat.release(None);
@@ -379,9 +350,7 @@ impl KeyboardHandler for State {
             return;
         };
         let key = keys::translate(&event, self.input.modifiers, false);
-        if let Some(entry) = self.entry_mut(id) {
-            entry.ui.key_down(&key);
-        }
+        self.route_key(id, &key);
         let now = self.now;
         self.input.repeat.press(id, event.raw_code, key, now);
     }

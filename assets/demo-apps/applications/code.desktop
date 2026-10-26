@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Code
+Comment=Edit source code
+Categories=Development;TextEditor;
+Icon=demo-code
+Exec=foot -a code -T "Code" -e sh -c "sleep 60"

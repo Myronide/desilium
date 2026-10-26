@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Calculator
+Comment=Scientific and programmer modes
+Categories=Utility;Calculator;
+Exec=foot -a calculator -T "Calculator" -e sh -c "sleep 60"

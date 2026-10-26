@@ -1,0 +1,6 @@
+/* Tooltip surface: transparent margin around the bubble leaves room for its shadow. */
+.tip-wrap { padding: 10px; display: flex; }
+.tooltip {
+  white-space: nowrap; padding: 4px 10px; height: 26px; border-radius: 8px; background: var(--surface-4); color: var(--text);
+  font-size: var(--fs-small); font-weight: var(--fw-medium); line-height: 18px; border: 1px solid var(--border-strong); box-shadow: var(--shadow-2);
+}

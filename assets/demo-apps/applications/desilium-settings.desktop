@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Settings
+Comment=Appearance, keyboard, displays
+Categories=Settings;DesktopSettings;
+Exec=foot -a desilium-settings -T "Settings" -e sh -c "sleep 60"

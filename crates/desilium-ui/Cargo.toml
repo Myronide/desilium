@@ -38,3 +38,4 @@ smithay-client-toolkit = { version = "0.19", optional = true, default-features =
 [dev-dependencies]
 png = "0.17"
 calloop = "0.14"
+tempfile = "3"

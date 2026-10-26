@@ -424,3 +424,43 @@ fn bundled_fonts_are_validated() {
         Err(crate::UiError::BadFont)
     ));
 }
+
+#[test]
+fn element_rect_reports_the_laid_out_box() {
+    let mut s = surface("<div class=box id=b></div>", BOX_CSS, 64, 48);
+    let rect = s.element_rect("#b").unwrap();
+    assert_eq!(
+        (rect.x, rect.y, rect.width, rect.height),
+        (10.0, 10.0, 40.0, 20.0)
+    );
+    s.set_attr("#b", "style", "width:30px").unwrap();
+    assert_eq!(s.element_rect("#b").unwrap().width, 30.0);
+    assert!(s.element_rect("#missing").is_err());
+}
+
+#[test]
+fn middle_click_fires_only_the_middle_action() {
+    let mut s = surface(
+        "<div class=box data-action=open data-middle-action=open-new data-arg=x></div>",
+        BOX_CSS,
+        64,
+        48,
+    );
+    s.pointer_down(20.0, 20.0, PointerButton::Middle);
+    s.pointer_up(20.0, 20.0, PointerButton::Middle);
+    let actions = s.take_actions();
+    assert_eq!(actions.len(), 1);
+    assert_eq!(actions[0].action, "open-new");
+    assert_eq!(actions[0].arg.as_deref(), Some("x"));
+    s.pointer_down(20.0, 20.0, PointerButton::Primary);
+    s.pointer_up(20.0, 20.0, PointerButton::Primary);
+    assert_eq!(s.take_actions()[0].action, "open");
+}
+
+#[test]
+fn middle_click_without_the_attribute_does_nothing() {
+    let mut s = surface("<div class=box data-action=open></div>", BOX_CSS, 64, 48);
+    s.pointer_down(20.0, 20.0, PointerButton::Middle);
+    s.pointer_up(20.0, 20.0, PointerButton::Middle);
+    assert!(s.take_actions().is_empty());
+}

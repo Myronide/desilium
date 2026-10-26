@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Mail
+Comment=Read and write email
+Categories=Network;Email;
+Icon=demo-mail
+Exec=foot -a mail -T "Mail" -e sh -c "sleep 60"

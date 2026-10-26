@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Photos
+Comment=View and edit images
+Categories=Graphics;Photography;
+Exec=foot -a gimp -T "Photos" -e sh -c "sleep 60"

@@ -37,8 +37,11 @@
 mod config;
 mod handlers;
 mod host;
+mod input_map;
 mod keys;
 mod state;
+mod xdg_window;
 
 pub use config::{Anchor, HostEvent, KeyboardMode, Layer, LayerConfig, Margins, SurfaceId};
 pub use host::LayerHost;
+pub use xdg_window::{Decorations, WindowConfig, WindowEvent, WindowId, XdgWindowHost};

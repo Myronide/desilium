@@ -1,0 +1,28 @@
+[package]
+name = "desilium-shell"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+description = "Desilium desktop shell process: top bar, dock and launcher"
+
+[dependencies]
+desilium-apps = { path = "../desilium-apps" }
+desilium-config = { path = "../desilium-config" }
+desilium-config-types = { path = "../desilium-config-types" }
+desilium-protocols = { path = "../desilium-protocols", features = ["client"] }
+desilium-theme = { path = "../desilium-theme" }
+desilium-ui = { path = "../desilium-ui" }
+
+calloop = "0.14"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+inotify = "0.11"
+serde = { workspace = true }
+thiserror.workspace = true
+toml = "0.8"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+wayland-client = "0.31"
+
+[dev-dependencies]
+png = "0.17"
+tempfile = "3"

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Files
+Comment=Browse and organise your files
+Categories=System;FileManager;
+Icon=demo-files
+Exec=foot -a thunar -T "Files" -e sh -c "sleep 60"

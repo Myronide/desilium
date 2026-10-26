@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Music
+Comment=Play your music library
+Categories=AudioVideo;Audio;Player;
+Icon=demo-music
+Exec=foot -a music -T "Music" -e sh -c "sleep 60"

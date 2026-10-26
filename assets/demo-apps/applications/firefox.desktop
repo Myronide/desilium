@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Firefox
+Comment=Browse the web
+Categories=Network;WebBrowser;
+Icon=demo-web
+Exec=foot -a firefox -T "Firefox" -e sh -c "sleep 60"

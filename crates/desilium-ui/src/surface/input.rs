@@ -26,6 +26,7 @@ const ACTION_ATTR: &str = "data-action";
 const ARG_ATTR: &str = "data-arg";
 const TOOLTIP_ATTR: &str = "data-tooltip";
 const SUBMIT_ATTR: &str = "data-submit";
+const MIDDLE_ACTION_ATTR: &str = "data-middle-action";
 const KEY_ATTR: &str = "data-key";
 
 #[derive(Default)]
@@ -148,9 +149,9 @@ impl UiSurface {
             .unwrap_or_default()
     }
 
-    fn action_for(&self, id: NodeId) -> Option<UiAction> {
+    fn action_named(&self, id: NodeId, attribute: &str) -> Option<UiAction> {
         Some(UiAction {
-            action: self.attr_of(id, ACTION_ATTR)?,
+            action: self.attr_of(id, attribute)?,
             arg: self.attr_of(id, ARG_ATTR),
             element_id: self.attr_of(id, "id"),
             rect: self.rect_of(id),
@@ -201,7 +202,8 @@ impl UiSurface {
         self.pointer.buttons |= MouseEventButtons::from(native);
         self.pointer.pressed_action = match button {
             PointerButton::Primary => self.action_node_at(pos.0, pos.1),
-            _ => None,
+            PointerButton::Middle => self.middle_node_at(pos.0, pos.1),
+            PointerButton::Secondary => None,
         };
         let event = pointer_event(pos, native, self.pointer.buttons);
         self.dispatch(BlitzUiEvent::PointerDown(event));
@@ -217,15 +219,41 @@ impl UiSurface {
         self.dispatch(BlitzUiEvent::PointerUp(event));
         self.mark_dirty();
         let pressed = self.pointer.pressed_action.take();
-        if button != PointerButton::Primary || pressed.is_none() {
+        let Some(pressed) = pressed else {
+            return;
+        };
+        let (released_on, attribute) = match button {
+            PointerButton::Primary => (self.action_node_at(pos.0, pos.1), ACTION_ATTR),
+            PointerButton::Middle => (self.middle_node_at(pos.0, pos.1), MIDDLE_ACTION_ATTR),
+            PointerButton::Secondary => return,
+        };
+        if released_on != Some(pressed) {
             return;
         }
-        if self.action_node_at(pos.0, pos.1) != pressed {
-            return;
-        }
-        if let Some(action) = pressed.and_then(|id| self.action_for(id)) {
+        if let Some(action) = self.action_named(pressed, attribute) {
             self.events.push_back(UiEvent::Action(action));
         }
+    }
+
+    /// Element under the point that reacts to a middle click (`data-middle-action`).
+    fn middle_node_at(&mut self, x: f32, y: f32) -> Option<NodeId> {
+        self.ensure_layout();
+        let hit = self.doc.hit(x, y)?;
+        let node = self.ancestor_with(hit.node_id, MIDDLE_ACTION_ATTR)?;
+        (!self.is_disabled(node)).then_some(node)
+    }
+
+    /// Border box in logical pixels of the first element matching `selector`.
+    ///
+    /// Resolves layout first, so it reflects pending DOM changes. Applications use it
+    /// to size a surface to its content or to report icon positions.
+    pub fn element_rect(&mut self, selector: &str) -> Result<Rect, crate::UiError> {
+        let id = *self
+            .find_all(selector)?
+            .first()
+            .ok_or_else(|| crate::UiError::NoMatch(selector.to_owned()))?;
+        self.ensure_layout();
+        Ok(self.rect_of(id))
     }
 
     /// Wheel or touchpad scroll at `(x, y)`.

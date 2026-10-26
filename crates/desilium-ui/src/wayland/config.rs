@@ -128,6 +128,10 @@ pub struct LayerConfig {
     pub keyboard: KeyboardMode,
     /// Output name (e.g. `"HDMI-A-1"`); `None` lets the compositor choose.
     pub output: Option<String>,
+    /// Report key presses as [`HostEvent::Key`] and keep navigation keys (Esc, Tab,
+    /// arrows, Enter, paging) and Alt/Logo chords away from the document, so the
+    /// application can drive selection while text still reaches focused inputs.
+    pub report_keys: bool,
 }
 
 impl LayerConfig {
@@ -142,6 +146,7 @@ impl LayerConfig {
             size,
             keyboard: KeyboardMode::None,
             output: None,
+            report_keys: false,
         }
     }
 }
@@ -166,6 +171,20 @@ pub enum HostEvent {
         surface: SurfaceId,
         /// New hover target.
         target: Option<HoverTarget>,
+    },
+    /// A key was pressed on a surface created with `report_keys` (including repeats).
+    Key {
+        /// Surface that has keyboard focus.
+        surface: SurfaceId,
+        /// The key.
+        event: crate::KeyEvent,
+    },
+    /// Keyboard focus entered (`true`) or left (`false`) a surface.
+    KeyboardFocus {
+        /// Surface concerned.
+        surface: SurfaceId,
+        /// Whether it has focus now.
+        focused: bool,
     },
     /// The compositor closed the surface (e.g. its output went away); it is removed.
     Closed(SurfaceId),
