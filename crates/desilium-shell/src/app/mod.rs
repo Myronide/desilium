@@ -253,7 +253,7 @@ impl Shell {
                 Some(self.dock.id()),
                 views::DOCK_BLUR,
                 [if self.store.get().shell.mode == desilium_config_types::PanelMode::Taskbar {
-                    8
+                    crate::dock::TASKBAR_RADIUS
                 } else {
                     crate::dock::RADIUS
                 }; 4],

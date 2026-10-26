@@ -8,7 +8,7 @@ use super::Shell;
 use crate::{
     bar::{ActiveApp, BarView},
     cli::{BarSpot, DemoHover},
-    dock::{DockCell, DockView},
+    dock::{DockCell, DockView, Status},
     model::{
         battery::Battery,
         clock::ClockText,
@@ -200,10 +200,10 @@ impl Shell {
         let width = self
             .output_size()
             .map_or(1920, |(width, _)| width.max(120) as u32);
-        let status = if settings.show_clock {
-            self.clock.time.clone()
-        } else {
-            "System".into()
+        let status = Status {
+            time: self.clock.time.clone(),
+            date: self.clock.date.clone(),
+            battery: self.battery.map(|battery| battery.percent),
         };
         if let Err(error) = self
             .dock

@@ -15,7 +15,7 @@ use crate::{
 };
 use desilium_config_types::Visibility;
 pub use layout::{BOTTOM_MARGIN, DockLayout, HEIGHT, RADIUS};
-pub use view::{DockCell, DockView};
+pub use view::{DockCell, DockView, Status, TASKBAR_RADIUS};
 
 /// Namespace of the dock's layer surface.
 pub const NAMESPACE: &str = "desilium-dock";
@@ -27,7 +27,7 @@ pub struct Dock {
     layout: DockLayout,
     settings: desilium_config_types::ShellSettings,
     output_width: u32,
-    status: String,
+    status: Status,
     dirty: bool,
     presence: Presence,
 }
@@ -54,7 +54,7 @@ impl Dock {
             layout,
             settings: Default::default(),
             output_width: 1920,
-            status: String::new(),
+            status: Status::default(),
             dirty: false,
             presence: Presence::Shown,
         })
@@ -104,7 +104,7 @@ impl Dock {
         host: &mut LayerHost,
         settings: &desilium_config_types::ShellSettings,
         width: u32,
-        status: String,
+        status: Status,
     ) -> Result<(), UiError> {
         let layout_changed = self.settings != *settings || self.output_width != width;
         self.dirty |= layout_changed || self.status != status;
@@ -217,7 +217,7 @@ pub fn configured_html_for_tests(
     view: &DockView,
     layout: &DockLayout,
     settings: &desilium_config_types::ShellSettings,
-    status: &str,
+    status: &Status,
 ) -> String {
     view::configured_html(view, layout, settings, status)
 }

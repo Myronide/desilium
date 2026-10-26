@@ -67,7 +67,7 @@ impl Default for ShellSettings {
             spacing: 8,
             margin: 14,
             opacity: 92,
-            show_labels: true,
+            show_labels: false,
             show_running: true,
             show_indicators: true,
             show_workspaces: true,

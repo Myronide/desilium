@@ -20,6 +20,10 @@ pub const HEIGHT: u32 = ITEM + 2 * (PAD_Y + BORDER);
 pub const RADIUS: u32 = 22;
 /// Distance between the tile and the screen edge.
 pub const BOTTOM_MARGIN: i32 = 14;
+/// Quick buttons a taskbar shows next to the launcher.
+pub const TASKBAR_TOOLS: usize = 2;
+/// Width of the taskbar's right cluster: tray icons, two-line clock and the settings button.
+pub const SYSTEM_WIDTH: u32 = 236;
 
 /// Where everything sits inside the dock surface.
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +35,8 @@ pub struct DockLayout {
     pub system: Option<Rect>,
     /// The launcher button.
     pub launcher: Rect,
+    /// Quick buttons after the launcher (taskbar only): show desktop, next workspace.
+    pub tools: Vec<Rect>,
     /// App cells in order.
     pub items: Vec<Rect>,
 }
@@ -66,6 +72,7 @@ pub fn layout(count: usize, separator: Option<usize>) -> DockLayout {
         height: HEIGHT,
         system: None,
         launcher,
+        tools: Vec::new(),
         items,
     }
 }
@@ -102,6 +109,19 @@ pub fn configured(
         ..rectangle(x)
     };
     x += icon;
+    // A taskbar has two quick buttons (show desktop, next workspace) next to the launcher.
+    let mut tools = Vec::new();
+    if taskbar {
+        for _ in 0..TASKBAR_TOOLS {
+            x += gap;
+            tools.push(Rect {
+                width: f64::from(icon),
+                ..rectangle(x)
+            });
+            x += icon;
+        }
+    }
+    let first_item = x + gap;
     let mut items = Vec::with_capacity(count);
     for index in 0..count {
         x += gap;
@@ -119,21 +139,36 @@ pub fn configured(
     } else {
         (x + PAD_X + BORDER).min(available)
     };
+    let system = taskbar
+        .then(|| {
+            let left = first_item.saturating_sub(gap) + 2 * (PAD_X + BORDER) + gap;
+            let reserved = SYSTEM_WIDTH.min(width.saturating_sub(left));
+            Rect {
+                x: f64::from(width.saturating_sub(PAD_X + BORDER + reserved)),
+                y: f64::from(PAD_Y + BORDER),
+                width: f64::from(reserved),
+                height: f64::from(icon),
+            }
+        })
+        .filter(|rect| rect.width > 0.0);
+    if let (true, Some(system)) = (taskbar && count > 0, system) {
+        // Centre the applications on the bar while they fit between the quick buttons and the
+        // system cluster; once they do not, they start next to the buttons and scroll.
+        let content = x.saturating_sub(first_item);
+        let wanted = i64::from(width.saturating_sub(content) / 2);
+        let latest = system.x as i64 - i64::from(gap) - i64::from(content);
+        let start = wanted.clamp(i64::from(first_item), latest.max(i64::from(first_item)));
+        let shift = (start - i64::from(first_item)) as f64;
+        for item in &mut items {
+            item.x += shift;
+        }
+    }
     DockLayout {
         width,
         height: icon + 2 * (PAD_Y + BORDER),
-        system: taskbar
-            .then(|| {
-                let reserved = 120.min(width.saturating_sub(icon + 2 * (PAD_X + BORDER) + gap));
-                Rect {
-                    x: f64::from(width.saturating_sub(PAD_X + BORDER + reserved)),
-                    y: f64::from(PAD_Y + BORDER),
-                    width: f64::from(reserved),
-                    height: f64::from(icon),
-                }
-            })
-            .filter(|rect| rect.width > 0.0),
+        system,
         launcher,
+        tools,
         items,
     }
 }
@@ -184,12 +219,39 @@ mod configured_tests {
             mode: desilium_config_types::PanelMode::Taskbar,
             icon_size: 40,
             margin: 10,
+            show_labels: true,
             ..Default::default()
         };
         let layout = configured(3, None, &settings, 1280);
         assert_eq!(layout.width, 1260);
         assert_eq!(layout.height, 56);
         assert_eq!(layout.items[0].width, 140.0);
+    }
+    #[test]
+    fn taskbar_centres_its_apps_between_the_quick_buttons_and_the_system_cluster() {
+        let settings = desilium_config_types::ShellSettings {
+            mode: desilium_config_types::PanelMode::Taskbar,
+            ..Default::default()
+        };
+        let layout = configured(5, None, &settings, 1280);
+        assert_eq!(layout.tools.len(), TASKBAR_TOOLS);
+        let first = layout.items.first().expect("first");
+        let last = layout.items.last().expect("last");
+        let middle = (first.x + last.x + last.width) / 2.0;
+        assert!((middle - f64::from(layout.width) / 2.0).abs() <= 1.0);
+        let system = layout.system.expect("system cluster");
+        assert!(last.x + last.width < system.x);
+        assert!(first.x > layout.tools[1].x + layout.tools[1].width);
+    }
+    #[test]
+    fn a_crowded_taskbar_starts_its_apps_next_to_the_quick_buttons() {
+        let settings = desilium_config_types::ShellSettings {
+            mode: desilium_config_types::PanelMode::Taskbar,
+            ..Default::default()
+        };
+        let layout = configured(40, None, &settings, 1280);
+        let tools_end = layout.tools[1].x + layout.tools[1].width;
+        assert_eq!(layout.items[0].x, tools_end + f64::from(settings.spacing));
     }
     #[test]
     fn dock_geometry_follows_icon_size_spacing_and_output_limit() {

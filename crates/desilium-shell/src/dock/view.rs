@@ -78,19 +78,68 @@ pub fn dock_html(view: &DockView, layout: &DockLayout) -> String {
     )
 }
 
+/// Corner radius of a taskbar (also the compositor's clip radius).
+pub const TASKBAR_RADIUS: u32 = 18;
+
+/// What the taskbar's right cluster shows besides the fixed tray icons.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Status {
+    /// `14:32`.
+    pub time: String,
+    /// `26 Oct`.
+    pub date: String,
+    /// Battery charge in percent, when there is a battery.
+    pub battery: Option<u8>,
+}
+
+/// CSS that only a taskbar needs: a flat hover/focus highlight instead of the dock's lifting icons.
+const TASKBAR_CSS: &str = ".dock-item:hover .app-icon,.dock-item:hover .app-img{transform:none;box-shadow:none}.dock-item{border-radius:10px}.dock-item:hover,.dock-item.focused{background:var(--surface-3)}.dock-tool{display:grid;place-items:center;color:var(--text-2)}.dock-item:hover .dock-tool{color:var(--text)}.dock-launcher{background:transparent;border:0}.task-system{display:flex;align-items:center;justify-content:flex-end;gap:2px}.task-system button{display:flex;align-items:center;gap:6px;background:transparent;border:0;border-radius:8px;padding:0 8px;height:100%;cursor:pointer;color:var(--text)}.task-system button:hover{background:var(--surface-3)}.task-system .tray{color:var(--text-2)}.task-system .clock{flex-direction:column;align-items:flex-end;justify-content:center;gap:1px;line-height:1.1}.task-system .clock b{font-size:13px;font-weight:600}.task-system .clock small{font-size:11px;color:var(--text-2)}.task-system .gear{padding:0 9px}.task-system .pct{font-size:11px}.dock .task-system button{background:transparent}.dock .task-system button:hover{background:var(--surface-3)}";
+
+fn system_html(
+    rect: desilium_ui::Rect,
+    settings: &desilium_config_types::ShellSettings,
+    status: &Status,
+) -> String {
+    let action = if settings.quick_settings {
+        "quick-settings"
+    } else {
+        "none"
+    };
+    let battery = match (settings.show_battery, status.battery) {
+        (true, Some(percent)) => format!(
+            "{}<span class=pct>{percent}%</span>",
+            icon_svg("battery", 18, "")
+        ),
+        _ => String::new(),
+    };
+    let clock = if settings.show_clock {
+        format!(
+            "<button class=clock data-action={action} data-tooltip='Calendar and notifications'><b>{}</b><small>{}</small></button>",
+            esc(&status.time),
+            esc(&status.date)
+        )
+    } else {
+        String::new()
+    };
+    format!(
+        "<div class=task-system style='{}'><button class=tray data-action={action} data-tooltip='Quick settings'>{}{}{battery}</button>{clock}<button class=gear data-action=settings data-tooltip='Settings'>{}</button></div>",
+        rect_style(rect),
+        icon_svg("wifi", 18, ""),
+        icon_svg("volume", 18, ""),
+        icon_svg("settings", 18, "")
+    )
+}
+
 /// Runtime rendering adds labels in taskbar mode while preserving the click/cycle model.
 pub fn configured_html(
     view: &DockView,
     layout: &DockLayout,
     settings: &desilium_config_types::ShellSettings,
-    status: &str,
+    status: &Status,
 ) -> String {
     let labels = settings.mode == desilium_config_types::PanelMode::Taskbar && settings.show_labels;
-    let radius = if settings.mode == desilium_config_types::PanelMode::Taskbar {
-        8
-    } else {
-        22
-    };
+    let taskbar = settings.mode == desilium_config_types::PanelMode::Taskbar;
+    let radius = if taskbar { TASKBAR_RADIUS } else { 22 };
     let icon = settings.icon_size.saturating_sub(2);
     let strip_width = layout.system.map_or(layout.width as f64, |rect| {
         (rect.x - f64::from(settings.spacing)).max(0.0)
@@ -100,6 +149,17 @@ pub fn configured_html(
         rect_style(layout.launcher),
         icon_svg("grid", 24, "")
     );
+    let tools = [
+        ("show-desktop", "Show desktop", "monitor"),
+        ("workspace-next", "Next workspace", "layers"),
+    ];
+    for (rect, (action, tip, glyph)) in layout.tools.iter().zip(tools) {
+        inner.push_str(&format!(
+            "<div class=dock-item data-action={action} data-tooltip='{tip}' style='{}'><span class=dock-tool>{}</span></div>",
+            rect_style(*rect),
+            icon_svg(glyph, 20, "")
+        ));
+    }
     for (index, cell) in view.cells.iter().enumerate() {
         let Some(rect) = layout.items.get(index).copied() else {
             continue;
@@ -120,7 +180,12 @@ pub fn configured_html(
         } else {
             String::new()
         };
-        inner.push_str(&format!("<div class=dock-item id=dock-{index} data-action=app data-middle-action=app-new data-secondary-action=app-menu data-arg='{}' data-tooltip='{}' style='{}'>{}{label}{dots}</div>",esc(&cell.key),esc(&cell.name),rect_style(rect),icon_html(&cell.icon,"",u32::from(icon))));
+        let focused = if cell.dots.contains(&Dot::Focused) {
+            " focused"
+        } else {
+            ""
+        };
+        inner.push_str(&format!("<div class='dock-item{focused}' id=dock-{index} data-action=app data-middle-action=app-new data-secondary-action=app-menu data-arg='{}' data-tooltip='{}' style='{}'>{}{label}{dots}</div>",esc(&cell.key),esc(&cell.name),rect_style(rect),icon_html(&cell.icon,"",u32::from(icon))));
     }
     if view.separator == Some(view.cells.len()) {
         let x = layout
@@ -132,9 +197,12 @@ pub fn configured_html(
             + f64::from(settings.spacing);
         inner.push_str(&separator(x, layout.height));
     }
-    let system=layout.system.map_or_else(String::new,|rect|format!("<button class=task-system data-action={} style='{}' data-tooltip='Quick settings'>{} ▾</button>",if settings.quick_settings{"quick-settings"}else{"none"},rect_style(rect),esc(status)));
+    let system = layout
+        .system
+        .map_or_else(String::new, |rect| system_html(rect, settings, status));
+    let taskbar_css = if taskbar { TASKBAR_CSS } else { "" };
     format!(
-        "<style>.dock{{position:relative;display:block;padding:0;border:0;box-shadow:inset 0 0 0 1px var(--glass-border);overflow:hidden;border-radius:{radius}px;background:color-mix(in srgb,var(--surface-1) {}%,transparent)}}.dock-strip{{position:absolute;left:0;top:0;height:100%;overflow-x:auto;overflow-y:hidden}}.dock-item{{display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box}}.dock-item .app-icon,.dock-item .app-img,.dock-launcher{{width:{icon}px;height:{icon}px;flex:none}}.task-label{{font-size:11px;min-width:0;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}.task-system{{display:flex;align-items:center;justify-content:center;font-size:12px;background:var(--surface-3);border-radius:8px;white-space:nowrap;cursor:pointer}}.dock-sep{{position:absolute;width:1px;margin:0}}</style><div class=dock id=dock style='width:{}px;height:{}px'><div class=dock-strip style='width:{strip_width}px'>{inner}</div>{system}</div>",
+        "<style>{taskbar_css}.dock{{position:relative;display:block;padding:0;border:0;box-shadow:inset 0 0 0 1px var(--glass-border);overflow:hidden;border-radius:{radius}px;background:color-mix(in srgb,var(--surface-1) {}%,transparent)}}.dock-strip{{position:absolute;left:0;top:0;height:100%;overflow-x:auto;overflow-y:hidden}}.dock-item{{display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box}}.dock-item .app-icon,.dock-item .app-img,.dock-launcher{{width:{icon}px;height:{icon}px;flex:none}}.task-label{{font-size:11px;min-width:0;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}.task-system{{font-size:12px;white-space:nowrap}}.dock-sep{{position:absolute;width:1px;margin:0}}</style><div class=dock id=dock style='width:{}px;height:{}px'><div class=dock-strip style='width:{strip_width}px'>{inner}</div>{system}</div>",
         settings.opacity, layout.width, layout.height
     )
 }

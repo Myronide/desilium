@@ -15,7 +15,7 @@ fn all_panel_preferences_are_graphical_validated_and_reversible() {
         ("shell.spacing", Value::Number(12.0)),
         ("shell.margin", Value::Number(20.0)),
         ("shell.opacity", Value::Number(80.0)),
-        ("shell.show_labels", Value::Bool(false)),
+        ("shell.show_labels", Value::Bool(true)),
         ("shell.show_running", Value::Bool(false)),
         ("shell.show_indicators", Value::Bool(false)),
         ("shell.show_workspaces", Value::Bool(false)),

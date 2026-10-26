@@ -88,10 +88,36 @@ impl Shell {
         match action {
             "launcher" => self.toggle_launcher(),
             "quick-settings" => self.toggle_quick_settings(true),
+            "settings" => self.open_settings(false),
+            "show-desktop" => self.show_desktop(),
+            "workspace-next" => {
+                if let Some(proto) = &self.proto {
+                    let count = self.workspaces.count.max(1);
+                    proto.switch_workspace((self.workspaces.active + 1) % count);
+                }
+            }
             "app" => self.dock_click(key),
             "app-menu" => self.open_context(key),
             "app-new" => self.dock_new_instance(key),
             _ => {}
+        }
+    }
+
+    /// Minimizes every window of the current workspace; when all are minimized already, restores them.
+    fn show_desktop(&mut self) {
+        let Some(proto) = &self.proto else {
+            return;
+        };
+        let workspace = self.workspaces.active;
+        let here: Vec<_> = self
+            .windows
+            .windows()
+            .iter()
+            .filter(|window| window.workspace == workspace)
+            .collect();
+        let hide = here.iter().any(|window| !window.minimized);
+        for window in here {
+            proto.set_minimized(window.id, hide);
         }
     }
 

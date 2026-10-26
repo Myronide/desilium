@@ -140,7 +140,7 @@ impl Shell {
             }
         }
     }
-    fn open_settings(&mut self, panel: bool) {
+    pub(super) fn open_settings(&mut self, panel: bool) {
         let path = std::env::current_exe()
             .ok()
             .map(|path| path.with_file_name("desilium-settings"))

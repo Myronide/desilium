@@ -441,6 +441,14 @@ fn surfaces_render_at_fractional_and_double_scale() {
     }
 }
 
+fn taskbar_status() -> crate::dock::Status {
+    crate::dock::Status {
+        time: "14:32".into(),
+        date: "26.10.2026".into(),
+        battery: Some(80),
+    }
+}
+
 #[test]
 fn quick_settings_and_taskbar_render_in_both_themes() {
     use crate::services::controls::{Link, LinkKind, State, WifiNetwork};
@@ -477,16 +485,35 @@ fn quick_settings_and_taskbar_render_in_both_themes() {
         assert!(rgba.iter().any(|byte| *byte != 0));
         let settings = desilium_config_types::ShellSettings {
             mode: desilium_config_types::PanelMode::Taskbar,
+            show_labels: true,
             ..Default::default()
         };
         let view = dock_view(false);
         let layout = crate::dock::layout::configured(view.cells.len(), None, &settings, 1280);
-        let html = crate::dock::configured_html_for_tests(&view, &layout, &settings, "14:32");
+        let html = crate::dock::configured_html_for_tests(&view, &layout, &settings, &taskbar_status());
         assert!(html.contains("task-label"));
+        let mut options = SurfaceOptions::new(layout.width, layout.height);
+        options.theme = theme.clone();
+        let mut ui = UiSurface::new(&html, &[BASE_CSS, DOCK_CSS], options).unwrap();
+        snapshot(&mut ui, &format!("taskbar-{name}"), wallpaper);
+
+        // The default look: centred icons without labels, tray, clock and settings on the right.
+        let settings = desilium_config_types::ShellSettings {
+            mode: desilium_config_types::PanelMode::Taskbar,
+            ..Default::default()
+        };
+        let view = dock_view(true);
+        let layout =
+            crate::dock::layout::configured(view.cells.len(), view.separator, &settings, 1280);
+        let html =
+            crate::dock::configured_html_for_tests(&view, &layout, &settings, &taskbar_status());
+        assert!(!html.contains("<span class=task-label>"));
+        assert!(html.contains("data-action=show-desktop"));
+        assert!(html.contains("data-action=settings"));
         let mut options = SurfaceOptions::new(layout.width, layout.height);
         options.theme = theme;
         let mut ui = UiSurface::new(&html, &[BASE_CSS, DOCK_CSS], options).unwrap();
-        snapshot(&mut ui, &format!("taskbar-{name}"), wallpaper);
+        snapshot(&mut ui, &format!("taskbar-default-{name}"), wallpaper);
     }
 }
 
@@ -504,7 +531,12 @@ fn configured_dock_hit_rectangles_match_rendered_cells_and_keep_status_separate(
             let view = dock_view(true);
             let layout =
                 crate::dock::layout::configured(view.cells.len(), view.separator, &settings, 1280);
-            let html = crate::dock::configured_html_for_tests(&view, &layout, &settings, "14:32");
+            let html = crate::dock::configured_html_for_tests(
+                &view,
+                &layout,
+                &settings,
+                &taskbar_status(),
+            );
             let mut ui = UiSurface::new(
                 &html,
                 &[BASE_CSS, DOCK_CSS],
