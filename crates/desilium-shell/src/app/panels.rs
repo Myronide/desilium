@@ -2,13 +2,14 @@
 
 use std::time::Instant;
 
-use desilium_config_types::Visibility;
+use desilium_config_types::{PanelEdge, Visibility};
 use desilium_ui::wayland::SurfaceId;
 
 use super::{Shell, timers::Due};
 use crate::{
     bar::BAR_HEIGHT,
     dock::layout::screen_rect,
+    quick::placement::Insets,
     visibility::{self, HIDE_DELAY, Presence},
 };
 
@@ -35,6 +36,24 @@ impl Shell {
             self.deadlines
                 .set(Due::Panels, Instant::now() + HIDE_DELAY);
         }
+    }
+
+    /// Edge space popups keep clear of: the bar at the top, the dock or taskbar at its edge.
+    pub(super) fn popup_insets(&self) -> Insets {
+        let settings = &self.store.get().shell;
+        let mut insets = Insets::default();
+        if settings.bar_enabled {
+            insets.top = BAR_HEIGHT;
+        }
+        if settings.panel_enabled {
+            let dock = self.dock.layout().height + u32::from(settings.margin);
+            if settings.edge == PanelEdge::Top {
+                insets.top += dock;
+            } else {
+                insets.bottom += dock;
+            }
+        }
+        insets
     }
 
     /// A popup opened from a panel keeps that panel on screen.

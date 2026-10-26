@@ -7,6 +7,8 @@ use desilium_ui::{
     wayland::{Anchor, KeyboardMode, Layer, LayerConfig, LayerHost, SurfaceId},
 };
 const CSS: &str = include_str!("style.css");
+/// Height the quick settings want; the placement shrinks it to the space between the panels.
+const DESIRED_HEIGHT: u32 = 640;
 pub struct AppMenu {
     pub key: String,
     pub name: String,
@@ -67,10 +69,11 @@ impl QuickSettings {
         settings: &desilium_config_types::ShellSettings,
         battery: &str,
         output: (i32, i32),
+        insets: placement::Insets,
         origin: placement::Origin,
     ) -> Result<(), UiError> {
         self.origin = origin;
-        self.reposition(host, settings, output)?;
+        self.reposition(host, output, insets)?;
         self.redraw(host, settings, battery)?;
         self.slot.show(host)?;
         Ok(())
@@ -78,15 +81,16 @@ impl QuickSettings {
     pub fn reposition(
         &mut self,
         host: &mut LayerHost,
-        settings: &desilium_config_types::ShellSettings,
         output: (i32, i32),
+        insets: placement::Insets,
     ) -> Result<(), UiError> {
         let desired = self
             .menu
             .as_ref()
-            .map_or(620, |menu| (220 + menu.windows.len() as u32 * 48).min(620));
-        let inset = u32::from(settings.icon_size) + 16 + u32::from(settings.margin);
-        let rect = placement::bounds(output, self.origin, desired, inset);
+            .map_or(DESIRED_HEIGHT, |menu| {
+                (220 + menu.windows.len() as u32 * 48).min(DESIRED_HEIGHT)
+            });
+        let rect = placement::bounds(output, self.origin, desired, insets);
         if let Some(ui) = self.slot.ui_mut(host) {
             ui.resize(rect.width as u32, rect.height as u32)?;
         }

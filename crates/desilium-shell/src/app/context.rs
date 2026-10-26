@@ -47,9 +47,11 @@ impl Shell {
             button,
             below: settings.edge == desilium_config_types::PanelEdge::Top,
         };
+        let insets = self.popup_insets();
+        let settings = &self.store.get().shell;
         if let Err(error) = self
             .quick
-            .open(&mut self.host, settings, "", output, origin)
+            .open(&mut self.host, settings, "", output, insets, origin)
         {
             tracing::warn!(%error,"app menu could not open");
         }

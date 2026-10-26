@@ -1,3 +1,44 @@
-.panel{height:100%;padding:24px;border-radius:20px;background:var(--glass-sheen),var(--surface-1);border:1px solid var(--border-strong);color:var(--text);display:flex;flex-direction:column;gap:16px}.heading{display:flex;align-items:center;justify-content:space-between}.heading h2{font-size:20px;font-weight:600}.heading small{font-size:11px;color:var(--text-2)}button{padding:8px 10px;border-radius:8px;background:var(--surface-3);cursor:pointer}button:hover{background:var(--surface-4)}.heading button{font-size:20px}.tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px}.tile{min-height:65px;text-align:left;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:12px}.tile strong{font-size:12px}.tile small{font-size:10px}.tile.on{background:var(--accent);color:var(--accent-text,#101a2d)}.unavailable{opacity:.5;background:var(--surface-2);border-radius:8px}.setting{display:flex;align-items:center;gap:7px;font-size:11px}.setting strong{flex:1;font-weight:500}.setting span{color:var(--text-2)}.profile{display:flex;gap:7px;margin-top:10px}.power strong{font-size:12px;font-weight:500}.profile button{flex:1;font-size:11px}.hint{font-size:11px;color:var(--text-2)}.notice{font-size:11px;line-height:1.6;color:var(--text-2);overflow-y:auto;max-height:60px}.panel-footer{display:flex;justify-content:space-between;margin-top:auto;font-size:11px;border-top:1px solid var(--border);padding-top:12px}
-
-.panel{overflow-y:auto}.tile.on{color:var(--text-on-accent,#fff)}
+.panel{height:100%;padding:16px;border-radius:20px;background:var(--glass-sheen),var(--surface-1);border:1px solid var(--border-strong);color:var(--text);display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+.heading{display:flex;align-items:center;justify-content:space-between}
+.heading h2{font-size:17px;font-weight:600}
+.heading small{font-size:11px;color:var(--text-2)}
+.heading-actions{display:flex;gap:6px}
+.heading-actions button{width:30px;height:30px;padding:0;font-size:15px;text-align:center}
+h3{font-size:10px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em}
+button{padding:7px 10px;border-radius:10px;background:var(--surface-3);cursor:pointer;font-size:12px}
+button:hover{background:var(--surface-4)}
+.net{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:var(--surface-2)}
+.net strong{display:block;font-size:12px;font-weight:600}
+.net small{display:block;font-size:11px;color:var(--text-2);margin-top:1px}
+.net .dot{width:9px;height:9px;border-radius:5px;background:var(--text-2);opacity:.5}
+.net.up .dot{background:var(--accent);opacity:1}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{min-height:48px;text-align:left;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:8px 12px;border-radius:12px}
+.tile strong{font-size:12px;font-weight:600}
+.tile small{font-size:10px;color:var(--text-2)}
+.tile.on{background:var(--accent);color:var(--text-on-accent,#fff)}
+.tile.on small{color:var(--text-on-accent,#fff);opacity:.8}
+.unavailable{opacity:.5;background:var(--surface-2)}
+.sliders{display:flex;flex-direction:column;gap:9px}
+.slider-head{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px}
+.slider-head strong{flex:1;font-weight:600}
+.slider-head span{color:var(--text-2)}
+.slider-head button{padding:2px 9px;font-size:11px}
+.level{display:flex;gap:2px;height:16px}
+.seg{flex:1;padding:0;border-radius:4px;background:var(--surface-3)}
+.seg.on{background:var(--accent)}
+.aps{display:flex;flex-direction:column;gap:3px}
+.ap{display:flex;justify-content:space-between;align-items:center;text-align:left;padding:6px 12px;background:var(--surface-2)}
+.ap small{font-size:10px;color:var(--text-2)}
+.ap.active{background:var(--accent);color:var(--text-on-accent,#fff)}
+.ap.active small{color:var(--text-on-accent,#fff)}
+.profile{display:flex;gap:6px;margin-top:5px}
+.profile button{flex:1;font-size:11px;text-align:center}
+.profile button.chosen{background:var(--accent);color:var(--text-on-accent,#fff)}
+.setting{display:flex;align-items:center;gap:7px;font-size:11px}
+.setting strong{flex:1;font-weight:500}
+.setting span{color:var(--text-2)}
+.hint{font-size:11px;color:var(--text-2)}
+.notice{font-size:11px;line-height:1.5;color:var(--text-2);overflow-y:auto;max-height:44px}
+.panel-footer{display:flex;gap:6px;margin-top:auto;border-top:1px solid var(--border);padding-top:10px}
+.panel-footer button{flex:1;font-size:11px;text-align:center}

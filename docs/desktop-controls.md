@@ -74,6 +74,35 @@ Bluetooth pairing, Wi-Fi network selection/password entry and audio output
 selection remain future work. The existing bar's compact network/audio glyphs
 are shortcuts; the quick panel carries the queried state.
 
+## Panel visibility
+
+The top bar and the dock/taskbar can each be switched off
+(`shell.bar_enabled`, `shell.panel_enabled`) and run in one of three modes
+(`shell.bar_visibility`, `shell.panel_visibility`): `always`, `auto-hide` and
+`avoid-windows`. A hidden panel shrinks to a 2 px strip at its screen edge;
+touching it brings the panel back, and it hides again 350 ms after the pointer
+leaves. `avoid-windows` hides a panel while a visible window of the current
+workspace overlaps it, using the `geometry` event of
+`desilium_toplevel_handle_v1`. Only `always` reserves screen space; the other
+modes let windows use the full output. An open popup keeps its panel visible.
+There is no slide animation yet.
+
+## Network
+
+The quick panel shows the active Ethernet or Wi-Fi connection and, with Wi-Fi
+on, up to five networks in range (strongest first). Selecting one runs
+`nmcli device wifi connect`, which works for open and already saved networks;
+password entry is not implemented. Everything goes through `nmcli`, so the
+section reads "NetworkManager unavailable" without it.
+
+## Arch Linux test image
+
+`scripts/docker-run.sh --arch` builds `docker/Dockerfile.arch`: the same
+binaries on an Arch runtime with pacman-installed NetworkManager, WirePlumber,
+brightnessctl and bluez-utils. Add `--net` to attach the container to the bridge
+network (the default is no network) so the Ethernet state can be tested.
+The container has no Wi-Fi radio, so only the Ethernet path is exercisable there.
+
 ## Validation
 
 Unit tests cover service-output parsing, invalid power-profile rejection,

@@ -443,8 +443,22 @@ fn surfaces_render_at_fractional_and_double_scale() {
 
 #[test]
 fn quick_settings_and_taskbar_render_in_both_themes() {
-    use crate::services::controls::State;
+    use crate::services::controls::{Link, LinkKind, State, WifiNetwork};
+    let network = |ssid: &str, signal, secured, active| WifiNetwork {
+        ssid: ssid.into(),
+        signal,
+        secured,
+        active,
+    };
     let state = State {
+        links: Some(vec![Link {
+            kind: LinkKind::Wifi,
+            name: "Office".into(),
+        }]),
+        networks: vec![
+            network("Office", 82, true, true),
+            network("Guest", 61, false, false),
+        ],
         volume: Some(42),
         microphone: Some(false),
         wifi: Some(true),
@@ -454,7 +468,7 @@ fn quick_settings_and_taskbar_render_in_both_themes() {
         ..Default::default()
     };
     for (name, theme, wallpaper) in themes() {
-        let mut options = SurfaceOptions::new(410, 620);
+        let mut options = SurfaceOptions::new(410, 640);
         options.theme = theme.clone();
         let html = crate::quick::html_for_tests(&state, &Default::default());
         let mut ui =

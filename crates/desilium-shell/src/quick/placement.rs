@@ -6,22 +6,32 @@ pub enum Origin {
     Bottom,
     App { button: Rect, below: bool },
 }
-pub fn bounds(output: (i32, i32), origin: Origin, desired_height: u32, panel_inset: u32) -> Rect {
+/// Space taken from the top and bottom screen edges by the bar and the dock.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Insets {
+    pub top: u32,
+    pub bottom: u32,
+}
+/// Gap between a panel and a popup that hangs off it.
+const GAP: f64 = 8.0;
+pub fn bounds(output: (i32, i32), origin: Origin, desired_height: u32, insets: Insets) -> Rect {
     let width = f64::from(output.0.max(1));
     let height = f64::from(output.1.max(1));
     let margin = 12.0f64.min((width.min(height) - 1.0).max(0.0) / 2.0);
     let popup_width = 410.0f64.min((width - 2.0 * margin).max(1.0));
     let desired = f64::from(desired_height);
+    let panel_inset = insets.bottom;
+    let below_bar = (f64::from(insets.top) + GAP).min(height - margin - 1.0);
     let (left, top, available) = match origin {
         Origin::Top => (
             width - popup_width - margin,
-            44.0f64.min(height - margin - 1.0),
-            height - 44.0 - margin,
+            below_bar,
+            height - below_bar - f64::from(insets.bottom) - margin,
         ),
         Origin::Bottom => (
             width - popup_width - margin,
             margin,
-            height - f64::from(panel_inset) - margin - 8.0,
+            height - f64::from(panel_inset) - margin - GAP,
         ),
         Origin::App { button, below } => {
             let above = (button.y - 8.0 - margin).max(0.0);
@@ -94,13 +104,31 @@ mod tests {
                     below: false,
                 },
             ] {
-                inside(bounds(size, origin, 620, 90), size);
+                let insets = Insets {
+                    top: 32,
+                    bottom: 90,
+                };
+                inside(bounds(size, origin, 620, insets), size);
             }
         }
     }
     #[test]
+    fn top_popup_hangs_below_the_bar_and_follows_its_height() {
+        let tall = bounds(
+            (1280, 800),
+            Origin::Top,
+            300,
+            Insets { top: 32, bottom: 0 },
+        );
+        let none = bounds((1280, 800), Origin::Top, 300, Insets::default());
+        assert_eq!(tall.y, 40.0);
+        assert_eq!(none.y, 12.0, "without a bar the popup keeps the screen margin");
+        assert_eq!(tall.x + tall.width, 1268.0);
+    }
+    #[test]
     fn bottom_popup_sits_above_taskbar_and_app_menu_follows_its_icon() {
-        let popup = bounds((1280, 800), Origin::Bottom, 620, 78);
+        let insets = Insets { top: 0, bottom: 78 };
+        let popup = bounds((1280, 800), Origin::Bottom, 620, insets);
         assert!(popup.y + popup.height <= 714.0);
         let button = Rect {
             x: 300.0,
@@ -115,7 +143,7 @@ mod tests {
                 below: false,
             },
             300,
-            78,
+            insets,
         );
         assert_eq!(popup.x + popup.width / 2.0, 324.0);
         assert_eq!(popup.y + popup.height, 714.0);

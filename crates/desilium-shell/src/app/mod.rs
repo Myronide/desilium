@@ -313,10 +313,8 @@ impl Shell {
         }
         if output_changed && self.quick.is_open() {
             let output = self.output_size().unwrap_or((1280, 800));
-            if let Err(error) =
-                self.quick
-                    .reposition(&mut self.host, &self.store.get().shell, output)
-            {
+            let insets = self.popup_insets();
+            if let Err(error) = self.quick.reposition(&mut self.host, output, insets) {
                 tracing::warn!(%error,"popup resize failed");
             }
         }

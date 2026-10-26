@@ -2,7 +2,9 @@
 # Build and run the Desilium compositor inside a locked-down container.
 #
 # Usage:
-#   scripts/docker-run.sh [--no-build] [compositor args...]
+#   scripts/docker-run.sh [--no-build] [--arch] [--net] [compositor args...]
+#     --arch  run on an Arch Linux image (pacman packages) instead of Debian
+#     --net   attach the container to the bridge network instead of none
 #   scripts/docker-run.sh --command kitty
 #
 # The compositor is a Wayland client of the host session (winit backend), so
@@ -24,10 +26,22 @@ CONTAINER_GID=1000
 CONTAINER_XDG="/tmp/xdg"
 
 build=1
-if [[ "${1:-}" == "--no-build" ]]; then
-    build=0
+dockerfile="Dockerfile"
+network="none"
+while (($#)); do
+    case "$1" in
+        --no-build) build=0 ;;
+        # Arch Linux runtime (pacman, NetworkManager): the closest match for a real Arch desktop.
+        --arch)
+            dockerfile="Dockerfile.arch"
+            IMAGE="desilium-dev-arch"
+            ;;
+        # Container network (bridge) instead of none: enables the Ethernet quick settings.
+        --net) network="bridge" ;;
+        *) break ;;
+    esac
     shift
-fi
+done
 
 command -v docker >/dev/null 2>&1 || die "'docker' not found in PATH"
 
@@ -49,7 +63,7 @@ RENDER_GID="$(stat -c %g "$RENDER_NODE")"
 
 if ((build)); then
     DOCKER_BUILDKIT=1 docker build \
-        -f "$REPO_ROOT/docker/Dockerfile" \
+        -f "$REPO_ROOT/docker/$dockerfile" \
         -t "$IMAGE" \
         "$REPO_ROOT"
 fi
@@ -70,8 +84,9 @@ fi
 #                       the host is not guaranteed in every setup)
 #   --cap-drop ALL      no Linux capabilities at all
 #   no-new-privileges   setuid binaries cannot raise privileges
-#   --network none      no network stack; Wayland uses a unix socket, which
-#                       still works through the bind mount
+#   --network none      no network stack by default; Wayland uses a unix socket,
+#                       which still works through the bind mount. --net switches
+#                       to the default bridge so Ethernet status can be tested
 #   --pids-limit        caps fork bombs and runaway child processes
 #   --memory / --cpus   bounds the host impact of a misbehaving build
 run_args=(
@@ -91,7 +106,7 @@ run_args=(
     --group-add "${RENDER_GID}"
     --cap-drop ALL
     --security-opt no-new-privileges
-    --network none
+    --network "${network}"
     --pids-limit 256
     --memory 2g
     --cpus 4

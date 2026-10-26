@@ -1,0 +1,94 @@
+# syntax=docker/dockerfile:1
+# Arch Linux variant of docker/Dockerfile: the same binaries on a pacman-based runtime, with the
+# NetworkManager, audio and brightness tools the quick settings talk to.
+# Run via `scripts/docker-run.sh --arch`.
+
+ARG BUILD_IMAGE=archlinux:base-devel
+ARG RUNTIME_IMAGE=archlinux:base
+
+# ---------------------------------------------------------------------------
+# Builder
+# ---------------------------------------------------------------------------
+FROM ${BUILD_IMAGE} AS builder
+
+RUN pacman -Syu --noconfirm --needed \
+        rust \
+        pkgconf \
+        wayland \
+        libxkbcommon \
+        mesa \
+        libinput \
+        systemd-libs \
+        seatd \
+        libdrm \
+        glib2 \
+        fontconfig \
+    && pacman -Scc --noconfirm
+
+WORKDIR /src
+COPY . .
+
+# The `rust` package ships the stable toolchain without rustup, so rust-toolchain.toml is ignored.
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    --mount=type=cache,target=/src/target \
+    set -eux; \
+    cargo build --release --locked \
+        -p desilium-compositor -p desilium-shell -p desilium-settings -p desilium-files; \
+    cp target/release/desilium-compositor target/release/desilium-shell \
+       target/release/desilium-settings target/release/doria /usr/local/bin/
+
+# ---------------------------------------------------------------------------
+# Runtime
+# ---------------------------------------------------------------------------
+FROM ${RUNTIME_IMAGE} AS runtime
+
+# networkmanager provides nmcli (Wi-Fi and Ethernet status); iproute2 and iw help with diagnosis
+# inside the container. Without a Wi-Fi radio the Wi-Fi tile reports "Unavailable", which is the
+# intended behavior on a headless test host.
+RUN pacman -Syu --noconfirm --needed \
+        wayland \
+        libxkbcommon \
+        xkeyboard-config \
+        mesa \
+        libinput \
+        systemd-libs \
+        seatd \
+        libdrm \
+        fontconfig \
+        glib2 \
+        gvfs \
+        kitty \
+        foot \
+        inter-font \
+        ttf-dejavu \
+        hicolor-icon-theme \
+        networkmanager \
+        iproute2 \
+        iw \
+        wireplumber \
+        brightnessctl \
+        bluez-utils \
+    && pacman -Scc --noconfirm
+
+RUN groupadd --gid 1000 desilium \
+    && useradd --uid 1000 --gid 1000 --no-create-home --home-dir /tmp/home --shell /bin/bash desilium
+
+COPY --from=builder /usr/local/bin/desilium-compositor /usr/local/bin/desilium-compositor
+COPY --from=builder /usr/local/bin/desilium-shell /usr/local/bin/desilium-shell
+COPY --from=builder /usr/local/bin/desilium-settings /usr/local/bin/desilium-settings
+COPY --from=builder /usr/local/bin/doria /usr/local/bin/doria
+COPY assets/wallpapers /usr/share/desilium/wallpapers
+COPY packaging/applications/org.desilium.Doria.desktop /usr/share/applications/org.desilium.Doria.desktop
+COPY packaging/icons/org.desilium.Doria.svg /usr/share/icons/hicolor/scalable/apps/org.desilium.Doria.svg
+COPY packaging/applications/desilium-settings.desktop /usr/share/applications/desilium-settings.desktop
+COPY assets/demo-apps /usr/share/desilium-demo
+
+ENV LANG=C.UTF-8 \
+    HOME=/tmp \
+    XDG_CACHE_HOME=/tmp/.cache
+
+USER 1000:1000
+
+ENTRYPOINT ["desilium-compositor"]
+CMD ["--command", "foot"]

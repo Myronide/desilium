@@ -24,11 +24,13 @@ impl Shell {
         } else {
             crate::quick::placement::Origin::Top
         };
+        let insets = self.popup_insets();
         if let Err(error) = self.quick.open(
             &mut self.host,
             &self.store.get().shell,
             &battery,
             output,
+            insets,
             origin,
         ) {
             tracing::warn!(%error,"quick settings could not open");
@@ -79,6 +81,7 @@ impl Shell {
                 return;
             }
             "wifi" => Action::Wifi(enabled),
+            "wifi-connect" => Action::WifiConnect(arg.into()),
             "bluetooth" => Action::Bluetooth(enabled),
             "microphone" => Action::Microphone(enabled),
             "mute" => Action::Mute(enabled),
