@@ -81,6 +81,9 @@ RUN groupadd --gid 1000 desilium \
     && chmod 0440 /etc/sudoers.d/10-desilium \
     && visudo -c
 
+# D-Bus (and with it Firefox, GTK, portals) wants a machine id; the pacman image ships none.
+RUN dbus-uuidgen --ensure=/etc/machine-id
+
 COPY --from=builder /usr/local/bin/desilium-compositor /usr/local/bin/desilium-compositor
 COPY --from=builder /usr/local/bin/desilium-shell /usr/local/bin/desilium-shell
 COPY --from=builder /usr/local/bin/desilium-settings /usr/local/bin/desilium-settings
@@ -91,9 +94,17 @@ COPY packaging/icons/org.desilium.Doria.svg /usr/share/icons/hicolor/scalable/ap
 COPY packaging/applications/desilium-settings.desktop /usr/share/applications/desilium-settings.desktop
 COPY assets/demo-apps /usr/share/desilium-demo
 
+# Docker's default seccomp profile forbids the user namespaces Firefox's own sandbox needs
+# (`clone() failure: EPERM`, then the content process dies). The container is the sandbox here,
+# so the browser sandboxes are off instead of loosening seccomp for the whole container.
 ENV LANG=C.UTF-8 \
     HOME=/tmp \
-    XDG_CACHE_HOME=/tmp/.cache
+    XDG_CACHE_HOME=/tmp/.cache \
+    MOZ_DISABLE_CONTENT_SANDBOX=1 \
+    MOZ_DISABLE_GMP_SANDBOX=1 \
+    MOZ_DISABLE_RDD_SANDBOX=1 \
+    MOZ_DISABLE_SOCKET_PROCESS_SANDBOX=1 \
+    MOZ_DISABLE_GPU_SANDBOX=1
 
 USER 1000:1000
 
