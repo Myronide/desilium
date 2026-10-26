@@ -1,0 +1,27 @@
+[package]
+name = "desilium-compositor"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[dependencies]
+desilium-config-types = { path = "../desilium-config-types" }
+desilium-wm = { path = "../desilium-wm" }
+desilium-theme = { path = "../desilium-theme" }
+desilium-text = { path = "../desilium-text" }
+desilium-cursor = { path = "../desilium-cursor" }
+desilium-anim = { path = "../desilium-anim" }
+desilium-wallpaper = { path = "../desilium-wallpaper" }
+desilium-config = { path = "../desilium-config" }
+smithay.workspace = true
+# Same crate smithay re-exports; enabled here only for the signals feature.
+calloop = { version = "0.14", features = ["signals"] }
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+png = "0.18"
+inotify = "0.11.5"
+
+[dev-dependencies]
+smithay-client-toolkit = "0.19"
+tempfile = "3.27.0"
