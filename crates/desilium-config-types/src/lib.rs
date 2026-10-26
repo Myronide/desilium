@@ -13,5 +13,7 @@ pub use shell::{PanelEdge, PanelMode, ShellSettings, Visibility};
 pub use root::*;
 
 pub use action::Action;
-pub use settings::{CompositorSettings, DEFAULT_DESKTOPS, FocusPolicy, MAX_DESKTOPS, MIN_DESKTOPS};
+pub use settings::{
+    CompositorSettings, DEFAULT_DESKTOPS, FocusPolicy, KeyboardLayout, MAX_DESKTOPS, MIN_DESKTOPS,
+};
 pub use shortcut::{Modifiers, Shortcut};

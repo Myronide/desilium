@@ -86,6 +86,16 @@ pub struct DesiliumState {
     shell: shell::ShellState,
 }
 
+/// XKB rules for the configured layout (model, variant and options stay at the system defaults).
+pub(crate) fn xkb_config(
+    settings: &CompositorSettings,
+) -> smithay::input::keyboard::XkbConfig<'static> {
+    smithay::input::keyboard::XkbConfig {
+        layout: settings.keyboard_layout.xkb_name(),
+        ..Default::default()
+    }
+}
+
 impl DesiliumState {
     pub fn new(
         handle: &LoopHandle<'static, Self>,
@@ -97,7 +107,7 @@ impl DesiliumState {
         let mut seat_state = SeatState::new();
         let mut seat = seat_state.new_wl_seat(&dh, SEAT_NAME);
         seat.add_keyboard(
-            Default::default(),
+            xkb_config(&settings),
             settings.keyboard_repeat_delay.into(),
             settings.keyboard_repeat_rate.into(),
         )

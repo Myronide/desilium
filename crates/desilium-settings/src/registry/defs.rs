@@ -1,6 +1,8 @@
 //! The settings table. Add a setting here and it shows up everywhere.
 
-use desilium_config_types::{DesiliumConfig, FocusPolicy, PanelEdge, PanelMode, Visibility};
+use desilium_config_types::{
+    DesiliumConfig, FocusPolicy, KeyboardLayout, PanelEdge, PanelMode, Visibility,
+};
 
 use super::{Choice, Control, Page, SettingDef, Slider, Stepper, value::Value};
 use crate::shortcuts;
@@ -39,6 +41,10 @@ const VISIBILITY_MODES: &[Choice] = &[
     Choice::new("always", "Always visible"),
     Choice::new("auto-hide", "Auto-hide"),
     Choice::new("avoid-windows", "Dodge windows"),
+];
+const KEYBOARD_LAYOUTS: &[Choice] = &[
+    Choice::new("de", "Deutsch (DE)"),
+    Choice::new("us", "English (US)"),
 ];
 const FOCUS_MODES: &[Choice] = &[
     Choice::new("click", "Click"),
@@ -366,6 +372,25 @@ pub(super) static ALL: &[SettingDef] = &[
         set: |config, value| {
             if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
                 config.compositor.keyboard_repeat_rate = number;
+            }
+        },
+    },
+    SettingDef {
+        id: "compositor.keyboard_layout",
+        page: Page::Keyboard,
+        section: "Layout",
+        title: "Keyboard layout",
+        description: "Key mapping for all applications; also switchable from the top bar",
+        keywords: &["language", "german", "english", "qwertz", "qwerty", "input", "de", "us"],
+        control: Control::Segmented(KEYBOARD_LAYOUTS),
+        get: |config| text(config.compositor.keyboard_layout.xkb_name()),
+        set: |config, value| {
+            if let Value::Text(name) = value
+                && let Some(layout) = KeyboardLayout::ALL
+                    .into_iter()
+                    .find(|layout| layout.xkb_name() == name)
+            {
+                config.compositor.keyboard_layout = layout;
             }
         },
     },

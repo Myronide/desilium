@@ -115,6 +115,12 @@ impl DesiliumState {
     fn apply_compositor(&mut self, settings: &CompositorSettings) {
         self.shortcuts = ShortcutTable::from_settings(settings);
         self.set_desktop_count(usize::from(settings.desktops));
+        if settings.keyboard_layout != self.settings.keyboard_layout
+            && let Some(keyboard) = self.seat.get_keyboard()
+            && let Err(error) = keyboard.set_xkb_config(self, super::xkb_config(settings))
+        {
+            warn!(%error, "keyboard layout could not be changed");
+        }
         if let Some(keyboard) = self.seat.get_keyboard() {
             keyboard.change_repeat_info(
                 settings.keyboard_repeat_rate.into(),

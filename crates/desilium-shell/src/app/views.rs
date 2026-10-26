@@ -1,6 +1,7 @@
 //! Builds what the bar and dock show from the models, and keeps minimize targets in sync.
 
 use desilium_apps::{Catalog, IconResolver};
+use desilium_config_types::KeyboardLayout;
 use desilium_ui::{Rect, wayland::SurfaceId};
 
 use super::Shell;
@@ -30,8 +31,6 @@ pub const LAUNCHER_BLUR: u32 = 32;
 pub const LAUNCHER_RADIUS: u32 = 20;
 /// Edge of the dock's app icons in logical pixels.
 const DOCK_ICON_PX: u32 = 48;
-/// Keyboard layout label until the compositor reports the layout.
-const PLACEHOLDER_LAYOUT: &str = "EN";
 /// Bar text when no window has focus.
 const DESKTOP_NAME: &str = "Desktop";
 const DESKTOP_GLYPH: &str = "monitor";
@@ -83,13 +82,14 @@ pub fn bar_view(
     lookup: &dyn AppLookup,
     clock: &ClockText,
     battery: Option<Battery>,
+    layout: KeyboardLayout,
 ) -> BarView {
     BarView {
         workspaces,
         app: active_app(model, lookup),
         clock: clock.clone(),
         battery,
-        layout: PLACEHOLDER_LAYOUT.to_owned(),
+        layout: layout.label().to_owned(),
     }
 }
 
@@ -136,7 +136,14 @@ pub fn initial_views(
     let model = WindowModel::default();
     let lookup = CatalogLookup(catalog);
     InitialViews {
-        bar: bar_view(&model, Workspaces::default(), &lookup, clock, battery),
+        bar: bar_view(
+            &model,
+            Workspaces::default(),
+            &lookup,
+            clock,
+            battery,
+            KeyboardLayout::default(),
+        ),
         dock: dock_view(pins, &model, catalog, resolver, 1).0,
     }
 }
@@ -159,6 +166,7 @@ impl Shell {
             &lookup,
             &self.clock,
             self.battery,
+            self.store.get().compositor.keyboard_layout,
         );
         self.bar.show(&mut self.host, view);
         self.bar.configure(&mut self.host, &self.store.get().shell);

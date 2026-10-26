@@ -26,6 +26,44 @@ pub enum FocusPolicy {
     Sloppy,
 }
 
+/// Keyboard layouts offered in the settings and the top bar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyboardLayout {
+    #[default]
+    De,
+    Us,
+}
+
+impl KeyboardLayout {
+    /// Every layout, in the order the top bar cycles through them.
+    pub const ALL: [Self; 2] = [Self::De, Self::Us];
+
+    /// XKB layout name.
+    pub fn xkb_name(self) -> &'static str {
+        match self {
+            Self::De => "de",
+            Self::Us => "us",
+        }
+    }
+
+    /// Short label for the top bar.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::De => "DE",
+            Self::Us => "US",
+        }
+    }
+
+    /// The layout after this one, wrapping around.
+    pub fn next(self) -> Self {
+        match self {
+            Self::De => Self::Us,
+            Self::Us => Self::De,
+        }
+    }
+}
+
 /// User-facing compositor settings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -44,6 +82,7 @@ pub struct CompositorSettings {
     pub snap_distance: u16,
     pub keyboard_repeat_delay: u16,
     pub keyboard_repeat_rate: u16,
+    pub keyboard_layout: KeyboardLayout,
 }
 
 impl Default for CompositorSettings {
@@ -88,6 +127,7 @@ impl Default for CompositorSettings {
             snap_distance: 8,
             keyboard_repeat_delay: 200,
             keyboard_repeat_rate: 25,
+            keyboard_layout: KeyboardLayout::De,
         }
     }
 }
@@ -95,6 +135,23 @@ impl Default for CompositorSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn layout_defaults_to_german_and_cycles() {
+        assert_eq!(
+            CompositorSettings::default().keyboard_layout,
+            KeyboardLayout::De
+        );
+        assert_eq!(KeyboardLayout::De.next(), KeyboardLayout::Us);
+        assert_eq!(KeyboardLayout::Us.next(), KeyboardLayout::De);
+        assert_eq!(KeyboardLayout::Us.xkb_name(), "us");
+    }
+
+    #[test]
+    fn old_files_without_a_layout_get_german() {
+        let parsed: CompositorSettings = toml::from_str("desktops = 2").expect("parse");
+        assert_eq!(parsed.keyboard_layout, KeyboardLayout::De);
+    }
 
     #[test]
     fn defaults_keep_core_shortcuts_first_then_window_actions() {

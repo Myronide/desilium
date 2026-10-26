@@ -97,7 +97,7 @@ fn battery_html(battery: Battery) -> String {
 pub fn right_html(view: &BarView) -> String {
     let battery = view.battery.map(battery_html).unwrap_or_default();
     format!(
-        "<div class=\"tb-btn dim static\" data-tooltip=\"Keyboard layout\">{layout}</div>\
+        "<div class=\"tb-btn dim\" data-action=layout data-tooltip=\"Keyboard layout (click to switch)\">{layout}</div>\
          <div class=tb-group data-action=quick-settings data-tooltip=\"Quick settings\">{wifi}{volume}{battery}{chevron}</div>\
          <div class=\"tb-btn dim\" data-action=power data-tooltip=\"Power\">{power}</div>",
         layout = esc(&view.layout),

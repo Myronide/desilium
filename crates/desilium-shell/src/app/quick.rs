@@ -118,7 +118,10 @@ impl Shell {
         };
         self.quick_send(command);
     }
-    fn edit_quick_config(&mut self, edit: impl FnOnce(&mut desilium_config_types::DesiliumConfig)) {
+    pub(super) fn edit_quick_config(
+        &mut self,
+        edit: impl FnOnce(&mut desilium_config_types::DesiliumConfig),
+    ) {
         let mut transaction = self.store.transaction();
         transaction.edit(edit);
         match transaction.commit() {

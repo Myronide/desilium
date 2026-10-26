@@ -77,6 +77,9 @@ impl Shell {
                 }
             }
             "quick-settings" | "power" | "calendar" => self.toggle_quick_settings(false),
+            "layout" => self.edit_quick_config(|config| {
+                config.compositor.keyboard_layout = config.compositor.keyboard_layout.next();
+            }),
             _ => {}
         }
     }
