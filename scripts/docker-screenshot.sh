@@ -94,7 +94,7 @@ run_args=(
 )
 
 # Development overrides are forwarded only when set (see docs/headless.md).
-for dev_var in DESILIUM_WALLPAPER DESILIUM_DEBUG_SNAP; do
+for dev_var in DESILIUM_WALLPAPER DESILIUM_DEBUG_SNAP DESILIUM_DEBUG_POPUP DESILIUM_DEBUG_GLASS DESILIUM_DEBUG_LAYER_BLUR; do
     if [[ -n "${!dev_var:-}" ]]; then
         run_args+=(-e "${dev_var}=${!dev_var}")
     fi

@@ -13,6 +13,7 @@ desilium-cursor = { path = "../desilium-cursor" }
 desilium-anim = { path = "../desilium-anim" }
 desilium-wallpaper = { path = "../desilium-wallpaper" }
 desilium-config = { path = "../desilium-config" }
+desilium-protocols = { path = "../desilium-protocols", features = ["server"] }
 smithay.workspace = true
 # Same crate smithay re-exports; enabled here only for the signals feature.
 calloop = { version = "0.14", features = ["signals"] }
@@ -23,5 +24,6 @@ png = "0.18"
 inotify = "0.11.5"
 
 [dev-dependencies]
+desilium-protocols = { path = "../desilium-protocols", features = ["client", "server"] }
 smithay-client-toolkit = "0.19"
 tempfile = "3.27.0"

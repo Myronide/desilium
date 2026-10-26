@@ -57,6 +57,11 @@ impl DesiliumState {
         let Some(id) = self.wm.focused() else {
             return;
         };
+        self.move_window_to_desktop(id, index);
+    }
+
+    /// Moves window `id` to desktop `index`; the active desktop stays in view.
+    pub(crate) fn move_window_to_desktop(&mut self, id: WindowId, index: usize) {
         if index == self.wm.active() || !self.wm.move_window_to(id, index) {
             return;
         }

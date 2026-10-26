@@ -41,7 +41,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     fi; \
     cp target/release/desilium-compositor /usr/local/bin/desilium-compositor; \
     cargo build --release -p desilium-compositor --example layer_client; \
-    cp target/release/examples/layer_client /usr/local/bin/layer-client
+    cp target/release/examples/layer_client /usr/local/bin/layer-client; \
+    cargo build --release -p desilium-ui --example layer_demo; \
+    cp target/release/examples/layer_demo /usr/local/bin/ui-demo
 
 # ---------------------------------------------------------------------------
 # Runtime
@@ -75,6 +77,7 @@ RUN groupadd --gid 1000 desilium \
 
 COPY --from=builder /usr/local/bin/desilium-compositor /usr/local/bin/desilium-compositor
 COPY --from=builder /usr/local/bin/layer-client /usr/local/bin/layer-client
+COPY --from=builder /usr/local/bin/ui-demo /usr/local/bin/ui-demo
 COPY assets/wallpapers /usr/share/desilium/wallpapers
 
 # The root filesystem is mounted read-only at run time; /tmp is the only

@@ -4,6 +4,7 @@ mod handlers;
 mod input;
 pub(crate) mod layers;
 mod settings;
+mod shell;
 mod windows;
 
 pub use chrome::CursorSource;
@@ -82,6 +83,8 @@ pub struct DesiliumState {
     layer_shell_state: WlrLayerShellState,
     /// Window animation clock and per-window motion state.
     motion: animation::MotionRuntime,
+    /// Private protocol for the desktop shell.
+    shell: shell::ShellState,
 }
 
 impl DesiliumState {
@@ -128,6 +131,7 @@ impl DesiliumState {
             protocols: ProtocolStates::new(handle, &dh),
             layer_shell_state: WlrLayerShellState::new::<Self>(&dh),
             motion: animation::MotionRuntime::new(start_time),
+            shell: shell::ShellState::new(&dh),
         })
     }
 

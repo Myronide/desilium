@@ -9,8 +9,11 @@ mod plan;
 mod title;
 
 use super::SceneContext;
-use super::effects::{Border, Corners, EffectSlot, Effects, Fill, Rgba, RoundedRect, Shadow};
+use super::effects::{
+    BackdropBlurParams, Border, Corners, EffectSlot, Effects, Fill, Rgba, RoundedRect, Shadow,
+};
 use super::elements::DesiliumElement;
+use super::glass::{self, GlassKey};
 use super::scene::rgba;
 use crate::animation::Xform;
 use crate::decoration::{Button, GlyphKind, Metrics};
@@ -135,10 +138,13 @@ pub fn push_chrome(
 ) {
     let theme = ctx.state.theme();
     let metrics = ctx.state.chrome_metrics();
+    let translucency =
+        glass::debug::titlebar_translucency(ctx).unwrap_or(theme.effects.titlebar_translucency);
     let look = Look {
         focus: window.focus,
         maximized: window.state == desilium_wm::WindowState::Maximized,
         fades: window.fades,
+        bar_opacity: plan::title_opacity(translucency),
     };
     let paints = plan::plan(theme, &metrics, &window.frame, &look);
     let Ok(mut inner) = ctx.resources.decoration.try_inner() else {
@@ -148,11 +154,15 @@ pub fn push_chrome(
         inner: &mut inner,
         renderer,
         effects: ctx.resources.effects.as_ref(),
+        glass: &ctx.resources.glass,
         scale: ctx.scale,
         window,
         view,
         theme,
         metrics: &metrics,
+        glass_behind_bar: view.layer == Layer::Screen
+            && view.xform.is_identity()
+            && look.bar_opacity < 1.0,
         out,
     };
     for paint in paints {
@@ -216,11 +226,15 @@ struct Pass<'a> {
     inner: &'a mut Inner,
     renderer: &'a mut GlesRenderer,
     effects: Option<&'a Effects>,
+    glass: &'a glass::Glass,
     scale: f64,
     window: &'a SceneWindow,
     view: View,
     theme: &'a Theme,
     metrics: &'a Metrics,
+    /// Whether the title bar gets real backdrop blur: only at rest and on screen (a moving window
+    /// has no stable backdrop, and snapshots are rendered into their own list).
+    glass_behind_bar: bool,
     out: &'a mut Vec<DesiliumElement>,
 }
 
@@ -267,8 +281,22 @@ impl Pass<'_> {
                     .corners(Corners::top(top_radius))
                     .fill(fill);
                 self.push_rect(Part::TitleBar, params);
+                self.request_bar_glass(rect, top_radius);
             }
         }
+    }
+
+    /// Records the glass right below the title bar fill that was just pushed.
+    fn request_bar_glass(&self, rect: Rect, top_radius: f32) {
+        if !self.glass_behind_bar || self.theme.effects.blur_radius <= 0.0 {
+            return;
+        }
+        let params = BackdropBlurParams::new(logical_rect(rect), self.theme.effects.blur_radius)
+            .scale(self.scale)
+            .corners(Corners::top(top_radius))
+            .saturation(self.theme.effects.backdrop_saturation);
+        self.glass
+            .request(GlassKey::TitleBar(self.window.id), self.out.len(), params);
     }
 
     fn rect(&self, rect: Rect, color: Rgba) -> RoundedRect {

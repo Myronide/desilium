@@ -281,3 +281,72 @@ fn switch_and_move_to_the_same_desktop_are_no_ops() {
     assert_eq!(desks.focused(), Some(id));
     assert_eq!(desks.all_windows(), vec![(id, 0)]);
 }
+
+#[test]
+fn state_changes_route_to_a_window_on_a_hidden_desktop() {
+    let mut desks = Desktops::new(area(), 2);
+    desks.set_work_area(Rect::new(0, 30, 1000, 770));
+    desks.switch_to(1);
+    let id = desks.open_window(sz(100, 100));
+    desks.switch_to(0);
+    let done = desks.with_window_manager(id, |wm| wm.maximize(id));
+    assert_eq!(done, Some(true));
+    assert_eq!(desks.active(), 0);
+    assert_eq!(desks.window_state(id), Some(WindowState::Maximized));
+    assert_eq!(
+        desks.manager(1).and_then(|m| m.window_state(id)),
+        Some(WindowState::Maximized)
+    );
+    assert_eq!(desks.rect(id), Some(Rect::new(0, 30, 1000, 770)));
+}
+
+#[test]
+fn with_window_manager_is_none_for_unknown_ids() {
+    let mut desks = Desktops::new(area(), 2);
+    assert_eq!(
+        desks.with_window_manager(WindowId::new(42), |wm| wm.maximize(WindowId::new(42))),
+        None
+    );
+}
+
+#[test]
+fn window_state_and_restore_rect_reach_hidden_desktops() {
+    let mut desks = Desktops::new(area(), 2);
+    let id = desks.open_window(sz(100, 100));
+    assert!(desks.move_window_to(id, 1));
+    assert_eq!(desks.window_state(id), Some(WindowState::Normal));
+    assert!(desks.with_window_manager(id, |wm| wm.minimize(id)) == Some(true));
+    assert_eq!(desks.window_state(id), Some(WindowState::Minimized));
+    assert_eq!(desks.restore_rect(id), None);
+    assert_eq!(desks.window_state(WindowId::new(999)), None);
+}
+
+#[test]
+fn work_area_change_refits_maximized_windows_on_hidden_desktops() {
+    let mut desks = Desktops::new(area(), 2);
+    desks.switch_to(1);
+    let id = desks.open_window(sz(100, 100));
+    assert_eq!(
+        desks.with_window_manager(id, |wm| wm.maximize(id)),
+        Some(true)
+    );
+    desks.switch_to(0);
+    let panel_free = Rect::new(0, 40, 1000, 760);
+    desks.set_work_area(panel_free);
+    assert_eq!(desks.rect(id), Some(panel_free));
+    assert_eq!(desks.manager(1).and_then(|m| m.rect(id)), Some(panel_free));
+}
+
+#[test]
+fn all_placements_cover_every_desktop_including_minimized() {
+    let mut desks = Desktops::new(area(), 3);
+    let first = desks.open_window(sz(10, 10));
+    desks.switch_to(2);
+    let second = desks.open_window(sz(20, 20));
+    assert!(desks.with_window_manager(second, |wm| wm.minimize(second)) == Some(true));
+    let placed = desks.all_placements();
+    let ids: Vec<WindowId> = placed.iter().map(|p| p.id).collect();
+    assert_eq!(ids, vec![first, second]);
+    assert_eq!(placed[1].state, WindowState::Minimized);
+    assert_eq!(placed[0].rect.size, sz(10, 10));
+}

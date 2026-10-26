@@ -3,7 +3,7 @@ use super::effects::{Corners, Rgba, RoundedSurfaceElement};
 use super::elements::DesiliumElement;
 use super::resources::RenderResources;
 use super::transform::NoOpaque;
-use super::{background, cursor, decoration, layers, overlay, snapshot};
+use super::{background, cursor, decoration, glass, layers, overlay, popups, snapshot};
 use crate::animation::Xform;
 use crate::decoration::{Chrome, Frame};
 use crate::state::{DesiliumState, SceneWindow};
@@ -17,11 +17,8 @@ use smithay::backend::renderer::element::utils::{
 };
 use smithay::backend::renderer::element::{Element, Kind};
 use smithay::backend::renderer::gles::GlesRenderer;
-use smithay::desktop::PopupManager;
 use smithay::output::Output;
 use smithay::utils::{Logical, Physical, Point, Rectangle};
-
-const OPAQUE: f32 = 1.0;
 
 /// Everything a frame needs besides the renderer.
 pub struct SceneContext<'a> {
@@ -53,10 +50,20 @@ impl<'a> SceneContext<'a> {
 pub fn build(renderer: &mut GlesRenderer, ctx: &SceneContext<'_>) -> Vec<DesiliumElement> {
     let theme = ctx.state.theme();
     let mut elements = Vec::new();
-    ctx.resources.decoration.begin_frame();
+    let resources = ctx.resources;
+    resources.decoration.begin_frame();
+    resources.popups.begin_frame();
+    resources.glass.begin_frame();
+    resources.glass.track_output(
+        renderer,
+        resources.effects.as_ref(),
+        ctx.area.size,
+        ctx.scale,
+    );
     cursor::push(&mut elements, renderer, ctx);
     overlay::push(&mut elements, renderer, ctx);
     layers::push_above(&mut elements, renderer, ctx);
+    glass::debug::push_popup(&mut elements, ctx);
     let windows = ctx.state.scene_windows();
     let closing = ctx.state.closing_windows();
     for ghost in &closing {
@@ -80,9 +87,13 @@ pub fn build(renderer: &mut GlesRenderer, ctx: &SceneContext<'_>) -> Vec<Desiliu
     for id in dropped {
         ctx.state.note_snapshot(id, false);
     }
-    ctx.resources.decoration.end_frame();
+    resources.decoration.end_frame();
     layers::push_below(&mut elements, renderer, ctx);
     background::push(&mut elements, renderer, ctx);
+    resources.popups.end_frame();
+    resources
+        .glass
+        .resolve(resources.effects.as_ref(), ctx.scale, &mut elements);
     elements
 }
 
@@ -131,8 +142,9 @@ pub(super) fn push_window(
 
     let surface = toplevel.wl_surface();
     // Popups are only drawn while the window rests: they have no snapshot to animate with.
-    if xform.is_identity() {
-        push_popups(out, renderer, ctx, window, surface);
+    if xform.is_identity() && view.layer == Layer::Screen {
+        let client_origin = (window.frame.client.loc.x, window.frame.client.loc.y).into();
+        popups::push(out, renderer, ctx, client_origin, surface);
     }
     decoration::push_chrome(out, renderer, ctx, window, view);
     let tree: Vec<WaylandSurfaceRenderElement<GlesRenderer>> = render_elements_from_surface_tree(
@@ -273,31 +285,6 @@ fn client_corners(
         Chrome::Maximized => Corners::NONE,
         Chrome::None if flat => Corners::NONE,
         Chrome::None => Corners::all(radius),
-    }
-}
-
-fn push_popups(
-    out: &mut Vec<DesiliumElement>,
-    renderer: &mut GlesRenderer,
-    ctx: &SceneContext<'_>,
-    window: &SceneWindow,
-    surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
-) {
-    let client_origin: Point<i32, Logical> =
-        (window.frame.client.loc.x, window.frame.client.loc.y).into();
-    for (popup, offset) in PopupManager::popups_for_surface(surface) {
-        let location: Point<i32, Physical> =
-            (client_origin + offset - popup.geometry().loc).to_physical_precise_round(ctx.scale);
-        let elements: Vec<WaylandSurfaceRenderElement<GlesRenderer>> =
-            render_elements_from_surface_tree(
-                renderer,
-                popup.wl_surface(),
-                location,
-                ctx.scale,
-                OPAQUE,
-                Kind::Unspecified,
-            );
-        out.extend(elements.into_iter().map(DesiliumElement::from));
     }
 }
 

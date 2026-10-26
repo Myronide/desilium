@@ -1,6 +1,6 @@
 use crate::state::DesiliumState;
 use crate::state::chrome::DRAG_THRESHOLD;
-use desilium_wm::{Edges, Point, Rect, Size, SnapZone, WindowId, resized_size};
+use desilium_wm::{Edges, Point, Rect, Size, SnapZone, WindowId, WindowState, resized_size};
 use smithay::input::pointer::{
     AxisFrame, ButtonEvent, GestureHoldBeginEvent, GestureHoldEndEvent, GesturePinchBeginEvent,
     GesturePinchEndEvent, GesturePinchUpdateEvent, GestureSwipeBeginEvent, GestureSwipeEndEvent,
@@ -13,6 +13,17 @@ use smithay::utils::{Logical, Point as LogicalPoint};
 
 /// Linux input-event-codes.h BTN_LEFT.
 pub const BTN_LEFT: u32 = 0x110;
+
+/// Whether a grab may keep acting on its window. The window must still exist, sit on the desktop
+/// in view and not be minimized; maximized and fullscreen windows stay live because a title bar
+/// drag restores them.
+pub fn grab_target_is_live(
+    desktop: Option<usize>,
+    active: usize,
+    state: Option<WindowState>,
+) -> bool {
+    desktop == Some(active) && state.is_some_and(|state| state != WindowState::Minimized)
+}
 
 enum Mode {
     Move {
@@ -128,21 +139,38 @@ impl WindowGrab {
     }
 
     /// Commits the gesture on release: a resize is final, a move snaps if it hovered a zone.
+    /// A grab whose window is no longer in view ends without snapping, but a resize still
+    /// leaves its window's resize phase so the window is not stuck mid-resize on its desktop.
     fn finish(&self, data: &mut DesiliumState) {
+        let live = data.grab_target_live(self.id);
         match &self.mode {
             Mode::Move {
                 snap: Some(zone), ..
-            } => data.snap_window_to(self.id, *zone),
-            Mode::Move { snap: None, .. } => {}
+            } if live => data.snap_window_to(self.id, *zone),
+            Mode::Move { .. } => {}
             Mode::Resize { last_size, .. } => {
                 data.configure_resize(self.id, *last_size, false);
-                data.wm.end_resize(self.id);
+                data.end_window_resize(self.id);
             }
         }
     }
 }
 
 impl DesiliumState {
+    /// Whether an interactive grab on `id` may keep acting (see [`grab_target_is_live`]).
+    fn grab_target_live(&self, id: WindowId) -> bool {
+        grab_target_is_live(
+            self.wm.desktop_of(id),
+            self.wm.active(),
+            self.wm.window_state(id),
+        )
+    }
+
+    /// Ends the resize bookkeeping of `id` on whichever desktop holds it.
+    fn end_window_resize(&mut self, id: WindowId) {
+        self.wm.with_window_manager(id, |wm| wm.end_resize(id));
+    }
+
     /// `frame` is the whole window frame; the client gets the part inside the chrome.
     fn configure_resize(&self, id: desilium_wm::WindowId, frame: Size, resizing: bool) {
         let size = self.client_size_for_frame(id, frame);
@@ -169,6 +197,12 @@ impl PointerGrab<DesiliumState> for WindowGrab {
         _focus: Option<(WlSurface, LogicalPoint<f64, Logical>)>,
         event: &MotionEvent,
     ) {
+        // Desktop switches, closes and minimizes reach the grab here; it ends instead of acting.
+        if !data.grab_target_live(self.id) {
+            handle.unset_grab(self, data, event.serial, event.time, true);
+            self.finish(data);
+            return;
+        }
         // While the grab is active no client has pointer focus.
         handle.motion(data, None, event);
         self.drag(
@@ -306,5 +340,41 @@ fn whole_point(location: LogicalPoint<f64, Logical>) -> Point {
     Point {
         x: location.x.floor() as i32,
         y: location.y.floor() as i32,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn grab_on_the_visible_desktop_stays_live_in_every_visible_state() {
+        for state in [
+            WindowState::Normal,
+            WindowState::Maximized,
+            WindowState::Fullscreen,
+        ] {
+            assert!(grab_target_is_live(Some(1), 1, Some(state)), "{state:?}");
+        }
+    }
+
+    #[test]
+    fn grab_ends_when_the_window_is_on_another_desktop() {
+        assert!(!grab_target_is_live(Some(0), 1, Some(WindowState::Normal)));
+    }
+
+    #[test]
+    fn grab_ends_when_the_window_was_destroyed() {
+        assert!(!grab_target_is_live(None, 0, None));
+        assert!(!grab_target_is_live(Some(0), 0, None));
+    }
+
+    #[test]
+    fn grab_ends_when_the_window_is_minimized() {
+        assert!(!grab_target_is_live(
+            Some(0),
+            0,
+            Some(WindowState::Minimized)
+        ));
     }
 }

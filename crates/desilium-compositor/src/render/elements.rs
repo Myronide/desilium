@@ -1,4 +1,4 @@
-use super::effects::RoundedSurfaceElement;
+use super::effects::{BackdropBlur, RoundedSurfaceElement};
 use super::transform::NoOpaque;
 use smithay::backend::renderer::element::memory::MemoryRenderBufferRenderElement;
 use smithay::backend::renderer::element::render_elements;
@@ -23,6 +23,8 @@ render_elements! {
     Snapshot = TextureRenderElement<GlesTexture>,
     /// Procedural quads: shadows, frames, backgrounds.
     Shader = PixelShaderElement,
+    /// Frosted glass: blurs whatever was drawn below it.
+    Glass = BackdropBlur,
     /// CPU-rendered bitmaps uploaded as textures: title text, cursors.
     Memory = MemoryRenderBufferRenderElement<GlesRenderer>,
 }

@@ -67,3 +67,27 @@ scripts/docker-screenshot.sh --out docs/screenshots/motion-focus-025.png --freez
 # Close, 80 ms into the 160 ms fade of the window's last-frame snapshot
 scripts/docker-screenshot.sh --out docs/screenshots/motion-close-080.png --freeze-time 80:close --demo close
 ```
+
+## Glass (backdrop blur) captures
+
+Popups, translucent layer surfaces and title bars get frosted glass when the surface has see-through pixels (see `render/glass`, `render/popups.rs`). Three environment variables force the effects in headless runs; they are ignored unless the output is the headless one, and `scripts/docker-screenshot.sh` forwards them into the container:
+
+| Variable | Effect |
+| --- | --- |
+| `DESILIUM_DEBUG_POPUP=1\|0.0-1.0` | Draws a synthetic popup-styled menu over the windows (rounded clip, hairline, theme popup shadow, glass). A fraction replaces the theme's `popup_translucency`. |
+| `DESILIUM_DEBUG_GLASS=on\|0.0-1.0` | Forces the title bar translucency (`on` = 0.45) instead of the theme's `titlebar_translucency`. |
+| `DESILIUM_DEBUG_LAYER_BLUR=RADIUS[,CORNER]` | Puts backdrop blur behind every layer surface until the shell protocol provides per-surface effects. |
+
+The `layer-client` test client has matching flags: `--glass` (translucent rounded dock and bar, checker-painted window for `--maximized`), `--popup` (plain window with an opaque xdg popup) and `--popup-glass` (the same popup, half transparent).
+
+```sh
+# Styled synthetic popup over a terminal (see docs/screenshots/glass-popup-debug-*.png)
+DESILIUM_DEBUG_POPUP=1 scripts/docker-screenshot.sh --out docs/screenshots/glass-popup-debug-dark.png --command "foot"
+# Real xdg popups from a client (glass-popup-client-*.png)
+scripts/docker-screenshot.sh --out docs/screenshots/glass-popup-client-translucent.png --command "layer-client --popup-glass"
+# Blurred layer surface over a window (glass-layer-blur.png)
+DESILIUM_DEBUG_LAYER_BLUR=24,16 scripts/docker-screenshot.sh --out docs/screenshots/glass-layer-blur.png --command "layer-client --glass --maximized"
+# Blurred title bar of a window above another window (glass-titlebar-*.png)
+DESILIUM_DEBUG_GLASS=0.5 scripts/docker-screenshot.sh --out docs/screenshots/glass-titlebar-dark.png --screenshot-delay 2500 \
+  --command "layer-client --glass --maximized" --command "sh -c 'sleep 1; exec foot -T over-checker'"
+```

@@ -1,6 +1,7 @@
 use crate::geometry::{Rect, Size};
 use crate::ids::WindowId;
-use crate::manager::WindowManager;
+use crate::manager::{Placement, WindowManager};
+use crate::state::WindowState;
 use std::ops::{Deref, DerefMut};
 
 /// Desktop count used when the caller has no preference.
@@ -156,6 +157,35 @@ impl Desktops {
             .is_some_and(|manager| manager.on_commit(id, size))
     }
 
+    /// Runs `act` on the desktop that holds `id` without switching to it; `None` for unknown ids.
+    ///
+    /// Client requests and chrome actions use this, so a window on a hidden desktop changes
+    /// (and is configured) where it lives instead of being silently ignored.
+    pub fn with_window_manager<R>(
+        &mut self,
+        id: WindowId,
+        act: impl FnOnce(&mut WindowManager) -> R,
+    ) -> Option<R> {
+        self.manager_of_mut(id).map(act)
+    }
+
+    /// State of a window on any desktop, visible or not.
+    pub fn window_state(&self, id: WindowId) -> Option<WindowState> {
+        self.managers().find_map(|manager| manager.window_state(id))
+    }
+
+    /// Free-floating rect a non-floating window returns to, on whichever desktop holds it.
+    pub fn restore_rect(&self, id: WindowId) -> Option<Rect> {
+        self.managers().find_map(|manager| manager.restore_rect(id))
+    }
+
+    /// Every window on every desktop with its rect and state, minimized ones included.
+    pub fn all_placements(&self) -> Vec<Placement> {
+        self.managers()
+            .flat_map(|manager| manager.all_placements())
+            .collect()
+    }
+
     pub fn active_manager(&self) -> &WindowManager {
         self.manager(self.active).unwrap_or(&self.first)
     }
@@ -238,7 +268,8 @@ impl Desktops {
 
 /// Window operations not keyed by id act on the active desktop, so existing callers keep
 /// working unchanged. Same-named inherent methods (`open_window`, `close_window`, `rect`,
-/// `on_commit`, `move_window_to`) take precedence and reach every desktop.
+/// `on_commit`, `move_window_to`, `window_state`, `restore_rect`) take precedence and reach
+/// every desktop. Id-keyed state changes go through `with_window_manager`.
 impl Deref for Desktops {
     type Target = WindowManager;
 

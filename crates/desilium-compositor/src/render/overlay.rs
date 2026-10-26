@@ -52,7 +52,7 @@ fn active_rect(ctx: &SceneContext<'_>) -> Option<Rect> {
     ctx.state.snap_preview().map(|preview| preview.rect)
 }
 
-fn is_headless(ctx: &SceneContext<'_>) -> bool {
+pub(super) fn is_headless(ctx: &SceneContext<'_>) -> bool {
     ctx.state
         .space
         .outputs()

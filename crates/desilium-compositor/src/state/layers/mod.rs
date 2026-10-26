@@ -1,8 +1,12 @@
 //! wlr-layer-shell bookkeeping: arrangement, work area, keyboard and pointer routing.
 
+mod effects;
 mod policy;
 mod workarea;
 
+pub(crate) use effects::LayerEffects;
+#[allow(unused_imports)] // consumed by the renderer
+pub use effects::SurfaceEffects;
 pub use policy::{ABOVE_WINDOWS, BELOW_WINDOWS};
 
 use super::DesiliumState;
@@ -51,9 +55,11 @@ impl DesiliumState {
         if self.wm.work_area() == area {
             return;
         }
-        let before = self.wm.placements();
+        // Every desktop follows the work area, so the snapshot spans all of them: a maximized
+        // window on a hidden desktop must be configured too.
+        let before = self.wm.all_placements();
         self.wm.set_work_area(area);
-        let after = self.wm.placements();
+        let after = self.wm.all_placements();
         for id in moved_windows(&before, &after) {
             self.configure_window(id);
         }

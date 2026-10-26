@@ -286,7 +286,11 @@ impl DesiliumState {
         edges: Edges,
         location: LogicalPoint<f64, Logical>,
     ) {
-        let Some(initial) = self.wm.begin_resize(id, edges) else {
+        let Some(initial) = self
+            .wm
+            .with_window_manager(id, |wm| wm.begin_resize(id, edges))
+            .flatten()
+        else {
             return;
         };
         let grab = WindowGrab::resizing(grab_start(location), id, edges, initial);
@@ -304,7 +308,10 @@ impl DesiliumState {
     /// its client. Returns the new frame position.
     pub(crate) fn begin_window_move(&mut self, id: WindowId, pointer: Point) -> Option<Point> {
         let before = self.wm.window_state(id);
-        let loc = self.wm.begin_move(id, pointer)?;
+        let loc = self
+            .wm
+            .with_window_manager(id, |wm| wm.begin_move(id, pointer))
+            .flatten()?;
         self.decoration_configure_client(id);
         if before != self.wm.window_state(id) {
             self.apply_focus();
@@ -347,5 +354,48 @@ fn grab_start(location: LogicalPoint<f64, Logical>) -> GrabStartData<DesiliumSta
         focus: None,
         button: BTN_LEFT,
         location,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn edges(left: bool, right: bool, top: bool, bottom: bool) -> Edges {
+        Edges {
+            left,
+            right,
+            top,
+            bottom,
+        }
+    }
+
+    #[test]
+    fn no_edge_has_no_cursor() {
+        assert_eq!(cursor_for_edges(edges(false, false, false, false)), None);
+    }
+
+    #[test]
+    fn single_edges_pick_the_straight_cursors() {
+        assert_eq!(
+            cursor_for_edges(edges(true, false, false, false)),
+            Some(CursorKind::ResizeW)
+        );
+        assert_eq!(
+            cursor_for_edges(edges(false, false, false, true)),
+            Some(CursorKind::ResizeS)
+        );
+    }
+
+    #[test]
+    fn corners_pick_the_diagonal_cursors() {
+        assert_eq!(
+            cursor_for_edges(edges(true, false, true, false)),
+            Some(CursorKind::ResizeNw)
+        );
+        assert_eq!(
+            cursor_for_edges(edges(false, true, false, true)),
+            Some(CursorKind::ResizeSe)
+        );
     }
 }

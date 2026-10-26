@@ -10,6 +10,8 @@ use desilium_wm::Rect;
 
 /// Share of white mixed into the top edge of the title bar for a faint sheen.
 const SHEEN: f32 = 0.025;
+/// Highest title bar translucency that is honoured; more would hide the title text.
+const MAX_TRANSLUCENCY: f32 = 0.85;
 
 /// Everything besides the frame that decides the look.
 #[derive(Debug, Clone, Copy)]
@@ -18,6 +20,21 @@ pub struct Look {
     pub focus: f32,
     pub maximized: bool,
     pub fades: [ButtonFade; 3],
+    /// Opacity of the title bar fill, `1` = solid (see `title_opacity`).
+    pub bar_opacity: f32,
+}
+
+/// Title bar fill opacity for the theme's translucency token (`0` solid, `1` see-through).
+///
+/// Never fully transparent: the title text and buttons keep a surface behind them even if a
+/// theme asks for the extreme.
+pub fn title_opacity(translucency: f32) -> f32 {
+    let clamped = if translucency.is_finite() {
+        translucency.clamp(0.0, MAX_TRANSLUCENCY)
+    } else {
+        0.0
+    };
+    1.0 - clamped
 }
 
 /// One thing to draw; the plan lists them topmost first.
@@ -106,8 +123,11 @@ pub fn plan(theme: &Theme, metrics: &Metrics, frame: &Frame, look: &Look) -> Vec
     paints.push(Paint::TitleBar {
         rect: frame.title_bar,
         top_radius: if rounded { window.corner_radius } else { 0.0 },
-        top: base.lighten(SHEEN * look.focus.clamp(0.0, 1.0)),
-        bottom: base,
+        top: faded(
+            base.lighten(SHEEN * look.focus.clamp(0.0, 1.0)),
+            look.bar_opacity,
+        ),
+        bottom: faded(base, look.bar_opacity),
     });
     paints
 }
@@ -143,6 +163,10 @@ fn blend(from: Color, to: Color, amount: f32) -> Color {
         return to;
     }
     from.mix(to, amount)
+}
+
+fn faded(color: Color, opacity: f32) -> Color {
+    color.with_alpha(color.a * opacity)
 }
 
 fn glyph_kind(button: Button, maximized: bool) -> GlyphKind {
@@ -203,6 +227,7 @@ mod tests {
             focus: if focused { 1.0 } else { 0.0 },
             maximized: false,
             fades,
+            bar_opacity: 1.0,
         }
     }
 
@@ -316,6 +341,33 @@ mod tests {
         let gone = [fade(ButtonState::Hover, 0.0), REST[1], REST[2]];
         let paints = plan(&theme, &metrics, &frame, &look(true, gone));
         assert!(!paints.iter().any(|p| matches!(p, Paint::ButtonFill { .. })));
+    }
+
+    #[test]
+    fn translucent_bar_keeps_its_colour_and_lowers_only_alpha() {
+        let (theme, metrics, frame) = setup(Chrome::Windowed);
+        let mut glass = look(true, REST);
+        glass.bar_opacity = 0.7;
+        let bar = |paints: &[Paint]| {
+            paints.iter().find_map(|p| match p {
+                Paint::TitleBar { bottom, .. } => Some(*bottom),
+                _ => None,
+            })
+        };
+        let solid = bar(&plan(&theme, &metrics, &frame, &look(true, REST)));
+        let soft = bar(&plan(&theme, &metrics, &frame, &glass));
+        let (solid, soft) = (solid.unwrap_or_default(), soft.unwrap_or_default());
+        assert_eq!((soft.r, soft.g, soft.b), (solid.r, solid.g, solid.b));
+        assert!((soft.a - 0.7).abs() < 1e-6);
+    }
+
+    #[test]
+    fn title_opacity_is_bounded_and_survives_garbage() {
+        assert_eq!(title_opacity(0.0), 1.0);
+        assert!((title_opacity(0.12) - 0.88).abs() < 1e-6);
+        assert!((title_opacity(5.0) - (1.0 - MAX_TRANSLUCENCY)).abs() < 1e-6);
+        assert_eq!(title_opacity(-1.0), 1.0);
+        assert_eq!(title_opacity(f32::NAN), 1.0);
     }
 
     #[test]

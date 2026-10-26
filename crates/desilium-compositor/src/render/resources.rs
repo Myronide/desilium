@@ -1,6 +1,7 @@
 use super::effects::Effects;
+use super::glass::Glass;
 use super::snapshot::Snapshots;
-use super::{background, cursor, decoration};
+use super::{background, cursor, decoration, popups};
 use smithay::backend::renderer::gles::GlesRenderer;
 use tracing::{info, warn};
 
@@ -16,6 +17,10 @@ pub struct RenderResources {
     pub background: background::Resources,
     /// Last-frame window snapshots for the close animation.
     pub snapshots: Snapshots,
+    /// Backdrop-blur requests of the frame being built and their persistent slots.
+    pub glass: Glass,
+    /// Cached shadow and border elements of popups.
+    pub popups: popups::Resources,
 }
 
 impl RenderResources {
@@ -26,6 +31,8 @@ impl RenderResources {
             cursor: cursor::Resources::new(renderer),
             background: background::Resources::new(renderer),
             snapshots: Snapshots::default(),
+            glass: Glass::default(),
+            popups: popups::Resources::default(),
         }
     }
 

@@ -146,6 +146,19 @@ impl WindowManager {
         self.workspace.is_empty()
     }
 
+    /// Every window with its rect and state, minimized ones included, bottom to top.
+    pub(crate) fn all_placements(&self) -> Vec<Placement> {
+        self.workspace
+            .stack()
+            .iter()
+            .filter_map(|&id| {
+                let rect = self.workspace.rect(id)?;
+                let state = self.workspace.shape(id)?.state();
+                Some(Placement { id, rect, state })
+            })
+            .collect()
+    }
+
     /// Bottom to top, including minimized windows.
     pub(crate) fn window_ids(&self) -> Vec<WindowId> {
         self.workspace.stack().to_vec()

@@ -3,7 +3,7 @@
 use super::desktops::DesktopStep;
 use crate::state::DesiliumState;
 use desilium_config_types::Action;
-use desilium_wm::{Placement, SnapZone, WindowId, WindowState};
+use desilium_wm::{Placement, SnapZone, WindowId, WindowManager, WindowState};
 use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State;
 use smithay::wayland::shell::xdg::{ToplevelStateSet, ToplevelSurface};
 
@@ -48,18 +48,15 @@ impl DesiliumState {
         }
     }
 
-    /// Asks the window to close (the client decides whether to).
-    #[allow(dead_code)] // called by the title-bar close button
+    /// Asks the window to close (the client decides whether to). Title-bar and keyboard closes
+    /// fade the last frame out when animations are on; the destroy path never comes through here.
     pub fn close_window(&self, id: WindowId) {
-        let toplevel = self.windows.get(&id).and_then(|window| window.toplevel());
-        if let Some(toplevel) = toplevel {
-            toplevel.send_close();
-        }
+        self.request_close_animated(id);
     }
 
     /// Chrome button / double-click on the title bar.
     pub fn toggle_maximize_window(&mut self, id: WindowId) {
-        if self.wm.toggle_maximize(id) {
+        if self.change_window(id, |wm| wm.toggle_maximize(id)) {
             self.after_window_change(id);
         }
     }
@@ -72,7 +69,7 @@ impl DesiliumState {
         if self.wm.window_state(id) == Some(WindowState::Minimized) {
             return;
         }
-        if !(self.wm.restore(id) && self.wm.minimize(id)) {
+        if !self.change_window(id, |wm| wm.restore(id) && wm.minimize(id)) {
             return;
         }
         self.after_window_change(id);
@@ -113,7 +110,7 @@ impl DesiliumState {
 
     fn set_fullscreen_window(&mut self, id: WindowId, on: bool) {
         let is_fullscreen = self.wm.window_state(id) == Some(WindowState::Fullscreen);
-        if is_fullscreen == on || !self.wm.set_fullscreen(id, on) {
+        if is_fullscreen == on || !self.change_window(id, |wm| wm.set_fullscreen(id, on)) {
             return;
         }
         self.after_window_change(id);
@@ -121,9 +118,19 @@ impl DesiliumState {
 
     /// Snaps `id` into `zone` through the same path as the keyboard snap actions.
     pub(crate) fn snap_window_to(&mut self, id: WindowId, zone: SnapZone) {
-        if self.wm.snap_window(id, zone) {
+        if self.change_window(id, |wm| wm.snap_window(id, zone)) {
             self.after_window_change(id);
         }
+    }
+
+    /// Applies a window-manager change to the desktop that holds `id`, without switching to it.
+    /// False when no desktop holds the window or the change was refused.
+    fn change_window(
+        &mut self,
+        id: WindowId,
+        change: impl FnOnce(&mut WindowManager) -> bool,
+    ) -> bool {
+        self.wm.with_window_manager(id, change).unwrap_or(false)
     }
 
     fn restore_most_recent_minimized(&mut self) {
@@ -149,7 +156,7 @@ impl DesiliumState {
     }
 
     /// Runs after any window-manager state change: client configure, scene and focus updates.
-    fn after_window_change(&mut self, id: WindowId) {
+    pub(crate) fn after_window_change(&mut self, id: WindowId) {
         self.configure_window(id);
         self.unmap_minimized();
         self.sync_space();
@@ -231,8 +238,8 @@ pub fn next_window_in_cycle(
         };
     };
     let index = match direction {
-        CycleDirection::Forward => (current + 1) % len,
-        CycleDirection::Backward => (current + len - 1) % len,
+        CycleDirection::Forward => current.saturating_add(1) % len,
+        CycleDirection::Backward => current.saturating_add(len).saturating_sub(1) % len,
     };
     visible.get(index).copied()
 }

@@ -158,6 +158,7 @@ impl DesiliumState {
         self.space.refresh();
         self.popups.cleanup();
         self.advance_animations();
+        self.shell_sync();
         if let Err(error) = self.display_handle.flush_clients() {
             tracing::warn!(%error, "flushing clients failed");
         }
