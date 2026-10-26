@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Desilium - Notifications</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shared.css">
+<script src="theme.js"></script>
+<style>
+  .ghost-win { left: 120px; top: 110px; width: 760px; height: 560px; }
+  .ghost-body { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .ghost-body i { display: block; height: 12px; border-radius: 6px; background: var(--surface-3); }
+
+  .toasts { position: absolute; right: 16px; top: 44px; width: 392px; display: flex; flex-direction: column; gap: 10px; z-index: 30; }
+  .toast { position: relative; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;
+           background: var(--glass-sheen), var(--glass-bg-strong); border: 1px solid var(--glass-border); box-shadow: var(--shadow-3), inset 0 1px 0 var(--glass-highlight); }
+  .toast.crit::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--danger); }
+  .n-top { display: flex; gap: 12px; align-items: flex-start; }
+  .n-body { flex: 1; min-width: 0; }
+  .n-app { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3); font-weight: 500; margin-bottom: 2px; letter-spacing: .02em; }
+  .n-title { font-weight: 600; font-size: 13px; line-height: 18px; }
+  .n-text { color: var(--text-2); font-size: 13px; line-height: 18px; }
+  .n-x { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; color: var(--text-3); flex: none; }
+  .n-x .ic { width: 14px; height: 14px; }
+  .n-act { display: flex; gap: 8px; padding-left: 48px; }
+  .n-act .btn { flex: 1; height: 30px; font-size: 12px; }
+  .reply { flex: 1; height: 32px; border-radius: 8px; background: var(--surface-inset); border: 1px solid var(--border); display: flex; align-items: center; padding: 0 10px; color: var(--text-3); font-size: 12px; }
+  .dl { height: 4px; border-radius: 2px; background: var(--surface-4); margin-left: 48px; position: relative; }
+  .dl i { position: absolute; left: 0; top: 0; bottom: 0; width: 64%; border-radius: 2px; background: var(--accent); }
+  .timer { position: absolute; left: 0; bottom: 0; height: 2px; width: 55%; background: var(--accent-line); }
+
+  .center { position: absolute; left: 720px; top: 40px; width: 480px; height: 800px; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+            background: var(--glass-sheen), var(--glass-bg-strong); border: 1px solid var(--glass-border); box-shadow: var(--shadow-4), inset 0 1px 0 var(--glass-highlight); }
+  .c-head { display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 2px; }
+  .c-head h2 { font-size: 18px; font-weight: 600; line-height: 24px; flex: 1; letter-spacing: -0.01em; }
+  .dnd { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 14px; border-radius: 14px; background: var(--surface-3); border: 1px solid var(--border); }
+  .dnd .ico { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-4); display: grid; place-items: center; color: var(--text-2); }
+  .cal { display: flex; gap: 14px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--surface-3); border: 1px solid var(--border); align-items: center; }
+  .cal .d { width: 52px; height: 52px; border-radius: 12px; background: var(--surface-1); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+  .cal .d small { font-size: 10px; font-weight: 600; color: var(--accent); letter-spacing: .06em; margin-bottom: 4px; }
+  .cal .d b { font-size: 22px; font-weight: 600; }
+  .feed { flex: 1; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .g-head { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; }
+  .g-head .name { font-weight: 600; font-size: 12px; color: var(--text-2); flex: 1; }
+  .card { border-radius: 14px; background: var(--surface-3); border: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+  .card + .card { margin-top: 6px; }
+  .card.hover { background: var(--surface-4); }
+  .peek { height: 8px; margin: 0 14px; border-radius: 0 0 12px 12px; background: var(--surface-2); border: 1px solid var(--border); border-top: 0; }
+  .peek.p2 { margin: 0 26px; background: var(--surface-1); }
+  .unread { width: 8px; height: 8px; border-radius: 4px; background: var(--accent); flex: none; margin-top: 5px; }
+  .time { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true">
+<!-- Desilium icon set: 24x24 grid, 1.5 px stroke, round caps and joins, currentColor. Reference: <svg class="ic"><use href="#i-name"/></svg> -->
+<symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+<symbol id="i-wifi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 9.2a13.5 13.5 0 0 1 18.4 0"/><path d="M5.8 12.4a9.2 9.2 0 0 1 12.4 0"/><path d="M8.9 15.6a4.8 4.8 0 0 1 6.2 0"/><path d="M12 19h.01" stroke-width="2.4"/></symbol>
+<symbol id="i-bluetooth" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7.5l10 9-5 4.5V3l5 4.5-10 9"/></symbol>
+<symbol id="i-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18.2 6.5a8 8 0 0 1 0 11"/></symbol>
+<symbol id="i-volume-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4z"/><path d="M16 9.5l5 5"/><path d="M21 9.5l-5 5"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M5.5 18.5l1.4-1.4M17.1 6.9l1.4-1.4"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.6A8.5 8.5 0 1 1 9.4 4a6.8 6.8 0 0 0 10.6 10.6z"/></symbol>
+<symbol id="i-battery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7.5" width="16.5" height="9" rx="2.5"/><path d="M21.5 10.5v3"/><path d="M6 10.8v2.4"/><path d="M9 10.8v2.4"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2.8L5.5 13.5h6l-1 7.7 8-11h-6z"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21h4"/></symbol>
+<symbol id="i-bell-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 6.6A6 6 0 0 0 6 8v8.5l-1.5 2h12"/><path d="M18 14.5V11a6 6 0 0 0-8.6-5.4"/><path d="M10 21h4"/><path d="M3.5 3.5l17 17"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M10.4 3.2h3.2l.5 2.3 1.7.9 2.2-.8 1.6 2.8-1.7 1.5v1.9l1.7 1.5-1.6 2.8-2.2-.8-1.7.9-.5 2.3h-3.2l-.5-2.3-1.7-.9-2.2.8-1.6-2.8 1.7-1.5v-1.9L4.4 8.4 6 5.6l2.2.8 1.7-.9z"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.5H14l5 5v10a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2z"/><path d="M14 3.5V9h5"/></symbol>
+<symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M7.5 10l3 2.5-3 2.5"/><path d="M13 15h3.5"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3.2 3 3.2 15 0 18"/><path d="M12 3c-3.2 3-3.2 15 0 18"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M4 17l5-4.5 4 3.5 3-2.5 4 3.3"/></symbol>
+<symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17.5V6l10-2v11.5"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5v13l10.5-6.5z"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="5.5" width="3.8" height="13" rx="1.2"/><rect x="13.7" y="5.5" width="3.8" height="13" rx="1.2"/></symbol>
+<symbol id="i-skip-next" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6v12l9-6z"/><path d="M18.5 6v12"/></symbol>
+<symbol id="i-skip-prev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6v12l-9-6z"/><path d="M5.5 6v12"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+<symbol id="i-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M7 6.3a8 8 0 1 0 10 0"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.7"/><path d="M4.8 20a7.2 6.5 0 0 1 14.4 0"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="2"/></symbol>
+<symbol id="i-calculator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8.5 7.5h7"/><path d="M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01" stroke-width="2.2"/></symbol>
+<symbol id="i-command" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9V6.5A2.5 2.5 0 1 0 6.5 9zM9 9h6M9 9v6M15 9V6.5A2.5 2.5 0 1 1 17.5 9zM15 9v6M15 15h2.5a2.5 2.5 0 1 1-2.5 2.5zM9 15H6.5A2.5 2.5 0 1 0 9 17.5zM9 15h6"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+<symbol id="i-minimize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12h11"/></symbol>
+<symbol id="i-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></symbol>
+<symbol id="i-restore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.8" y="9" width="9.2" height="9.2" rx="2.2"/><path d="M9 9V8a2.2 2.2 0 0 1 2.2-2.2H16A2.2 2.2 0 0 1 18.2 8v4.8A2.2 2.2 0 0 1 16 15h-1"/></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6l6 6-6 6"/></symbol>
+<symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6l-6 6 6 6"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5l6 6 6-6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.3 0 2-.9 2-1.9 0-.6-.3-1-.6-1.4-.3-.4-.5-.8-.5-1.3 0-1 .8-1.8 1.8-1.8H17.5a3.5 3.5 0 0 0 3.5-3.6C21 6.6 17 3.5 12 3.5z"/><path d="M7.5 11h.01M10 7.5h.01M14.5 7.5h.01" stroke-width="2.2"/></symbol>
+<symbol id="i-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="12" rx="2.5"/><path d="M8.5 20h7M12 16.5V20"/></symbol>
+<symbol id="i-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01" stroke-width="2.2"/><path d="M8 14.5h8"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M9.5 7V4.5h5V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 7l-5 5 5 5M15.5 7l5 5-5 5"/></symbol>
+<symbol id="i-airplane" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15.5L13.5 11V5.5a1.5 1.5 0 0 0-3 0V11L3 15.5v2l7.5-2v3.2l-1.7 1.3v1.3l3.2-.9 3.2.9V20l-1.7-1.3v-3.2l7.5 2z"/></symbol>
+<symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 4l1.7 4.8L17 10.5l-4.8 1.7L10.5 17l-1.7-4.8L4 10.5l4.8-1.7z"/><path d="M18.5 15v4.5M16.25 17.25h4.5"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9 4.5-9 4.5L3 8z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16l9 4.5 9-4.5"/></symbol>
+<symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="M4 8l8 5.5L20 8"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11.2V16M12 8h.01" stroke-width="1.8"/></symbol>
+<symbol id="i-accessibility" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.8" r="1.6"/><path d="M5 8.5l7 1.5 7-1.5M12 10v4.5l-3 5.5M12 14.5l3 5.5"/></symbol>
+<symbol id="i-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 5.5v6a3 3 0 0 1-3 3H5"/><path d="M9 10.5l-4 4 4 4"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" stroke-width="2.6"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+<symbol id="i-snap-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="3"/><path d="M12 5v14"/></symbol>
+</svg>
+<div class="stage">
+  <div class="wallpaper"></div>
+  <div class="topbar">
+    <div class="left"><div class="tb-btn"><span class="ws-dots"><i class="on"></i><i></i><i></i><i></i></span></div><div class="tb-btn"><svg class="ic s16"><use href="#i-folder"/></svg><span class="t-semi">Files</span></div></div>
+    <div class="tb-btn tb-clock open"><span class="date">Mon 26 Oct</span>14:32</div>
+    <div class="right"><div class="tb-btn dim"><svg class="ic s16"><use href="#i-bell"/></svg></div><div class="tb-group"><svg class="ic s16"><use href="#i-wifi"/></svg><svg class="ic s16"><use href="#i-volume"/></svg><svg class="ic s16"><use href="#i-battery"/></svg><span class="t-med">82%</span></div><div class="tb-btn dim"><svg class="ic s16"><use href="#i-power"/></svg></div></div>
+  </div>
+  <div class="window inactive ghost-win">
+    <div class="titlebar"><span class="app-icon a-files xs"><svg class="ic"><use href="#i-folder"/></svg></span><span class="title">Files</span><span class="spacer"></span><div class="wbtns"><span class="wb"><svg class="ic"><use href="#i-minimize"/></svg></span><span class="wb"><svg class="ic"><use href="#i-maximize"/></svg></span><span class="wb close"><svg class="ic"><use href="#i-close"/></svg></span></div></div>
+    <div class="ghost-body"><i style="width:30%"></i><i style="width:70%"></i><i style="width:55%"></i><i style="width:62%"></i></div>
+  </div>
+
+  <!-- Notification center (opened from the clock) -->
+  <div class="center">
+    <div class="c-head"><h2>Notifications</h2><span class="btn ghost sm">Clear all</span></div>
+    <div class="dnd"><span class="ico"><svg class="ic"><use href="#i-bell-off"/></svg></span><div class="col grow"><span class="t-med">Do not disturb</span><span class="t-small t-3">Mute banners and sounds. Calls still ring.</span></div><span class="switch"></span></div>
+    <div class="cal"><div class="d"><small>OCT</small><b>26</b></div><div class="col grow"><span class="t-semi" style="font-size:14px">Monday</span><span class="t-small t-2">Design review at 15:00 &middot; 1 more today</span></div><span class="btn sm"><svg class="ic s16"><use href="#i-calendar"/></svg>Open</span></div>
+    <div class="feed">
+      <div>
+        <div class="g-head"><span class="app-icon a-mail xs"><svg class="ic"><use href="#i-mail"/></svg></span><span class="name">Mail</span><span class="chip accent">3</span><svg class="ic s16"><use href="#i-chevron-down"/></svg><span class="n-x"><svg class="ic"><use href="#i-close"/></svg></span></div>
+        <div class="card hover">
+          <div class="n-top"><span class="avatar" style="width:36px;height:36px;font-size:13px">MK</span><div class="n-body"><div class="row"><span class="n-title grow">Mara Keller</span><span class="time">2 min</span></div><div class="n-text">Pushed the new dock tokens. Can you look at the shadow levels before lunch?</div></div></div>
+          <div class="row" style="gap:8px;padding-left:48px"><span class="reply">Reply...</span><span class="btn sm">Mark read</span></div>
+        </div>
+        <div class="card"><div class="n-top"><span class="avatar" style="width:36px;height:36px;font-size:13px;background:linear-gradient(145deg,#35D0C0,#1E8FE0)">TO</span><div class="n-body"><div class="row"><span class="n-title grow">Tom Okafor</span><span class="time">14 min</span></div><div class="n-text">Lunch at 12:30?</div></div></div></div>
+        <div class="peek"></div><div class="peek p2"></div>
+      </div>
+      <div>
+        <div class="g-head"><span class="app-icon a-calendar xs"><svg class="ic"><use href="#i-calendar"/></svg></span><span class="name">Calendar</span><svg class="ic s16"><use href="#i-chevron-down"/></svg><span class="n-x"><svg class="ic"><use href="#i-close"/></svg></span></div>
+        <div class="card"><div class="n-top"><span class="app-icon md a-calendar"><svg class="ic"><use href="#i-calendar"/></svg></span><div class="n-body"><div class="row"><span class="n-title grow">Design review starts in 28 min</span><span class="time">now</span></div><div class="n-text">Meeting room 2 &middot; 15:00 - 16:00</div></div></div>
+          <div class="row" style="gap:8px;padding-left:48px"><span class="btn sm grow">Snooze 10 min</span><span class="btn sm primary grow">Join</span></div></div>
+      </div>
+      <div>
+        <div class="g-head"><span class="app-icon a-settings xs"><svg class="ic"><use href="#i-settings"/></svg></span><span class="name">System</span><svg class="ic s16"><use href="#i-chevron-down"/></svg><span class="n-x"><svg class="ic"><use href="#i-close"/></svg></span></div>
+        <div class="card"><div class="n-top"><span class="app-icon md a-store"><svg class="ic"><use href="#i-sparkles"/></svg></span><div class="n-body"><div class="row"><span class="n-title grow">Desilium 0.4 is ready</span><span class="time">1 h</span></div><div class="n-text">Smoother window animations and a new Appearance page. Restart to apply.</div></div></div>
+          <div class="row" style="gap:8px;padding-left:48px"><span class="btn sm grow">Later</span><span class="btn sm primary grow">Restart now</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast stack -->
+  <div class="toasts">
+    <div class="toast"><div class="n-top"><span class="avatar" style="width:36px;height:36px;font-size:13px">MK</span><div class="n-body"><div class="n-app">MAIL &middot; now</div><div class="n-title">Mara Keller</div><div class="n-text">Pushed the new dock tokens. Can you look at the shadow levels?</div></div><span class="n-x"><svg class="ic"><use href="#i-close"/></svg></span></div>
+      <div class="n-act"><span class="btn sm">Reply</span><span class="btn sm">Mark read</span></div><span class="timer"></span></div>
+    <div class="toast"><div class="n-top"><span class="app-icon md a-files"><svg class="ic"><use href="#i-folder"/></svg></span><div class="n-body"><div class="n-app">FILES &middot; 12 s</div><div class="n-title">Copying 214 items to Backup</div><div class="n-text">64% &middot; 18 MB/s &middot; 40 s left</div></div><span class="n-x"><svg class="ic"><use href="#i-close"/></svg></span></div><div class="dl"><i></i></div></div>
+    <div class="toast crit"><div class="n-top"><span class="app-icon md" style="background:linear-gradient(150deg,#FF7A7A,#E0455B)"><svg class="ic"><use href="#i-battery"/></svg></span><div class="n-body"><div class="n-app">POWER &middot; now</div><div class="n-title">Battery low - 9%</div><div class="n-text">Plug in soon. Power saver was turned on.</div></div></div>
+      <div class="n-act"><span class="btn sm primary">Power settings</span></div></div>
+  </div>
+
+  <div class="dock">
+    <div class="dock-item"><span class="dock-launcher"><svg class="ic"><use href="#i-grid"/></svg></span></div><div class="dock-sep"></div>
+    <div class="dock-item run focus-app"><span class="app-icon a-files"><svg class="ic"><use href="#i-folder"/></svg></span></div><div class="dock-item"><span class="app-icon a-web"><svg class="ic"><use href="#i-globe"/></svg></span></div><div class="dock-item"><span class="app-icon a-code"><svg class="ic"><use href="#i-code"/></svg></span></div><div class="dock-item"><span class="app-icon a-terminal"><svg class="ic"><use href="#i-terminal"/></svg></span></div><div class="dock-item"><span class="app-icon a-music"><svg class="ic"><use href="#i-music"/></svg></span></div><div class="dock-item"><span class="app-icon a-photos"><svg class="ic"><use href="#i-image"/></svg></span></div><div class="dock-item"><span class="app-icon a-mail"><svg class="ic"><use href="#i-mail"/></svg></span></div><div class="dock-sep"></div><div class="dock-item"><span class="app-icon a-settings"><svg class="ic"><use href="#i-settings"/></svg></span></div>
+  </div>
+  <button class="devtoggle" style="left:12px;right:auto" onclick="dsToggleTheme()">Toggle theme</button>
+</div>
+</body>
+</html>

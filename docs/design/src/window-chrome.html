@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Desilium - Window Chrome</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shared.css">
+<script src="theme.js"></script>
+<style>
+  .grid { position: absolute; left: 64px; top: 40px; right: 64px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 320px); gap: 20px 24px; }
+  .cell { position: relative; }
+  .lbl { position: absolute; left: 0; top: 0; height: 26px; padding: 0 12px; border-radius: 13px; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; background: var(--glass-bg-strong); border: 1px solid var(--glass-border); }
+  .lbl span { color: var(--text-3); font-weight: 400; }
+  .spec { position: absolute; left: 0; right: 0; top: 40px; bottom: 0; }
+  .spec .window { position: absolute; }
+  .win-body { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .win-body i { display: block; height: 10px; border-radius: 5px; background: var(--surface-3); }
+  .screen { position: absolute; inset: 0; border-radius: 12px; overflow: hidden; background: var(--wallpaper); border: 1px solid var(--border-strong); box-shadow: var(--shadow-2); }
+  .screen .mb { height: 14px; background: var(--bar-bg); border-bottom: 1px solid var(--divider); }
+  .screen .window { position: absolute; }
+  .table { position: absolute; inset: 0; border-radius: 16px; padding: 14px 16px; background: var(--glass-sheen), var(--glass-bg-strong); border: 1px solid var(--glass-border); box-shadow: var(--shadow-3); display: grid; grid-template-columns: 86px repeat(3, 1fr); grid-auto-rows: 1fr; align-items: center; justify-items: center; }
+  .table .h { font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: .04em; text-transform: uppercase; }
+  .table .rl { justify-self: start; font-size: 12px; color: var(--text-2); }
+  .tb-demo { position: absolute; left: 0; top: 0; right: 0; display: flex; align-items: center; height: 36px; padding: 0 4px 0 12px; background: var(--titlebar-bg); border: 1px solid var(--window-border); border-radius: 12px 12px 0 0; gap: 8px; }
+  .dim { position: absolute; font-size: 11px; font-family: var(--font-mono); color: var(--accent); font-weight: 500; white-space: nowrap; }
+  .dim.b { color: var(--text-on-surface-accent); }
+  .guide { position: absolute; background: var(--accent); opacity: .85; }
+  .hit { position: absolute; border: 1px dashed var(--accent); border-radius: 8px; background: var(--accent-soft); }
+  .elev { position: absolute; inset: 0; display: flex; gap: 20px; align-items: center; justify-content: center; padding: 0 12px; border-radius: 16px; background: var(--surface-0); border: 1px solid var(--border); }
+  .elev .e { width: 84px; height: 112px; border-radius: 12px; background: var(--surface-1); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 12px; font-size: 11px; color: var(--text-2); line-height: 16px; text-align: center; }
+  .elev .e b { color: var(--text); font-size: 13px; }
+  .modal-scrim { position: absolute; inset: 0; background: var(--scrim); border-radius: 12px; }
+</style>
+</head>
+<body>
+{{sprite}}
+<div class="stage">
+  <div class="wallpaper"></div>
+  <div class="grid">
+
+    <div class="cell"><div class="lbl">Active <span>focused, elevation 3</span></div>
+      <div class="spec"><div class="window" style="left:12px;top:8px;width:520px;height:210px">
+        <div class="titlebar">{{app:files xs}}<span class="title">Files</span><span class="subtitle">Projects</span><span class="spacer"></span><div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb">{{maximize}}</span><span class="wb close">{{close}}</span></div></div>
+        <div class="win-body"><i style="width:30%"></i><i style="width:75%"></i><i style="width:55%"></i></div></div></div></div>
+
+    <div class="cell"><div class="lbl">Inactive <span>dimmed title and glyphs, elevation 1</span></div>
+      <div class="spec"><div class="window inactive" style="left:12px;top:8px;width:520px;height:210px">
+        <div class="titlebar">{{app:files xs}}<span class="title">Files</span><span class="subtitle">Projects</span><span class="spacer"></span><div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb">{{maximize}}</span><span class="wb close">{{close}}</span></div></div>
+        <div class="win-body"><i style="width:30%"></i><i style="width:75%"></i><i style="width:55%"></i></div></div></div></div>
+
+    <div class="cell"><div class="lbl">Button states <span>32 x 28, radius 8</span></div>
+      <div class="spec"><div class="table" style="top:0">
+        <span></span><span class="h">Minimize</span><span class="h">Maximize</span><span class="h">Close</span>
+        <span class="rl">Rest</span><span class="wb">{{minimize}}</span><span class="wb">{{maximize}}</span><span class="wb close">{{close}}</span>
+        <span class="rl">Hover</span><span class="wb hover">{{minimize}}</span><span class="wb hover">{{maximize}}</span><span class="wb close hover">{{close}}</span>
+        <span class="rl">Pressed</span><span class="wb pressed">{{minimize}}</span><span class="wb pressed">{{maximize}}</span><span class="wb close pressed">{{close}}</span>
+        <span class="rl">Focus</span><span class="wb focus-ring">{{minimize}}</span><span class="wb focus-ring">{{maximize}}</span><span class="wb close focus-ring">{{close}}</span>
+        <span class="rl">Restore</span><span class="wb">{{minimize}}</span><span class="wb hover">{{restore}}</span><span class="wb close">{{close}}</span>
+      </div></div></div>
+
+    <div class="cell"><div class="lbl">Snapped <span>half screen, square outer corners, no shadow</span></div>
+      <div class="spec"><div class="screen"><div class="mb"></div>
+        <div class="window snap-l" style="left:0;top:14px;bottom:0;width:290px;border-left:0">
+          <div class="titlebar">{{app:code xs}}<span class="title">Code</span><span class="spacer"></span><div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb">{{restore}}</span><span class="wb close">{{close}}</span></div></div>
+          <div class="win-body"><i style="width:60%"></i><i style="width:85%"></i><i style="width:40%"></i></div></div>
+        <div class="window snap-r inactive" style="right:0;top:14px;bottom:0;width:290px;border-right:0;box-shadow:none">
+          <div class="titlebar">{{app:terminal xs}}<span class="title">Terminal</span><span class="spacer"></span><div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb">{{restore}}</span><span class="wb close">{{close}}</span></div></div>
+          <div class="win-body"><i style="width:50%"></i><i style="width:70%"></i></div></div>
+      </div></div></div>
+
+    <div class="cell"><div class="lbl">Maximized <span>no radius, no border, restore glyph</span></div>
+      <div class="spec"><div class="screen"><div class="mb"></div>
+        <div class="window max" style="left:0;right:0;top:14px;bottom:0">
+          <div class="titlebar">{{app:web xs}}<span class="title">Desilium Docs</span><span class="spacer"></span><div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb hover">{{restore}}</span><span class="wb close">{{close}}</span></div></div>
+          <div class="win-body"><i style="width:40%"></i><i style="width:80%"></i><i style="width:65%"></i></div></div>
+      </div></div></div>
+
+    <div class="cell"><div class="lbl">Dialog <span>centered title, close only, modal scrim</span></div>
+      <div class="spec"><div class="screen"><div class="modal-scrim"></div>
+        <div class="window" style="left:50%;top:50%;width:420px;height:196px;margin:-98px 0 0 -210px;box-shadow:var(--shadow-4)">
+          <div class="titlebar center" style="position:relative"><span class="title">Delete 3 items?</span><span class="spacer"></span><div class="wbtns"><span class="wb close">{{close}}</span></div></div>
+          <div class="win-body" style="gap:4px;padding:18px 20px 0"><span class="t-2">They will be moved to the Trash and can be restored for 30 days.</span><span class="grow"></span>
+            <div class="row" style="gap:8px;justify-content:flex-end;padding-bottom:16px"><span class="btn">Cancel</span><span class="btn primary" style="background:var(--danger)">Move to Trash</span></div></div></div>
+      </div></div></div>
+
+    <div class="cell"><div class="lbl">With and without shadow <span>shadow off: tiled, fullscreen, low-power</span></div>
+      <div class="spec">
+        <div class="window" style="left:8px;top:14px;width:260px;height:150px"><div class="titlebar"><span class="title">With shadow</span><span class="spacer"></span><div class="wbtns"><span class="wb close">{{close}}</span></div></div><div class="win-body"><i style="width:60%"></i><i style="width:80%"></i></div></div>
+        <div class="window noshadow" style="left:296px;top:14px;width:260px;height:150px"><div class="titlebar"><span class="title">No shadow</span><span class="spacer"></span><div class="wbtns"><span class="wb close">{{close}}</span></div></div><div class="win-body"><i style="width:60%"></i><i style="width:80%"></i></div></div>
+        <div class="row t-small t-2" style="position:absolute;left:8px;top:190px;gap:8px">{{info|s16}}<span>The 1 px border carries the edge when the shadow is gone.</span></div>
+      </div></div>
+
+    <div class="cell"><div class="lbl">Anatomy <span>1:1</span></div>
+      <div class="spec" style="top:56px">
+        <div style="position:absolute;left:44px;top:14px;width:470px">
+          <div class="tb-demo"><span class="app-icon xs a-code">{{code}}</span><span class="title" style="font-size:13px;font-weight:500">Title</span><span class="subtitle" style="font-size:13px;color:var(--text-3)">Subtitle</span><span class="spacer" style="flex:1"></span><div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb">{{maximize}}</span><span class="wb close">{{close}}</span></div></div>
+          <span class="hit" style="right:6px;top:4px;width:32px;height:28px;border-color:var(--danger);background:transparent"></span>
+        </div>
+        <span class="guide" style="left:34px;top:14px;width:1px;height:36px"></span><span class="dim" style="left:2px;top:23px">36</span>
+        <span class="dim" style="left:44px;top:60px;color:var(--text-2)">12 px inset &middot; 8 px gaps &middot; icon 16 &middot; title 13/500</span>
+        <span class="dim" style="right:12px;top:60px;color:var(--text-2)">hit 32 x 28</span>
+        <span class="dim" style="left:44px;top:84px;color:var(--text-2)">window radius 12 &middot; control radius 8 &middot; border 1 px @ 10%</span>
+        <span class="dim" style="left:44px;top:108px;color:var(--text-2)">drag area = whole bar &middot; double-click = maximize</span>
+        <span class="dim" style="left:44px;top:132px;color:var(--text-2)">right-click / Alt+Space = window menu</span>
+      </div></div>
+
+    <div class="cell"><div class="lbl">Elevation <span>shadow tokens 0 to 4</span></div>
+      <div class="spec"><div class="elev">
+        <div class="e" style="box-shadow:var(--shadow-0);border:1px solid var(--border)"><b>0</b>flat<br>in-window</div>
+        <div class="e" style="box-shadow:var(--shadow-1)"><b>1</b>inactive<br>window</div>
+        <div class="e" style="box-shadow:var(--shadow-2)"><b>2</b>cards<br>menus</div>
+        <div class="e" style="box-shadow:var(--shadow-3)"><b>3</b>active<br>window, dock</div>
+        <div class="e" style="box-shadow:var(--shadow-4)"><b>4</b>launcher<br>dialogs</div>
+      </div></div></div>
+
+  </div>
+  <button class="devtoggle" onclick="dsToggleTheme()">Toggle theme</button>
+</div>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Desilium - Notifications</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shared.css">
+<script src="theme.js"></script>
+<style>
+  .ghost-win { left: 120px; top: 110px; width: 760px; height: 560px; }
+  .ghost-body { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .ghost-body i { display: block; height: 12px; border-radius: 6px; background: var(--surface-3); }
+
+  .toasts { position: absolute; right: 16px; top: 44px; width: 392px; display: flex; flex-direction: column; gap: 10px; z-index: 30; }
+  .toast { position: relative; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;
+           background: var(--glass-sheen), var(--glass-bg-strong); border: 1px solid var(--glass-border); box-shadow: var(--shadow-3), inset 0 1px 0 var(--glass-highlight); }
+  .toast.crit::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--danger); }
+  .n-top { display: flex; gap: 12px; align-items: flex-start; }
+  .n-body { flex: 1; min-width: 0; }
+  .n-app { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3); font-weight: 500; margin-bottom: 2px; letter-spacing: .02em; }
+  .n-title { font-weight: 600; font-size: 13px; line-height: 18px; }
+  .n-text { color: var(--text-2); font-size: 13px; line-height: 18px; }
+  .n-x { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; color: var(--text-3); flex: none; }
+  .n-x .ic { width: 14px; height: 14px; }
+  .n-act { display: flex; gap: 8px; padding-left: 48px; }
+  .n-act .btn { flex: 1; height: 30px; font-size: 12px; }
+  .reply { flex: 1; height: 32px; border-radius: 8px; background: var(--surface-inset); border: 1px solid var(--border); display: flex; align-items: center; padding: 0 10px; color: var(--text-3); font-size: 12px; }
+  .dl { height: 4px; border-radius: 2px; background: var(--surface-4); margin-left: 48px; position: relative; }
+  .dl i { position: absolute; left: 0; top: 0; bottom: 0; width: 64%; border-radius: 2px; background: var(--accent); }
+  .timer { position: absolute; left: 0; bottom: 0; height: 2px; width: 55%; background: var(--accent-line); }
+
+  .center { position: absolute; left: 720px; top: 40px; width: 480px; height: 800px; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+            background: var(--glass-sheen), var(--glass-bg-strong); border: 1px solid var(--glass-border); box-shadow: var(--shadow-4), inset 0 1px 0 var(--glass-highlight); }
+  .c-head { display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 2px; }
+  .c-head h2 { font-size: 18px; font-weight: 600; line-height: 24px; flex: 1; letter-spacing: -0.01em; }
+  .dnd { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 14px; border-radius: 14px; background: var(--surface-3); border: 1px solid var(--border); }
+  .dnd .ico { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-4); display: grid; place-items: center; color: var(--text-2); }
+  .cal { display: flex; gap: 14px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--surface-3); border: 1px solid var(--border); align-items: center; }
+  .cal .d { width: 52px; height: 52px; border-radius: 12px; background: var(--surface-1); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+  .cal .d small { font-size: 10px; font-weight: 600; color: var(--accent); letter-spacing: .06em; margin-bottom: 4px; }
+  .cal .d b { font-size: 22px; font-weight: 600; }
+  .feed { flex: 1; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .g-head { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; }
+  .g-head .name { font-weight: 600; font-size: 12px; color: var(--text-2); flex: 1; }
+  .card { border-radius: 14px; background: var(--surface-3); border: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+  .card + .card { margin-top: 6px; }
+  .card.hover { background: var(--surface-4); }
+  .peek { height: 8px; margin: 0 14px; border-radius: 0 0 12px 12px; background: var(--surface-2); border: 1px solid var(--border); border-top: 0; }
+  .peek.p2 { margin: 0 26px; background: var(--surface-1); }
+  .unread { width: 8px; height: 8px; border-radius: 4px; background: var(--accent); flex: none; margin-top: 5px; }
+  .time { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+</style>
+</head>
+<body>
+{{sprite}}
+<div class="stage">
+  <div class="wallpaper"></div>
+  <div class="topbar">
+    <div class="left"><div class="tb-btn"><span class="ws-dots"><i class="on"></i><i></i><i></i><i></i></span></div><div class="tb-btn">{{folder|s16}}<span class="t-semi">Files</span></div></div>
+    <div class="tb-btn tb-clock open"><span class="date">Mon 26 Oct</span>14:32</div>
+    <div class="right"><div class="tb-btn dim">{{bell|s16}}</div><div class="tb-group">{{wifi|s16}}{{volume|s16}}{{battery|s16}}<span class="t-med">82%</span></div><div class="tb-btn dim">{{power|s16}}</div></div>
+  </div>
+  <div class="window inactive ghost-win">
+    <div class="titlebar">{{app:files xs}}<span class="title">Files</span><span class="spacer"></span><div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb">{{maximize}}</span><span class="wb close">{{close}}</span></div></div>
+    <div class="ghost-body"><i style="width:30%"></i><i style="width:70%"></i><i style="width:55%"></i><i style="width:62%"></i></div>
+  </div>
+
+  <!-- Notification center (opened from the clock) -->
+  <div class="center">
+    <div class="c-head"><h2>Notifications</h2><span class="btn ghost sm">Clear all</span></div>
+    <div class="dnd"><span class="ico">{{bell-off}}</span><div class="col grow"><span class="t-med">Do not disturb</span><span class="t-small t-3">Mute banners and sounds. Calls still ring.</span></div><span class="switch"></span></div>
+    <div class="cal"><div class="d"><small>OCT</small><b>26</b></div><div class="col grow"><span class="t-semi" style="font-size:14px">Monday</span><span class="t-small t-2">Design review at 15:00 &middot; 1 more today</span></div><span class="btn sm">{{calendar|s16}}Open</span></div>
+    <div class="feed">
+      <div>
+        <div class="g-head">{{app:mail xs}}<span class="name">Mail</span><span class="chip accent">3</span>{{chevron-down|s16}}<span class="n-x">{{close}}</span></div>
+        <div class="card hover">
+          <div class="n-top"><span class="avatar" style="width:36px;height:36px;font-size:13px">MK</span><div class="n-body"><div class="row"><span class="n-title grow">Mara Keller</span><span class="time">2 min</span></div><div class="n-text">Pushed the new dock tokens. Can you look at the shadow levels before lunch?</div></div></div>
+          <div class="row" style="gap:8px;padding-left:48px"><span class="reply">Reply...</span><span class="btn sm">Mark read</span></div>
+        </div>
+        <div class="card"><div class="n-top"><span class="avatar" style="width:36px;height:36px;font-size:13px;background:linear-gradient(145deg,#35D0C0,#1E8FE0)">TO</span><div class="n-body"><div class="row"><span class="n-title grow">Tom Okafor</span><span class="time">14 min</span></div><div class="n-text">Lunch at 12:30?</div></div></div></div>
+        <div class="peek"></div><div class="peek p2"></div>
+      </div>
+      <div>
+        <div class="g-head">{{app:calendar xs}}<span class="name">Calendar</span>{{chevron-down|s16}}<span class="n-x">{{close}}</span></div>
+        <div class="card"><div class="n-top"><span class="app-icon md a-calendar">{{calendar}}</span><div class="n-body"><div class="row"><span class="n-title grow">Design review starts in 28 min</span><span class="time">now</span></div><div class="n-text">Meeting room 2 &middot; 15:00 - 16:00</div></div></div>
+          <div class="row" style="gap:8px;padding-left:48px"><span class="btn sm grow">Snooze 10 min</span><span class="btn sm primary grow">Join</span></div></div>
+      </div>
+      <div>
+        <div class="g-head">{{app:settings xs}}<span class="name">System</span>{{chevron-down|s16}}<span class="n-x">{{close}}</span></div>
+        <div class="card"><div class="n-top"><span class="app-icon md a-store">{{sparkles}}</span><div class="n-body"><div class="row"><span class="n-title grow">Desilium 0.4 is ready</span><span class="time">1 h</span></div><div class="n-text">Smoother window animations and a new Appearance page. Restart to apply.</div></div></div>
+          <div class="row" style="gap:8px;padding-left:48px"><span class="btn sm grow">Later</span><span class="btn sm primary grow">Restart now</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast stack -->
+  <div class="toasts">
+    <div class="toast"><div class="n-top"><span class="avatar" style="width:36px;height:36px;font-size:13px">MK</span><div class="n-body"><div class="n-app">MAIL &middot; now</div><div class="n-title">Mara Keller</div><div class="n-text">Pushed the new dock tokens. Can you look at the shadow levels?</div></div><span class="n-x">{{close}}</span></div>
+      <div class="n-act"><span class="btn sm">Reply</span><span class="btn sm">Mark read</span></div><span class="timer"></span></div>
+    <div class="toast"><div class="n-top"><span class="app-icon md a-files">{{folder}}</span><div class="n-body"><div class="n-app">FILES &middot; 12 s</div><div class="n-title">Copying 214 items to Backup</div><div class="n-text">64% &middot; 18 MB/s &middot; 40 s left</div></div><span class="n-x">{{close}}</span></div><div class="dl"><i></i></div></div>
+    <div class="toast crit"><div class="n-top"><span class="app-icon md" style="background:linear-gradient(150deg,#FF7A7A,#E0455B)">{{battery}}</span><div class="n-body"><div class="n-app">POWER &middot; now</div><div class="n-title">Battery low - 9%</div><div class="n-text">Plug in soon. Power saver was turned on.</div></div></div>
+      <div class="n-act"><span class="btn sm primary">Power settings</span></div></div>
+  </div>
+
+  <div class="dock">
+    <div class="dock-item"><span class="dock-launcher">{{grid}}</span></div><div class="dock-sep"></div>
+    <div class="dock-item run focus-app">{{app:files}}</div><div class="dock-item">{{app:web}}</div><div class="dock-item">{{app:code}}</div><div class="dock-item">{{app:terminal}}</div><div class="dock-item">{{app:music}}</div><div class="dock-item">{{app:photos}}</div><div class="dock-item">{{app:mail}}</div><div class="dock-sep"></div><div class="dock-item">{{app:settings}}</div>
+  </div>
+  <button class="devtoggle" style="left:12px;right:auto" onclick="dsToggleTheme()">Toggle theme</button>
+</div>
+</body>
+</html>

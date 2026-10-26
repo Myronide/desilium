@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Desilium - Window Switcher</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shared.css">
+<script src="theme.js"></script>
+<style>
+  .sw { position: absolute; left: 50%; top: 330px; transform: translateX(-50%); padding: 20px 20px 18px; border-radius: 28px; display: flex; flex-direction: column; gap: 16px; align-items: center;
+        background: var(--glass-sheen), var(--glass-bg-strong); border: 1px solid var(--glass-border); box-shadow: var(--shadow-4), inset 0 1px 0 var(--glass-highlight); }
+  .cards { display: flex; gap: 12px; }
+  .wcard { width: 232px; padding: 10px; border-radius: 18px; display: flex; flex-direction: column; gap: 10px; position: relative; border: 1px solid transparent; }
+  .wcard.sel { background: var(--selected); border-color: var(--accent-line); box-shadow: 0 0 0 2px var(--accent), 0 8px 24px rgba(123,97,255,.25); }
+  .wcard .hd { display: flex; align-items: center; gap: 8px; height: 24px; }
+  .wcard .hd span { font-size: 12px; font-weight: 500; color: var(--text-2); }
+  .wcard.sel .hd span { color: var(--text); }
+  .th { height: 132px; border-radius: 10px; overflow: hidden; background: var(--window-bg); border: 1px solid var(--window-border); box-shadow: var(--shadow-2); display: flex; flex-direction: column; position: relative; }
+  .th .tb { height: 14px; background: var(--titlebar-bg); border-bottom: 1px solid var(--divider); display: flex; align-items: center; gap: 3px; padding: 0 5px; flex: none; }
+  .th .tb i { width: 5px; height: 5px; border-radius: 3px; background: var(--text-disabled); display: block; }
+  .th .bd { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .th .bd u { display: block; height: 5px; border-radius: 3px; background: var(--surface-3); text-decoration: none; }
+  .th .bd u.a { background: var(--accent); opacity: .9; }
+  .th.term { background: #0B0D14; }
+  .th.term .tb { background: #151823; border-color: rgba(255,255,255,.06); }
+  .th.term .bd u { background: #2E3550; }
+  .th.term .bd u.g { background: #2FCB84; opacity: .8; }
+  .th .split { flex: 1; display: flex; }
+  .th .split .l { width: 54px; background: var(--surface-2); border-right: 1px solid var(--divider); }
+  .th .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; flex: 1; }
+  .th .grid b { display: block; border-radius: 5px; background: var(--surface-3); }
+  .th .web { flex: 1; background: linear-gradient(180deg, var(--surface-2), var(--surface-1)); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .th .web .hero { height: 46px; border-radius: 6px; background: linear-gradient(135deg, #35D0C0, #7B61FF); }
+  .xbtn { position: absolute; right: 4px; top: 4px; width: 22px; height: 22px; border-radius: 11px; background: rgba(0,0,0,.55); color: #fff; display: grid; place-items: center; }
+  .xbtn .ic { width: 12px; height: 12px; stroke-width: 2; }
+  .cap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .cap .t { font-size: 20px; font-weight: 600; line-height: 28px; letter-spacing: -0.01em; }
+  .hints { display: flex; gap: 18px; color: var(--text-3); font-size: 12px; }
+  .hints .h { display: flex; align-items: center; gap: 6px; }
+  .badge { position: absolute; right: 12px; bottom: 12px; height: 18px; padding: 0 6px; border-radius: 9px; background: var(--surface-4); font-size: 10px; font-weight: 600; color: var(--text-2); display: flex; align-items: center; }
+</style>
+</head>
+<body>
+{{sprite}}
+<div class="stage">
+  <div class="wallpaper"></div>
+  <div class="topbar">
+    <div class="left"><div class="tb-btn"><span class="ws-dots"><i></i><i class="on"></i><i></i><i></i></span></div><div class="tb-btn">{{code|s16}}<span class="t-semi">Code</span></div></div>
+    <div class="tb-btn tb-clock"><span class="date">Mon 26 Oct</span>14:32</div>
+    <div class="right"><div class="tb-group">{{wifi|s16}}{{volume|s16}}{{battery|s16}}<span class="t-med">82%</span></div></div>
+  </div>
+  <div class="window inactive" style="left:140px;top:110px;width:820px;height:560px"><div class="titlebar">{{app:files xs}}<span class="title">Files</span></div><div style="flex:1;padding:24px;display:flex;flex-direction:column;gap:12px"><i style="height:12px;border-radius:6px;background:var(--surface-3);width:40%"></i><i style="height:12px;border-radius:6px;background:var(--surface-3);width:70%"></i></div></div>
+  <div class="window" style="left:760px;top:170px;width:1000px;height:680px"><div class="titlebar">{{app:code xs}}<span class="title">Code</span><span class="subtitle">launcher.rs</span></div><div style="flex:1;padding:24px;display:flex;flex-direction:column;gap:12px"><i style="height:12px;border-radius:6px;background:var(--surface-3);width:50%"></i><i style="height:12px;border-radius:6px;background:var(--surface-3);width:75%"></i><i style="height:12px;border-radius:6px;background:var(--accent-soft);width:60%"></i></div></div>
+  <div class="scrim"></div>
+
+  <div class="sw">
+    <div class="cards">
+      <div class="wcard"><div class="hd">{{app:files sm}}<span>Files</span></div><div class="th"><div class="tb"><i></i><i></i><i></i></div><div class="split"><div class="l"></div><div class="grid"><b></b><b></b><b></b><b></b><b></b><b></b></div></div></div></div>
+      <div class="wcard sel"><div class="hd">{{app:code sm}}<span>Code - launcher.rs</span></div><div class="th"><div class="tb"><i></i><i></i><i></i></div><div class="split"><div class="l"></div><div class="bd" style="flex:1"><u style="width:70%"></u><u class="a" style="width:40%"></u><u style="width:55%"></u><u style="width:30%"></u><u style="width:62%"></u><u style="width:48%"></u></div></div><span class="xbtn">{{close}}</span></div></div>
+      <div class="wcard"><div class="hd">{{app:terminal sm}}<span>Terminal</span></div><div class="th term"><div class="tb"><i></i><i></i><i></i></div><div class="bd"><u class="g" style="width:30%"></u><u style="width:80%"></u><u style="width:55%"></u><u class="g" style="width:24%"></u><u style="width:66%"></u></div></div></div>
+      <div class="wcard"><div class="hd">{{app:web sm}}<span>Desilium - Docs</span></div><div class="th"><div class="tb"><i></i><i></i><i></i></div><div class="web"><div class="hero"></div><u style="display:block;height:5px;border-radius:3px;background:var(--surface-3);width:70%"></u><u style="display:block;height:5px;border-radius:3px;background:var(--surface-3);width:50%"></u></div></div></div>
+      <div class="wcard"><div class="hd">{{app:music sm}}<span>Music</span></div><div class="th"><div class="tb"><i></i><i></i><i></i></div><div class="bd" style="align-items:center;justify-content:center"><div style="width:56px;height:56px;border-radius:10px;background:linear-gradient(145deg,#E8348A,#5B3FE6)"></div><u style="width:60px"></u></div></div></div>
+      <div class="wcard"><div class="hd">{{app:settings sm}}<span>Settings</span></div><div class="th"><div class="tb"><i></i><i></i><i></i></div><div class="split"><div class="l"></div><div class="bd" style="flex:1"><u class="a" style="width:30%;height:7px"></u><u style="width:80%"></u><u style="width:70%"></u><u style="width:76%"></u></div></div></div><span class="badge">Ws 3</span></div>
+    </div>
+    <div class="cap"><span class="t">Code - launcher.rs</span><span class="t-2">desilium &middot; Workspace 2</span></div>
+    <div class="hints"><span class="h"><span class="kbd">Alt</span><span class="kbd">Tab</span>next</span><span class="h"><span class="kbd">Shift</span>previous</span><span class="h"><span class="kbd">Q</span>close window</span><span class="h"><span class="kbd">`</span>same app</span><span class="h"><span class="kbd">Esc</span>cancel</span></div>
+  </div>
+
+  <div class="dock">
+    <div class="dock-item"><span class="dock-launcher">{{grid}}</span></div><div class="dock-sep"></div>
+    <div class="dock-item run">{{app:files}}</div><div class="dock-item run">{{app:web}}</div><div class="dock-item run focus-app">{{app:code}}</div><div class="dock-item run">{{app:terminal}}</div><div class="dock-item run">{{app:music}}</div><div class="dock-item">{{app:photos}}</div><div class="dock-item">{{app:mail}}</div><div class="dock-sep"></div><div class="dock-item run">{{app:settings}}</div>
+  </div>
+  <button class="devtoggle" onclick="dsToggleTheme()">Toggle theme</button>
+</div>
+</body>
+</html>

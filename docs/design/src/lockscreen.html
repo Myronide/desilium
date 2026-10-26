@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Desilium - Lock Screen</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shared.css">
+<script src="theme.js"></script>
+<style>
+  .vignette { position: absolute; inset: 0; background: radial-gradient(1200px 800px at 50% 40%, transparent 30%, rgba(4,5,12,.28) 100%); }
+  :root[data-theme="light"] .vignette { background: radial-gradient(1200px 800px at 50% 40%, rgba(255,255,255,.25), transparent 70%); }
+  .clock-wrap { position: absolute; left: 0; right: 0; top: 150px; display: flex; flex-direction: column; align-items: center; }
+  .clock { font-size: var(--fs-clock); line-height: var(--lh-clock); font-weight: 200; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; color: var(--text); text-shadow: 0 8px 60px rgba(0,0,0,.30); }
+  :root[data-theme="light"] .clock { text-shadow: 0 8px 60px rgba(255,255,255,.5); }
+  .date { margin-top: 4px; font-size: 26px; line-height: 34px; font-weight: 400; color: var(--text); opacity: .86; letter-spacing: 0.005em; }
+  .notif { margin-top: 28px; height: 36px; padding: 0 16px 0 12px; border-radius: 18px; display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 500; }
+  .unlock { position: absolute; left: 0; right: 0; top: 636px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .unlock .avatar { width: 96px; height: 96px; font-size: 34px; box-shadow: 0 0 0 4px rgba(255,255,255,.10), 0 12px 32px rgba(0,0,0,.4); }
+  .uname { font-size: 20px; font-weight: 600; line-height: 28px; }
+  .pw { width: 340px; height: 52px; border-radius: 26px; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 20px; background: var(--glass-sheen), var(--glass-bg); border: 1px solid var(--accent-line); box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-2), inset 0 1px 0 var(--glass-highlight); }
+  .pw .dots { flex: 1; display: flex; gap: 8px; align-items: center; }
+  .pw .dots i { width: 9px; height: 9px; border-radius: 5px; background: var(--text); }
+  .pw .go { width: 36px; height: 36px; border-radius: 18px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+  .hint { color: var(--text-2); font-size: 12px; display: flex; align-items: center; gap: 8px; height: 20px; }
+  .corner { position: absolute; display: flex; align-items: center; gap: 8px; }
+  .corner .pill { height: 40px; padding: 0 14px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .corner .round { width: 44px; height: 44px; border-radius: 22px; display: grid; place-items: center; }
+  .pillglass { background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--shadow-2), inset 0 1px 0 var(--glass-highlight); }
+  .mini { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 8px; border-radius: 16px; }
+  .mini .art { width: 36px; height: 36px; border-radius: 9px; background: radial-gradient(circle at 30% 25%, #FFB347, transparent 55%), linear-gradient(145deg, #E8348A, #5B3FE6); display: grid; place-items: center; color: #fff; }
+</style>
+</head>
+<body>
+{{sprite}}
+<div class="stage">
+  <div class="wallpaper"></div>
+  <div class="vignette"></div>
+
+  <div class="corner" style="right:32px;top:24px">
+    <span class="pill pillglass t-small">EN</span>
+    <span class="pill pillglass">{{wifi|s20}}{{bluetooth|s20}}<span class="row" style="gap:6px">{{battery|s20}}82%</span></span>
+  </div>
+  <div class="corner" style="left:32px;top:24px"><span class="pill pillglass">{{lock|s16}}<span class="t-small">Locked</span></span></div>
+
+  <div class="clock-wrap">
+    <div class="clock">14:32</div>
+    <div class="date">Monday, 26 October</div>
+    <div class="notif glass" style="box-shadow:var(--shadow-1),inset 0 1px 0 var(--glass-highlight)">{{bell|s16}}2 notifications<span class="t-3">&middot;</span><span class="t-2" style="font-weight:400">Content hidden while locked</span></div>
+  </div>
+
+  <div class="unlock">
+    <span class="avatar">JS</span>
+    <span class="uname">Jason</span>
+    <div class="pw"><div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="go">{{enter|s20}}</span></div>
+    <div class="hint"><span class="kbd">{{enter|s16}}</span>to unlock<span style="opacity:.5">&middot;</span><span class="row" style="gap:6px;color:var(--warning)">Caps Lock is on</span></div>
+  </div>
+
+  <div class="mini glass">
+    <span class="art">{{music|s20}}</span><div class="col" style="line-height:16px"><span class="t-med t-small">Midnight Static</span><span class="t-small t-2">Lumen Park</span></div><span style="width:8px"></span>{{pause|s20}}
+  </div>
+
+  <div class="corner" style="left:32px;bottom:32px"><span class="pill pillglass">{{user|s20}}Switch user</span></div>
+  <div class="corner" style="right:32px;bottom:32px"><span class="round pillglass">{{accessibility|s24}}</span><span class="round pillglass">{{moon|s24}}</span><span class="round pillglass">{{power|s24}}</span></div>
+  <button class="devtoggle" style="top:12px;bottom:auto;left:50%;right:auto" onclick="dsToggleTheme()">Toggle theme</button>
+</div>
+</body>
+</html>

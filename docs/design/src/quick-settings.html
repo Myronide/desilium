@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Desilium - Quick Settings</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shared.css">
+<script src="theme.js"></script>
+<style>
+  .ghost-win { left: 260px; top: 120px; width: 960px; height: 640px; }
+  .ghost-body { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .ghost-body i { display: block; height: 12px; border-radius: 6px; background: var(--surface-3); }
+
+  .qs { position: absolute; right: 8px; top: 40px; width: 408px; padding: 16px; border-radius: 20px; display: flex; flex-direction: column; gap: 12px;
+        background: var(--glass-sheen), var(--glass-bg-strong); border: 1px solid var(--glass-border); box-shadow: var(--shadow-4), inset 0 1px 0 var(--glass-highlight); }
+  .qs-head { display: flex; align-items: center; gap: 12px; height: 40px; }
+  .qs-head .bat { display: flex; align-items: center; gap: 10px; flex: 1; }
+  .qs-head .bat .pct { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bat-bar { width: 56px; height: 6px; border-radius: 3px; background: var(--surface-4); overflow: hidden; }
+  .bat-bar i { display: block; height: 100%; width: 82%; background: var(--success); border-radius: 3px; }
+  .ib { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--text-2); background: var(--surface-3); border: 1px solid var(--border); }
+  .ib.hover { background: var(--surface-4); color: var(--text); }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tile { height: 64px; border-radius: 14px; background: var(--surface-3); border: 1px solid var(--border); display: flex; align-items: center; gap: 12px; padding: 0 8px 0 12px; }
+  .tile .ico { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-4); color: var(--text-2); flex: none; }
+  .tile .tx { flex: 1; min-width: 0; line-height: 18px; }
+  .tile .tx b { display: block; font-weight: 600; font-size: 13px; }
+  .tile .tx span { font-size: 12px; color: var(--text-3); }
+  .tile .chev { width: 24px; height: 36px; display: grid; place-items: center; color: var(--text-3); border-left: 1px solid var(--divider); margin-left: 4px; }
+  .tile.on { background: var(--accent); border-color: transparent; box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 4px 12px rgba(123,97,255,.35); color: var(--on-accent); }
+  .tile.on .ico { background: rgba(12,10,30,.14); color: var(--on-accent); }
+  .tile.on .tx span { color: rgba(12,10,30,.74); }
+  .tile.on .chev { color: var(--on-accent); border-color: rgba(12,10,30,.18); }
+  .tile.focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  .sliders { display: flex; flex-direction: column; gap: 8px; }
+  .bs { position: relative; height: 44px; border-radius: 14px; background: var(--surface-3); border: 1px solid var(--border); overflow: hidden; display: flex; align-items: center; }
+  .bs .fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--accent), var(--accent-hover)); }
+  .bs .fill::after { content: ""; position: absolute; right: 6px; top: 12px; width: 4px; height: 18px; border-radius: 2px; background: rgba(12,10,30,.7); }
+  .bs .ic { position: relative; margin-left: 14px; color: var(--on-accent); }
+  .bs .val { position: absolute; right: 14px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+  .bs .dev { position: absolute; left: 46px; font-size: 12px; color: rgba(12,10,30,.8); font-weight: 500; }
+  .group-title { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0; }
+  .pp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface-inset); border: 1px solid var(--border); }
+  .pp > div { height: 56px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--text-2); font-size: 12px; font-weight: 500; }
+  .pp > .on { background: var(--control-active); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.06); }
+  .pp > .on .ic { color: var(--accent); }
+  .media { border-radius: 16px; padding: 14px; background: linear-gradient(135deg, rgba(123,97,255,.22), rgba(232,52,138,.14)), var(--surface-3); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px; }
+  .art { width: 64px; height: 64px; border-radius: 12px; background: radial-gradient(circle at 30% 25%, #FFB347, transparent 55%), linear-gradient(145deg, #E8348A, #5B3FE6); box-shadow: var(--shadow-2); flex: none; display: grid; place-items: center; color: rgba(255,255,255,.9); }
+  .prog { height: 4px; border-radius: 2px; background: var(--surface-4); position: relative; }
+  .prog i { position: absolute; left: 0; top: 0; bottom: 0; width: 38%; border-radius: 2px; background: var(--text); }
+  .ctl { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .ctl .pb { width: 44px; height: 44px; border-radius: 50%; background: var(--text); color: var(--bg); display: grid; place-items: center; }
+  .ctl .sk { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--text); }
+  :root[data-theme="light"] .ctl .pb { color: #fff; }
+  .qs-foot { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
+</style>
+</head>
+<body>
+{{sprite}}
+<div class="stage">
+  <div class="wallpaper"></div>
+  <div class="topbar">
+    <div class="left"><div class="tb-btn"><span class="ws-dots"><i class="on"></i><i></i><i></i><i></i></span></div><div class="tb-btn">{{folder|s16}}<span class="t-semi">Files</span></div></div>
+    <div class="tb-btn tb-clock"><span class="date">Mon 26 Oct</span>14:32</div>
+    <div class="right"><div class="tb-btn dim" style="font-size:12px">EN</div><div class="tb-group open">{{wifi|s16}}{{volume|s16}}<span class="row" style="gap:5px">{{battery|s16}}<span class="t-med">82%</span></span>{{chevron-down|s16}}</div><div class="tb-btn dim">{{power|s16}}</div></div>
+  </div>
+
+  <div class="window inactive ghost-win">
+    <div class="titlebar">{{app:files xs}}<span class="title">Files</span><span class="spacer"></span><div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb">{{maximize}}</span><span class="wb close">{{close}}</span></div></div>
+    <div class="ghost-body"><i style="width:30%"></i><i style="width:70%"></i><i style="width:55%"></i><i style="width:62%"></i><i style="width:40%"></i></div>
+  </div>
+
+  <div class="qs">
+    <div class="qs-head">
+      <div class="bat">{{battery|s24}}<span class="pct">82%</span><span class="bat-bar"><i></i></span><span class="t-small t-3">3 h 40 min left</span></div>
+      <span class="ib">{{settings}}</span><span class="ib">{{lock}}</span><span class="ib hover">{{power}}</span>
+    </div>
+    <div class="tiles">
+      <div class="tile on focus"><span class="ico">{{wifi}}</span><div class="tx"><b>Wi-Fi</b><span>Home 5G</span></div><span class="chev">{{chevron-right|s16}}</span></div>
+      <div class="tile on"><span class="ico">{{bluetooth}}</span><div class="tx"><b>Bluetooth</b><span>Aria Buds</span></div><span class="chev">{{chevron-right|s16}}</span></div>
+      <div class="tile"><span class="ico">{{bell-off}}</span><div class="tx"><b>Do not disturb</b><span>Off</span></div></div>
+      <div class="tile on"><span class="ico">{{moon}}</span><div class="tx"><b>Night light</b><span>Until 07:00</span></div><span class="chev">{{chevron-right|s16}}</span></div>
+      <div class="tile"><span class="ico">{{airplane}}</span><div class="tx"><b>Airplane</b><span>Off</span></div></div>
+      <div class="tile"><span class="ico">{{mic}}</span><div class="tx"><b>Microphone</b><span>Built-in</span></div><span class="chev">{{chevron-right|s16}}</span></div>
+    </div>
+    <div class="sliders">
+      <div class="bs"><div class="fill" style="width:64%"></div>{{volume}}<span class="dev">Speakers</span><span class="val">64%</span></div>
+      <div class="bs"><div class="fill" style="width:82%"></div>{{sun}}<span class="val">82%</span></div>
+    </div>
+    <div class="group-title"><span class="t-caption">Power profile</span><span class="t-small t-3">Balanced saves ~12% battery</span></div>
+    <div class="pp">
+      <div>{{battery|s20}}Saver</div><div class="on">{{bolt|s20}}Balanced</div><div>{{sparkles|s20}}Performance</div>
+    </div>
+    <div class="media">
+      <div class="row" style="gap:14px"><div class="art">{{music|s28}}</div><div class="col grow" style="gap:2px"><span class="t-small t-3 t-med" style="letter-spacing:.04em">NOW PLAYING</span><span style="font-size:15px;font-weight:600" class="ellipsis">Midnight Static</span><span class="t-2 ellipsis">Lumen Park - Afterimage</span></div></div>
+      <div class="col" style="gap:6px"><div class="prog"><i></i></div><div class="row t-small t-3" style="justify-content:space-between"><span>1:24</span><span>3:41</span></div></div>
+      <div class="ctl"><span class="sk">{{skip-prev|s24}}</span><span class="pb">{{pause|s24}}</span><span class="sk">{{skip-next|s24}}</span></div>
+    </div>
+  </div>
+
+  <div class="dock">
+    <div class="dock-item"><span class="dock-launcher">{{grid}}</span></div><div class="dock-sep"></div>
+    <div class="dock-item run focus-app">{{app:files}}</div><div class="dock-item">{{app:web}}</div><div class="dock-item">{{app:code}}</div><div class="dock-item">{{app:terminal}}</div><div class="dock-item">{{app:music}}</div><div class="dock-item">{{app:photos}}</div><div class="dock-item">{{app:mail}}</div><div class="dock-sep"></div><div class="dock-item">{{app:settings}}</div>
+  </div>
+  <button class="devtoggle" onclick="dsToggleTheme()">Toggle theme</button>
+</div>
+</body>
+</html>

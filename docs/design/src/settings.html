@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Desilium - Settings</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shared.css">
+<script src="theme.js"></script>
+<style>
+  .w-set { left: 180px; top: 62px; width: 1560px; height: 900px; }
+  .set-body { flex: 1; display: flex; min-height: 0; }
+  .side { width: 280px; background: var(--surface-2); border-right: 1px solid var(--divider); padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .side .input { height: 36px; margin: 0 0 12px; }
+  .nav { height: 40px; padding: 0 10px; border-radius: 10px; display: flex; align-items: center; gap: 12px; color: var(--text-2); font-size: 14px; font-weight: 500; }
+  .nav .t { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--surface-3); color: var(--text-2); }
+  .nav .t .ic { width: 16px; height: 16px; }
+  .nav.on { background: var(--selected); color: var(--text); box-shadow: inset 0 0 0 1px var(--accent-line); }
+  .nav.on .t { background: var(--accent); color: var(--on-accent); }
+  .nav.hover { background: var(--hover); }
+  .nav-sep { height: 1px; background: var(--divider); margin: 8px 10px; }
+  .side .foot { margin-top: auto; padding: 12px 10px 0; font-size: 12px; color: var(--text-3); display: flex; gap: 8px; align-items: flex-start; line-height: 16px; }
+  .main { flex: 1; padding: 28px 36px 24px; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .ph { display: flex; align-items: flex-end; gap: 16px; }
+  .ph h1 { font-size: 28px; line-height: 36px; font-weight: 600; letter-spacing: -0.02em; }
+  .live { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 14px; background: var(--success-soft); color: var(--success); font-size: 12px; font-weight: 600; }
+  .live i { width: 7px; height: 7px; border-radius: 4px; background: var(--success); display: block; }
+  .cols { display: flex; gap: 28px; flex: 1; min-height: 0; }
+  .c1 { width: 740px; display: flex; flex-direction: column; gap: 14px; }
+  .c2 { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+  .card { border-radius: 16px; background: var(--surface-2); border: 1px solid var(--border); }
+  .sh { display: flex; align-items: center; gap: 10px; padding: 14px 18px 0; }
+  .sh h3 { font-size: 14px; font-weight: 600; line-height: 20px; }
+  .key { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); padding: 1px 6px; border-radius: 5px; background: var(--surface-inset); border: 1px solid var(--border); }
+  .reset { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-3); height: 24px; padding: 0 8px; border-radius: 6px; }
+  .reset .ic { width: 14px; height: 14px; }
+  .srow { display: flex; align-items: center; gap: 16px; padding: 14px 18px; min-height: 60px; }
+  .srow + .srow { border-top: 1px solid var(--divider); }
+  .srow .lab { flex: 1; }
+  .srow .lab b { display: block; font-weight: 500; font-size: 13px; }
+  .srow .lab span { font-size: 12px; color: var(--text-3); }
+  .swatches { display: flex; gap: 14px; padding: 16px 18px 18px; align-items: center; }
+  .sw { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 -2px 4px rgba(0,0,0,.12); flex: none; }
+  .sw.on { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px currentColor, inset 0 1px 0 rgba(255,255,255,.3); }
+  .sw .ic { width: 18px; height: 18px; stroke-width: 2; }
+  .sw.add { background: var(--surface-3); color: var(--text-2); border: 1px dashed var(--border-strong); box-shadow: none; }
+  .walls { display: flex; gap: 12px; padding: 14px 18px 8px; }
+  .wp { width: 104px; display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--text-3); text-align: center; }
+  .wp .th { height: 66px; border-radius: 10px; border: 1px solid var(--border-strong); position: relative; box-shadow: var(--shadow-1); }
+  .wp.on .th { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--accent); }
+  .wp.on { color: var(--text); font-weight: 500; }
+  .wp .ck { position: absolute; right: 6px; bottom: 6px; width: 18px; height: 18px; border-radius: 9px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
+  .wp .ck .ic { width: 12px; height: 12px; stroke-width: 2.2; }
+  .wp.add .th { background: var(--surface-3); border-style: dashed; display: grid; place-items: center; color: var(--text-2); }
+  .ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-3); padding-top: 4px; }
+  .pv { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .mini { height: 232px; border-radius: 12px; position: relative; overflow: hidden; background: var(--wallpaper); border: 1px solid var(--border-strong); }
+  .mini .mb { position: absolute; left: 0; right: 0; top: 0; height: 10px; background: var(--bar-bg); border-bottom: 1px solid var(--divider); }
+  .mini .mb i { position: absolute; top: 3px; height: 4px; border-radius: 2px; background: var(--text-3); opacity: .7; }
+  .mini .mw { position: absolute; left: 36px; top: 36px; width: 200px; height: 120px; border-radius: 8px; background: var(--window-bg); border: 1px solid var(--window-border); box-shadow: var(--shadow-2); overflow: hidden; }
+  .mini .mw .mt { height: 14px; background: var(--titlebar-bg); border-bottom: 1px solid var(--divider); }
+  .mini .mw .ln { height: 6px; border-radius: 3px; background: var(--surface-3); margin: 8px 10px 0; }
+  .mini .mw .ln.a { background: var(--accent); width: 60px; }
+  .mini .mw2 { position: absolute; left: 150px; top: 80px; width: 180px; height: 100px; border-radius: 8px; background: var(--window-bg); border: 1px solid var(--window-border-inactive); box-shadow: var(--shadow-1); overflow: hidden; }
+  .mini .mw2 .mt { height: 14px; background: var(--titlebar-bg-inactive); }
+  .mini .md { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); height: 24px; padding: 0 6px; border-radius: 9px; background: var(--glass-bg); border: 1px solid var(--glass-border); display: flex; gap: 4px; align-items: center; }
+  .mini .md i { width: 14px; height: 14px; border-radius: 4px; display: block; }
+  .kv { display: flex; flex-direction: column; gap: 8px; font-family: var(--font-mono); font-size: 12px; }
+  .kv div { display: flex; justify-content: space-between; color: var(--text-2); }
+  .kv b { font-weight: 500; color: var(--text); }
+  .undo { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; border-radius: 12px; background: var(--surface-3); border: 1px solid var(--border); font-size: 13px; }
+  .philo { display: flex; gap: 12px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(135deg, var(--accent-soft), transparent 80%); border: 1px solid var(--accent-line); line-height: 18px; }
+  .philo .ic { color: var(--accent); margin-top: 1px; }
+  :root[data-theme="dark"] .seg.theme > span:nth-child(2), :root[data-theme="light"] .seg.theme > span:nth-child(1) { background: var(--control-active); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.06); }
+  .od, .ol { display: inline-flex; align-items: center; gap: 6px; }
+  :root[data-theme="dark"] .ol, :root[data-theme="light"] .od { display: none; }
+</style>
+</head>
+<body>
+{{sprite}}
+<div class="stage">
+  <div class="wallpaper"></div>
+  <div class="topbar">
+    <div class="left"><div class="tb-btn"><span class="ws-dots"><i class="on"></i><i></i><i></i><i></i></span></div><div class="tb-btn">{{settings|s16}}<span class="t-semi">Settings</span></div><div class="tb-btn dim">Appearance</div></div>
+    <div class="tb-btn tb-clock"><span class="date">Mon 26 Oct</span>14:32</div>
+    <div class="right"><div class="tb-group">{{wifi|s16}}{{volume|s16}}{{battery|s16}}<span class="t-med">82%</span></div><div class="tb-btn dim">{{power|s16}}</div></div>
+  </div>
+
+  <div class="window w-set">
+    <div class="titlebar">{{app:settings xs}}<span class="title">Settings</span><span class="spacer"></span><div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb">{{maximize}}</span><span class="wb close">{{close}}</span></div></div>
+    <div class="set-body">
+      <div class="side">
+        <div class="input">{{search|s16}}<span class="ph grow" style="font-size:13px">Search all settings</span><span class="kbd">/</span></div>
+        <div class="nav"><span class="t">{{wifi}}</span>Network</div>
+        <div class="nav"><span class="t">{{bluetooth}}</span>Bluetooth</div>
+        <div class="nav"><span class="t">{{monitor}}</span>Display</div>
+        <div class="nav"><span class="t">{{volume}}</span>Sound</div>
+        <div class="nav"><span class="t">{{battery}}</span>Power</div>
+        <div class="nav-sep"></div>
+        <div class="nav on"><span class="t">{{palette}}</span>Appearance</div>
+        <div class="nav hover"><span class="t">{{bell}}</span>Notifications</div>
+        <div class="nav"><span class="t">{{keyboard}}</span>Keyboard</div>
+        <div class="nav"><span class="t">{{grid}}</span>Apps</div>
+        <div class="nav-sep"></div>
+        <div class="nav"><span class="t">{{lock}}</span>Privacy &amp; Security</div>
+        <div class="nav"><span class="t">{{accessibility}}</span>Accessibility</div>
+        <div class="nav"><span class="t">{{user}}</span>Users</div>
+        <div class="nav"><span class="t">{{info}}</span>About</div>
+        <div class="foot">{{sparkles|s16}}<span>Every option of Desilium lives here. No config files, no tweak tools.</span></div>
+      </div>
+      <div class="main">
+        <div class="ph"><div class="col grow" style="gap:2px"><h1>Appearance</h1><span class="t-2">Make Desilium look the way you want. Changes apply instantly.</span></div><span class="live"><i></i>Live preview</span><span class="btn sm">{{restore|s16}}Reset page</span></div>
+        <div class="cols">
+          <div class="c1">
+            <div class="card">
+              <div class="sh"><h3>Style</h3><span class="key">appearance.theme</span><span class="grow"></span><span class="reset">{{restore}}Default</span></div>
+              <div class="srow"><div class="lab"><b>Color scheme</b><span>Auto follows sunset at 18:42 and sunrise at 07:05</span></div>
+                <div class="seg theme"><span>{{sun|s16}}Light</span><span>{{moon|s16}}Dark</span><span>{{sparkles|s16}}Auto</span></div></div>
+            </div>
+            <div class="card">
+              <div class="sh"><h3>Accent color</h3><span class="key">appearance.accent</span><span class="grow"></span><span class="reset">{{restore}}Default</span></div>
+              <div class="swatches">
+                <span class="sw on" style="background:#7B61FF;color:#7B61FF"><span style="color:#fff;display:grid">{{check}}</span></span>
+                <span class="sw" style="background:#4DA3FF"></span><span class="sw" style="background:#35C9C0"></span><span class="sw" style="background:#2FCB84"></span><span class="sw" style="background:#F2B441"></span><span class="sw" style="background:#FF8A4D"></span><span class="sw" style="background:#FF5C73"></span><span class="sw" style="background:#E8348A"></span><span class="sw" style="background:#8A93AD"></span>
+                <span class="grow"></span><span class="btn sm">{{palette|s16}}Custom...</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="sh"><h3>Wallpaper</h3><span class="key">appearance.wallpaper</span><span class="grow"></span><span class="reset">{{restore}}Default</span></div>
+              <div class="walls">
+                <div class="wp on"><div class="th" style="background:radial-gradient(60px 40px at 15% 10%,#7B61FF,transparent 70%),radial-gradient(60px 40px at 100% 100%,#D646A0,transparent 70%),#0A0C18"><span class="ck">{{check}}</span></div>Dusk violet</div>
+                <div class="wp"><div class="th" style="background:radial-gradient(70px 40px at 80% 20%,#35D0C0,transparent 70%),radial-gradient(60px 50px at 10% 100%,#2B6BFF,transparent 70%),#08131C"></div>Aurora</div>
+                <div class="wp"><div class="th" style="background:linear-gradient(160deg,#FF8A4D,#E8348A 60%,#3D1E6B)"></div>Ember</div>
+                <div class="wp"><div class="th" style="background:linear-gradient(160deg,#2A3042,#0F121B)"></div>Slate</div>
+                <div class="wp"><div class="th" style="background:radial-gradient(70px 40px at 30% 20%,#7FE0B0,transparent 70%),linear-gradient(160deg,#1E6B5A,#0A1F1C)"></div>Fjord</div>
+                <div class="wp add"><div class="th">{{plus|s24}}</div>Add...</div>
+              </div>
+              <div class="srow"><div class="lab"><b>Dim wallpaper in dark mode</b><span>Lowers brightness so windows stand out</span></div><span class="switch on"></span></div>
+              <div class="srow"><div class="lab"><b>Change wallpaper</b><span>Rotate through your collection</span></div><div class="btn">Every day {{chevron-down|s16}}</div></div>
+            </div>
+            <div class="card">
+              <div class="sh"><h3>Motion</h3><span class="key">appearance.animation_speed</span><span class="grow"></span><span class="reset">{{restore}}Default</span></div>
+              <div class="srow" style="align-items:flex-start"><div class="lab" style="padding-top:2px;flex:0 0 190px"><b>Animation speed</b><span>1.0x &middot; Normal</span></div>
+                <div class="col grow"><div class="slider focus" style="margin-top:4px"><div class="fill" style="width:50%"></div><div class="thumb" style="left:50%"></div></div><div class="ticks"><span>Off</span><span>0.5x</span><span>1x</span><span>1.5x</span><span>2x</span></div></div></div>
+              <div class="srow"><div class="lab"><b>Reduce motion</b><span>Replace slides and zooms with quick fades</span></div><span class="switch"></span></div>
+            </div>
+          </div>
+          <div class="c2">
+            <div class="card pv">
+              <div class="row"><h3 style="font-size:14px;font-weight:600" class="grow">Preview</h3><span class="chip accent"><span class="od">{{moon|s16}}Dark &middot; Violet</span><span class="ol">{{sun|s16}}Light &middot; Violet</span></span></div>
+              <div class="mini">
+                <div class="mb"><i style="left:8px;width:30px"></i><i style="left:50%;margin-left:-14px;width:28px"></i><i style="right:8px;width:40px"></i></div>
+                <div class="mw2"><div class="mt"></div></div>
+                <div class="mw"><div class="mt"></div><div class="ln a"></div><div class="ln" style="width:140px"></div><div class="ln" style="width:110px"></div><div class="ln" style="width:150px"></div></div>
+                <div class="md"><i style="background:linear-gradient(150deg,var(--app-files))"></i><i style="background:linear-gradient(150deg,var(--app-web))"></i><i style="background:linear-gradient(150deg,var(--app-code))"></i><i style="background:linear-gradient(150deg,var(--app-music))"></i><i style="background:linear-gradient(150deg,var(--app-settings))"></i></div>
+              </div>
+              <div class="undo">{{check|s16}}<span class="grow">Accent set to <b class="t-semi">Violet</b></span><span class="btn sm ghost" style="color:var(--text-on-surface-accent)">Undo</span></div>
+            </div>
+            <div class="card pv">
+              <h3 style="font-size:14px;font-weight:600">What this page controls</h3>
+              <div class="kv"><div><span>appearance.theme</span><b><span class="od">dark</span><span class="ol">light</span></b></div><div><span>appearance.accent</span><b>#7B61FF</b></div><div><span>appearance.wallpaper</span><b>dusk-violet</b></div><div><span>appearance.animation_speed</span><b>1.0</b></div></div>
+            </div>
+            <div class="philo">{{info|s20}}<span>These values are stored for you and can be exported or reset at any time. <span class="t-2">You never need to edit a file.</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dock">
+    <div class="dock-item"><span class="dock-launcher">{{grid}}</span></div><div class="dock-sep"></div>
+    <div class="dock-item">{{app:files}}</div><div class="dock-item">{{app:web}}</div><div class="dock-item">{{app:code}}</div><div class="dock-item">{{app:terminal}}</div><div class="dock-item">{{app:music}}</div><div class="dock-item">{{app:photos}}</div><div class="dock-item">{{app:mail}}</div><div class="dock-sep"></div><div class="dock-item run focus-app">{{app:settings}}</div>
+  </div>
+  <button class="devtoggle" onclick="dsToggleTheme()">Toggle theme</button>
+</div>
+</body>
+</html>

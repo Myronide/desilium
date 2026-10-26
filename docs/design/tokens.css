@@ -1,0 +1,240 @@
+/* ==========================================================================
+   Desilium design tokens - source of truth for the shell mockups.
+   Mirrors crates/desilium-theme (desilium-dark.toml / desilium-light.toml).
+   Plain CSS custom properties only: Blitz resolves var() natively.
+   Themes are selected with <html data-theme="dark|light">; dark is default.
+   ========================================================================== */
+
+/* ---------- Theme-independent tokens ---------- */
+:root {
+  /* Brand */
+  --accent: #7B61FF;
+  --accent-hover: #8D77FF;
+  --accent-press: #6F54F5;
+  --on-accent: #0C0A1E;      /* ink: white on #7B61FF is only 4.2:1 */
+  --on-accent-glyph: #FFFFFF; /* non-text glyphs (3:1) may stay white */
+
+  /* Font */
+  --font-sans: "Inter", "Noto Sans", "Cantarell", "DejaVu Sans", sans-serif;
+  --font-mono: "JetBrains Mono", "Noto Sans Mono", "DejaVu Sans Mono", monospace;
+
+  /* Spacing: base grid 4 px */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-control: 8px;   /* buttons, inputs, list rows */
+  --radius-md: 10px;
+  --radius-lg: 12px;       /* windows, tiles */
+  --radius-window: 12px;
+  --radius-xl: 16px;       /* panels, cards */
+  --radius-2xl: 20px;      /* dock, launcher */
+  --radius-pill: 999px;
+
+  /* Metrics */
+  --titlebar-h: 36px;
+  --topbar-h: 32px;
+  --control-h: 32px;
+  --control-h-lg: 40px;
+  --dock-h: 64px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --focus-ring-w: 2px;
+  --focus-ring-gap: 2px;
+
+  /* Type scale (size / line-height) */
+  --fs-caption: 11px;  --lh-caption: 16px;
+  --fs-small: 12px;    --lh-small: 16px;
+  --fs-body: 13px;     --lh-body: 20px;
+  --fs-body-lg: 14px;  --lh-body-lg: 20px;
+  --fs-title: 16px;    --lh-title: 24px;
+  --fs-headline: 20px; --lh-headline: 28px;
+  --fs-display: 28px;  --lh-display: 36px;
+  --fs-hero: 44px;     --lh-hero: 52px;
+  --fs-clock: 176px;   --lh-clock: 176px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Motion */
+  --dur-instant: 80ms;
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 280ms;
+  --dur-emphasis: 400ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);   /* decelerate */
+  --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);    /* accelerate */
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1); /* tiny overshoot, dock/hover only */
+
+  /* Status hues shared by both themes */
+  --success: #4CC38A;
+  --warning: #F0B54A;
+  --danger: #F2616F;
+  --info: #4DB2FF;
+
+  /* App-icon gradients (dock, launcher, switcher) */
+  --app-files: #4DA3FF, #2B6BFF;
+  --app-terminal: #3A4157, #1B1F2E;
+  --app-web: #35D0C0, #1E8FE0;
+  --app-settings: #8A93AD, #565E78;
+  --app-music: #FF6B9A, #E8348A;
+  --app-photos: #FFB347, #FF6A4D;
+  --app-code: #9B84FF, #5B3FE6;
+  --app-calc: #5AD689, #1FA463;
+  --app-mail: #54B6FF, #3A79F2;
+  --app-notes: #FFD866, #F2A930;
+  --app-calendar: #FF7A7A, #E0455B;
+  --app-store: #7B61FF, #C45CFF;
+}
+
+/* ---------- Dark (default) ---------- */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Surfaces: calm, deep, cool. Higher level = lighter (closer to the viewer). */
+  --bg: #0E1016;
+  --surface-0: #11131A;
+  --surface-1: #151821;      /* window body */
+  --surface-2: #1A1E29;      /* cards, sidebars */
+  --surface-3: #1D212D;      /* raised controls */
+  --surface-4: #262B3A;      /* hover on raised */
+  --surface-inset: #0F1118;  /* inputs, wells */
+  --scrim: rgba(5, 6, 12, 0.45);
+
+  /* Glass (fake frosted: translucent + gradient + hairline, no blur) */
+  --glass-bg: rgba(19, 22, 33, 0.80);
+  --glass-bg-strong: rgba(19, 22, 33, 0.92);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 60%);
+  --bar-bg: rgba(9, 11, 19, 0.62);
+  --control-active: #323950;
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-highlight: rgba(255, 255, 255, 0.10);
+
+  /* Text */
+  --text: #ECEEF5;
+  --text-2: #A3A9BC;
+  --text-3: #7A8199;
+  --text-disabled: #565C72;
+  --text-on-surface-accent: #B5A6FF;
+
+  /* Lines */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: #2C3244;
+  --divider: #1F2430;
+
+  /* Interaction overlays */
+  --hover: rgba(255, 255, 255, 0.06);
+  --pressed: rgba(255, 255, 255, 0.10);
+  --selected: rgba(123, 97, 255, 0.20);
+  --accent-soft: rgba(123, 97, 255, 0.16);
+  --accent-line: rgba(123, 97, 255, 0.55);
+  --focus-ring: #9C89FF;
+
+  --success-soft: rgba(47, 203, 132, 0.16);
+  --warning-soft: rgba(242, 180, 65, 0.16);
+  --danger-soft: rgba(255, 92, 115, 0.16);
+
+  /* Elevation: soft layered shadows, level 0-4 */
+  --shadow-0: none;
+  --shadow-1: 0 6px 24px rgba(10, 12, 31, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.30), 0 8px 20px rgba(0, 0, 0, 0.32);
+  --shadow-3: 0 16px 48px -4px rgba(10, 12, 31, 0.55), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-4: 0 20px 56px -4px rgba(10, 12, 31, 0.62), 0 40px 96px -10px rgba(10, 12, 31, 0.65), 0 4px 10px rgba(0, 0, 0, 0.30);
+  --shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  /* Window chrome */
+  --window-bg: var(--surface-1);
+  --window-border: #484285;
+  --window-border-inactive: #1F2430;
+  --titlebar-bg: #1D212D;
+  --titlebar-bg-inactive: #151821;
+
+  /* Wallpaper (layered gradients, replaced by image later) */
+  --wallpaper:
+    radial-gradient(1100px 700px at 12% 8%, rgba(123, 97, 255, 0.55), transparent 62%),
+    radial-gradient(900px 700px at 92% 18%, rgba(40, 120, 220, 0.38), transparent 60%),
+    radial-gradient(1000px 800px at 78% 108%, rgba(214, 70, 160, 0.32), transparent 62%),
+    radial-gradient(900px 600px at 0% 100%, rgba(30, 160, 190, 0.24), transparent 60%),
+    linear-gradient(160deg, #10122A 0%, #0A0C18 55%, #0D0A1C 100%);
+}
+
+/* ---------- Light ---------- */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #F1F2F8;
+  --surface-0: #F1F2F8;
+  --surface-1: #F8F9FC;
+  --surface-2: #FFFFFF;
+  --surface-3: #EEF0F7;
+  --surface-4: #E3E6F0;
+  --surface-inset: #EEF0F8;
+  --scrim: rgba(30, 34, 60, 0.16);
+
+  --glass-bg: rgba(250, 251, 255, 0.82);
+  --glass-bg-strong: rgba(252, 252, 255, 0.94);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.70), rgba(255, 255, 255, 0) 60%);
+  --bar-bg: rgba(248, 249, 255, 0.60);
+  --control-active: #FFFFFF;
+  --glass-border: rgba(255, 255, 255, 0.70);
+  --glass-highlight: rgba(255, 255, 255, 0.90);
+
+  --text: #14161F;
+  --text-2: #545B70;
+  --text-3: #7C8398;
+  --text-disabled: #AEB3C6;
+  --text-on-surface-accent: #5B3FE6;
+
+  --border: rgba(24, 28, 56, 0.10);
+  --border-strong: #D8DBE6;
+  --divider: #E4E6EE;
+
+  --hover: rgba(24, 28, 56, 0.05);
+  --pressed: rgba(24, 28, 56, 0.09);
+  --selected: rgba(123, 97, 255, 0.14);
+  --accent-soft: rgba(123, 97, 255, 0.12);
+  --accent-line: rgba(123, 97, 255, 0.50);
+  --focus-ring: #5B3FE6;
+
+  --success: #167A4E;
+  --warning: #8F5A0B;
+  --danger: #C42B41;
+  --info: #1C8CE0;
+  --success-soft: rgba(23, 164, 104, 0.13);
+  --warning-soft: rgba(199, 133, 18, 0.14);
+  --danger-soft: rgba(229, 57, 86, 0.12);
+
+  --shadow-0: none;
+  --shadow-1: 0 6px 24px rgba(10, 12, 31, 0.12), 0 0 0 1px rgba(30, 36, 80, 0.03);
+  --shadow-2: 0 2px 4px rgba(30, 36, 80, 0.06), 0 8px 20px rgba(30, 36, 80, 0.10);
+  --shadow-3: 0 16px 48px -4px rgba(10, 12, 31, 0.24), 0 2px 6px rgba(10, 12, 31, 0.08);
+  --shadow-4: 0 20px 56px -4px rgba(10, 12, 31, 0.28), 0 40px 96px -10px rgba(10, 12, 31, 0.30), 0 4px 10px rgba(10, 12, 31, 0.10);
+  --shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  --window-bg: var(--surface-1);
+  --window-border: #B7B0EF;
+  --window-border-inactive: #E4E6EE;
+  --titlebar-bg: #FFFFFF;
+  --titlebar-bg-inactive: #F8F9FC;
+
+  --wallpaper:
+    radial-gradient(1100px 700px at 10% 6%, rgba(160, 140, 255, 0.70), transparent 62%),
+    radial-gradient(900px 700px at 94% 14%, rgba(110, 190, 255, 0.60), transparent 60%),
+    radial-gradient(1000px 800px at 80% 108%, rgba(255, 150, 200, 0.55), transparent 62%),
+    radial-gradient(900px 600px at 0% 100%, rgba(120, 220, 220, 0.45), transparent 60%),
+    linear-gradient(160deg, #E4E2FA 0%, #EAEFFB 55%, #F2E8F8 100%);
+}

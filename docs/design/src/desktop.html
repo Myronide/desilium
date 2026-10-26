@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Desilium - Desktop</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shared.css">
+<script src="theme.js"></script>
+<style>
+  :root { --syn-kw:#B79CFF; --syn-fn:#6CB6FF; --syn-str:#5FD9A1; --syn-num:#F2B441; --syn-ty:#FF8FB1; --syn-cm:#5E6580; }
+  :root[data-theme="light"] { --syn-kw:#6A4EF0; --syn-fn:#1C6FD0; --syn-str:#12865A; --syn-num:#B86E00; --syn-ty:#C8337A; --syn-cm:#9AA0B8; }
+
+  /* Files window (inactive, behind) */
+  .w-files { left: 150px; top: 92px; width: 940px; height: 640px; }
+  .fm-body { flex: 1; display: flex; min-height: 0; }
+  .fm-side { width: 208px; background: var(--surface-2); border-right: 1px solid var(--divider); padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+  .fm-side .grp { padding: 12px 10px 6px; }
+  .fm-side .item { height: 32px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: var(--text-2); }
+  .fm-side .item.on { background: var(--selected); color: var(--text); }
+  .fm-main { flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .crumbs { display: flex; align-items: center; gap: 4px; color: var(--text-3); }
+  .crumbs b { color: var(--text); font-weight: 500; }
+  .fm-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .fm-tile { border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+  .fm-tile .big { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); color: var(--text-on-surface-accent); }
+  .fm-tile .big.b { background: rgba(77,178,255,.16); color: var(--info); }
+  .fm-tile .big.g { background: var(--success-soft); color: var(--success); }
+  .fm-tile .big.o { background: var(--warning-soft); color: var(--warning); }
+  .fm-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .fm-row { height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--divider); }
+  .fm-row:last-child { border-bottom: 0; }
+
+  /* Code window (active, front) */
+  .w-code { left: 600px; top: 196px; width: 1100px; height: 720px; }
+  .ed-body { flex: 1; display: flex; min-height: 0; }
+  .ed-side { width: 232px; background: var(--surface-2); border-right: 1px solid var(--divider); padding: 12px 8px; font-size: 13px; }
+  .tree { display: flex; flex-direction: column; gap: 1px; }
+  .tree .n { height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 6px; color: var(--text-2); }
+  .tree .n.on { background: var(--selected); color: var(--text); }
+  .tree .n.d1 { padding-left: 24px; } .tree .n.d2 { padding-left: 40px; }
+  .ed-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .tabs { height: 38px; display: flex; align-items: flex-end; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--divider); background: var(--surface-2); }
+  .tab { height: 32px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border-radius: 8px 8px 0 0; color: var(--text-3); }
+  .tab.on { background: var(--window-bg); color: var(--text); box-shadow: inset 0 2px 0 var(--accent); }
+  .code { flex: 1; padding: 14px 0; font-family: var(--font-mono); font-size: 13px; line-height: 22px; overflow: hidden; }
+  .code .l { display: flex; height: 22px; white-space: pre; }
+  .code .l b { width: 52px; padding-right: 18px; text-align: right; color: var(--text-disabled); font-weight: 400; flex: none; }
+  .code .l.cur { background: var(--accent-soft); }
+  .code .l.cur b { color: var(--text-2); }
+  .k { color: var(--syn-kw); } .f { color: var(--syn-fn); } .s { color: var(--syn-str); } .n { } .c { color: var(--syn-cm); font-style: italic; } .t { color: var(--syn-ty); } .m { color: var(--syn-num); }
+  .caret { display: inline-block; width: 2px; height: 16px; background: var(--accent); vertical-align: -3px; margin-left: 1px; }
+  .statusbar { height: 26px; display: flex; align-items: center; gap: 16px; padding: 0 12px; background: var(--surface-2); border-top: 1px solid var(--divider); color: var(--text-3); font-size: 12px; }
+  .statusbar .ok { color: var(--success); display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+{{sprite}}
+<div class="stage">
+  <div class="wallpaper"></div>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="left">
+      <div class="tb-btn" title="Workspaces"><span class="ws-dots"><i></i><i class="on"></i><i></i><i></i></span></div>
+      <div class="tb-btn">{{code|s16}}<span class="t-semi">Code</span></div>
+      <div class="tb-btn dim">main.rs - desilium</div>
+    </div>
+    <div class="tb-btn badge-dot tb-clock"><span class="date">Mon 26 Oct</span>14:32</div>
+    <div class="right">
+      <div class="tb-btn dim" style="font-size:12px">EN</div>
+      <div class="tb-btn dim">{{mic|s16}}</div>
+      <div class="tb-group open">{{wifi|s16}}{{volume|s16}}<span class="row" style="gap:5px">{{battery|s16}}<span class="t-med" style="font-variant-numeric:tabular-nums">82%</span></span>{{chevron-down|s16}}</div>
+      <div class="tb-btn dim">{{power|s16}}</div>
+    </div>
+  </div>
+
+  <!-- Files (inactive) -->
+  <div class="window inactive w-files">
+    <div class="titlebar">
+      {{app:files xs}}<span class="title">Files</span><span class="subtitle">Projects</span>
+      <span class="spacer"></span>
+      <div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb">{{maximize}}</span><span class="wb close">{{close}}</span></div>
+    </div>
+    <div class="fm-body">
+      <div class="fm-side">
+        <div class="item on">{{folder|s16}}Home</div>
+        <div class="item">{{file|s16}}Documents</div>
+        <div class="item">{{image|s16}}Pictures</div>
+        <div class="item">{{music|s16}}Music</div>
+        <div class="item">{{trash|s16}}Trash</div>
+        <div class="grp t-caption">Places</div>
+        <div class="item">{{monitor|s16}}Desilium Disk</div>
+        <div class="item">{{globe|s16}}Network</div>
+      </div>
+      <div class="fm-main">
+        <div class="crumbs">{{folder|s16}}<span>Home</span>{{chevron-right|s16}}<b>Projects</b></div>
+        <div class="fm-grid">
+          <div class="fm-tile"><div class="big">{{folder|s24}}</div><div><div class="t-med">desilium</div><div class="t-small t-3">12 items</div></div></div>
+          <div class="fm-tile"><div class="big b">{{folder|s24}}</div><div><div class="t-med">website</div><div class="t-small t-3">48 items</div></div></div>
+          <div class="fm-tile"><div class="big g">{{folder|s24}}</div><div><div class="t-med">notes</div><div class="t-small t-3">7 items</div></div></div>
+          <div class="fm-tile"><div class="big o">{{image|s24}}</div><div><div class="t-med">wallpapers</div><div class="t-small t-3">23 images</div></div></div>
+        </div>
+        <div class="t-caption">Recent</div>
+        <div class="fm-list">
+          <div class="fm-row">{{file|s16}}<span class="grow t-med">architecture.md</span><span class="t-small t-3">12 KB</span><span class="t-small t-3" style="width:90px;text-align:right">Today</span></div>
+          <div class="fm-row">{{code|s16}}<span class="grow t-med">main.rs</span><span class="t-small t-3">4 KB</span><span class="t-small t-3" style="width:90px;text-align:right">Today</span></div>
+          <div class="fm-row">{{image|s16}}<span class="grow t-med">dusk-violet.png</span><span class="t-small t-3">2.1 MB</span><span class="t-small t-3" style="width:90px;text-align:right">Yesterday</span></div>
+          <div class="fm-row">{{file|s16}}<span class="grow t-med">Cargo.toml</span><span class="t-small t-3">1 KB</span><span class="t-small t-3" style="width:90px;text-align:right">Yesterday</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Code (active) -->
+  <div class="window w-code">
+    <div class="titlebar">
+      {{app:code xs}}<span class="title">Code</span><span class="subtitle">main.rs</span>
+      <span class="spacer"></span>
+      <div class="wbtns"><span class="wb">{{minimize}}</span><span class="wb">{{maximize}}</span><span class="wb close">{{close}}</span></div>
+    </div>
+    <div class="ed-body">
+      <div class="ed-side">
+        <div class="t-caption" style="padding:4px 8px 8px">Desilium</div>
+        <div class="tree">
+          <div class="n">{{chevron-down|s16}}{{folder|s16}}crates</div>
+          <div class="n d1">{{chevron-down|s16}}{{folder|s16}}desilium-shell</div>
+          <div class="n d2">{{code|s16}}main.rs</div>
+          <div class="n d2 on">{{code|s16}}launcher.rs</div>
+          <div class="n d2">{{code|s16}}dock.rs</div>
+          <div class="n d1">{{chevron-right|s16}}{{folder|s16}}desilium-theme</div>
+          <div class="n d1">{{chevron-right|s16}}{{folder|s16}}desilium-wm</div>
+          <div class="n">{{chevron-right|s16}}{{folder|s16}}docs</div>
+          <div class="n">{{file|s16}}Cargo.toml</div>
+        </div>
+      </div>
+      <div class="ed-main">
+        <div class="tabs">
+          <div class="tab">{{code|s16}}main.rs</div>
+          <div class="tab on">{{code|s16}}launcher.rs{{close|s16}}</div>
+          <div class="tab">{{file|s16}}design.md</div>
+        </div>
+        <div class="code">
+          <div class="l"><b>1</b><span><span class="c">// Spotlight-style launcher: fuzzy search over apps, math and commands.</span></span></div>
+          <div class="l"><b>2</b><span><span class="k">use</span> <span class="t">desilium_theme</span>::{<span class="t">Theme</span>, <span class="t">Tokens</span>};</span></div>
+          <div class="l"><b>3</b><span></span></div>
+          <div class="l"><b>4</b><span><span class="k">const</span> <span class="t">MAX_RESULTS</span>: <span class="k">usize</span> = <span class="m">8</span>;</span></div>
+          <div class="l"><b>5</b><span></span></div>
+          <div class="l"><b>6</b><span><span class="k">pub struct</span> <span class="t">Launcher</span> {</span></div>
+          <div class="l"><b>7</b><span>    query: <span class="t">String</span>,</span></div>
+          <div class="l"><b>8</b><span>    selected: <span class="k">usize</span>,</span></div>
+          <div class="l"><b>9</b><span>}</span></div>
+          <div class="l"><b>10</b><span></span></div>
+          <div class="l"><b>11</b><span><span class="k">impl</span> <span class="t">Launcher</span> {</span></div>
+          <div class="l"><b>12</b><span>    <span class="c">/// Moves the keyboard selection, wrapping at both ends.</span></span></div>
+          <div class="l"><b>13</b><span>    <span class="k">pub fn</span> <span class="f">move_selection</span>(&amp;<span class="k">mut</span> <span class="k">self</span>, delta: <span class="k">isize</span>, len: <span class="k">usize</span>) {</span></div>
+          <div class="l"><b>14</b><span>        <span class="k">let</span> <span class="k">Some</span>(last) = len.<span class="f">checked_sub</span>(<span class="m">1</span>) <span class="k">else</span> {</span></div>
+          <div class="l"><b>15</b><span>            <span class="k">return</span>;</span></div>
+          <div class="l"><b>16</b><span>        };</span></div>
+          <div class="l cur"><b>17</b><span>        <span class="k">self</span>.selected = <span class="k">self</span>.selected.<span class="f">saturating_add_signed</span>(delta).<span class="f">min</span>(last)<span class="caret"></span></span></div>
+          <div class="l"><b>18</b><span>    }</span></div>
+          <div class="l"><b>19</b><span>}</span></div>
+          <div class="l"><b>20</b><span></span></div>
+          <div class="l"><b>21</b><span><span class="k">fn</span> <span class="f">accent_for</span>(theme: &amp;<span class="t">Theme</span>) -&gt; <span class="t">Color</span> {</span></div>
+          <div class="l"><b>22</b><span>    theme.<span class="f">color</span>(<span class="s">"accent"</span>)</span></div>
+          <div class="l"><b>23</b><span>}</span></div>
+        </div>
+        <div class="statusbar"><span class="ok">{{check|s16}}Build passed</span><span>Ln 17, Col 77</span><span>UTF-8</span><span>Rust</span><span class="grow"></span><span>rust-analyzer ready</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dock -->
+  <div class="dock">
+    <div class="dock-item"><span class="dock-launcher">{{grid}}</span></div>
+    <div class="dock-sep"></div>
+    <div class="dock-item run">{{app:files}}</div>
+    <div class="dock-item run lift">{{app:web}}<span class="tooltip">Web</span></div>
+    <div class="dock-item run focus-app">{{app:code}}</div>
+    <div class="dock-item">{{app:terminal}}</div>
+    <div class="dock-item">{{app:music}}</div>
+    <div class="dock-item">{{app:photos}}</div>
+    <div class="dock-item">{{app:mail}}</div>
+    <div class="dock-sep"></div>
+    <div class="dock-item">{{app:settings}}</div>
+    <div class="dock-item"><span class="dock-launcher" style="color:var(--text-2)">{{trash}}</span></div>
+  </div>
+
+  <button class="devtoggle" onclick="dsToggleTheme()">Toggle theme</button>
+</div>
+</body>
+</html>

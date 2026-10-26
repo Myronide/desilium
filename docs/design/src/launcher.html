@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Desilium - Launcher</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shared.css">
+<script src="theme.js"></script>
+<style>
+  .launcher { position: absolute; left: 560px; top: 164px; width: 800px; border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-4), inset 0 1px 0 var(--glass-highlight); background: var(--glass-sheen), var(--glass-bg-strong); border: 1px solid var(--glass-border); }
+  .l-search { height: 68px; display: flex; align-items: center; gap: 14px; padding: 0 20px; border-bottom: 1px solid var(--divider); }
+  .l-search .ic { color: var(--accent); width: 24px; height: 24px; }
+  .l-search .q { font-size: 22px; line-height: 28px; font-weight: 400; letter-spacing: -0.01em; flex: 1; }
+  .caret { display: inline-block; width: 2px; height: 24px; background: var(--accent); vertical-align: -4px; margin-left: 2px; }
+  .l-chips { display: flex; align-items: center; gap: 6px; padding: 12px 16px 8px; }
+  .cat { height: 28px; padding: 0 12px; border-radius: 14px; display: flex; align-items: center; gap: 6px; color: var(--text-2); font-weight: 500; font-size: 12px; }
+  .cat .ic { width: 16px; height: 16px; }
+  .cat.on { background: var(--accent); color: var(--on-accent); }
+  .l-results { padding: 4px 8px 8px; display: flex; flex-direction: column; }
+  .sec { padding: 10px 12px 6px; }
+  .calc-card { margin: 2px 4px 4px; height: 92px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 20px; }
+  .calc-card .expr { font-size: 15px; color: var(--text-2); }
+  .calc-card .res { font-size: 40px; line-height: 44px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .calc-card .eq { color: var(--accent); font-size: 24px; font-weight: 300; }
+  .calc-card .half { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .calc-card .half + .half { align-items: flex-start; }
+  .r { height: 48px; border-radius: 10px; display: flex; align-items: center; gap: 12px; padding: 0 12px; position: relative; }
+  .r .ti { font-size: 14px; font-weight: 500; line-height: 20px; }
+  .r .su { font-size: 12px; color: var(--text-3); line-height: 16px; }
+  .r .tile { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--surface-3); color: var(--text-2); flex: none; }
+  .r .tile.web { background: rgba(77,178,255,.16); color: var(--info); }
+  .r .tile.cmd { background: var(--warning-soft); color: var(--warning); }
+  .r .tile.set { background: var(--accent-soft); color: var(--text-on-surface-accent); }
+  .r .meta { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--text-3); font-size: 12px; }
+  .r.hover { background: var(--hover); }
+  .r.sel { background: var(--selected); box-shadow: inset 0 0 0 1px var(--accent-line); }
+  .r.sel .meta { color: var(--text-on-surface-accent); }
+  .r.sel::before { content: ""; position: absolute; left: -5px; top: 14px; width: 3px; height: 20px; border-radius: 2px; background: var(--accent); }
+  .pins { border-top: 1px solid var(--divider); padding: 12px 20px 14px; display: flex; align-items: center; gap: 4px; background: var(--surface-0); background: linear-gradient(180deg, var(--accent-soft), transparent 140%), var(--surface-0); }
+  .pins .lbl { width: 76px; }
+  .pin { width: 96px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0 6px; border-radius: 10px; }
+  .pin > span { font-size: 12px; color: var(--text-2); }
+  .pin > .k { color: var(--text-3); font-size: 10px; }
+  .pin.hover { background: var(--hover); }
+  .hints { height: 40px; display: flex; align-items: center; gap: 18px; padding: 0 20px; border-top: 1px solid var(--divider); color: var(--text-3); font-size: 12px; background: var(--surface-0); }
+  .hints .h { display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+{{sprite}}
+<div class="stage">
+  <div class="wallpaper"></div>
+  <div class="topbar">
+    <div class="left"><div class="tb-btn"><span class="ws-dots"><i class="on"></i><i></i><i></i><i></i></span></div><div class="tb-btn">{{grid|s16}}<span class="t-semi">Launcher</span></div></div>
+    <div class="tb-btn tb-clock"><span class="date">Mon 26 Oct</span>14:32</div>
+    <div class="right"><div class="tb-group">{{wifi|s16}}{{volume|s16}}{{battery|s16}}<span class="t-med">82%</span></div></div>
+  </div>
+  <div class="scrim"></div>
+
+  <div class="launcher">
+    <div class="l-search">{{search}}<div class="q">24 * 7<span class="caret"></span></div><span class="kbd">Esc</span></div>
+    <div class="l-chips">
+      <span class="cat on">All</span><span class="cat">{{grid}}Apps</span><span class="cat">{{file}}Files</span><span class="cat">{{settings}}Settings</span><span class="cat">{{terminal}}Commands</span><span class="cat">{{globe}}Web</span>
+      <span class="grow"></span><span class="row t-small t-3" style="gap:6px"><span class="kbd">Tab</span>switch category</span>
+    </div>
+    <div class="l-results">
+      <div class="sec t-caption">Calculator</div>
+      <div class="calc-card">
+        <div class="half"><span class="t-caption">Expression</span><span class="expr">24 &times; 7</span></div>
+        <span class="eq">=</span>
+        <div class="half"><span class="t-caption">Result</span><span class="res">168</span></div>
+        <span class="row t-small t-3" style="gap:6px"><span class="kbd">Ctrl</span><span class="kbd">C</span>copy</span>
+      </div>
+      <div class="sec t-caption">Applications</div>
+      <div class="r sel"><span class="app-icon md a-calc">{{calculator}}</span><div class="col"><span class="ti">Calculator</span><span class="su">Scientific and programmer modes</span></div><div class="meta">Open<span class="kbd">{{enter|s16}}</span></div></div>
+      <div class="r hover"><span class="app-icon md a-settings">{{settings}}</span><div class="col"><span class="ti">Settings &rsaquo; Region &amp; Language</span><span class="su">Number formats, units</span></div><div class="meta"><span class="kbd">Alt</span><span class="kbd">2</span></div></div>
+      <div class="sec t-caption">Commands</div>
+      <div class="r"><span class="tile cmd">{{terminal}}</span><div class="col"><span class="ti">Run <span style="font-family:var(--font-mono);font-size:13px">expr 24 \* 7</span> in Terminal</span><span class="su">Command</span></div><div class="meta"><span class="kbd">Ctrl</span><span class="kbd">{{enter|s16}}</span></div></div>
+      <div class="sec t-caption">Web</div>
+      <div class="r"><span class="tile web">{{globe}}</span><div class="col"><span class="ti">Search the web for &ldquo;24 * 7&rdquo;</span><span class="su">Default search engine</span></div><div class="meta"><span class="kbd">Shift</span><span class="kbd">{{enter|s16}}</span></div></div>
+    </div>
+    <div class="pins">
+      <div class="lbl t-caption">Pinned</div>
+      <div class="pin">{{app:files lg}}<span>Files</span><span class="k">Alt 1</span></div>
+      <div class="pin hover">{{app:web lg}}<span>Web</span><span class="k">Alt 2</span></div>
+      <div class="pin">{{app:code lg}}<span>Code</span><span class="k">Alt 3</span></div>
+      <div class="pin">{{app:terminal lg}}<span>Terminal</span><span class="k">Alt 4</span></div>
+      <div class="pin">{{app:music lg}}<span>Music</span><span class="k">Alt 5</span></div>
+      <div class="pin">{{app:settings lg}}<span>Settings</span><span class="k">Alt 6</span></div>
+    </div>
+    <div class="hints">
+      <span class="h"><span class="kbd">&uarr;</span><span class="kbd">&darr;</span>navigate</span>
+      <span class="h"><span class="kbd">{{enter|s16}}</span>open</span>
+      <span class="h"><span class="kbd">Tab</span>category</span>
+      <span class="h"><span class="kbd">Ctrl</span><span class="kbd">K</span>actions</span>
+      <span class="grow"></span>
+      <span class="h">{{sparkles|s16}}Everything here is also in Settings</span>
+    </div>
+  </div>
+  <button class="devtoggle" onclick="dsToggleTheme()">Toggle theme</button>
+</div>
+</body>
+</html>
