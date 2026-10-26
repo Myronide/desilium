@@ -192,6 +192,20 @@
       <arg name="index" type="uint" summary="zero-based workspace index"/>
     </request>
 
+    <request name="set_geometry">
+      <description summary="place the window at a rectangle">
+        Moves and resizes the window to the given rectangle in the
+        compositor's global space, clamped to the work area of the window's
+        workspace. Used to restore a saved layout. Like a snap, the window
+        remembers its previous floating rectangle. Ignored for minimized
+        windows and for rectangles of zero size.
+      </description>
+      <arg name="x" type="int" summary="window x"/>
+      <arg name="y" type="int" summary="window y"/>
+      <arg name="width" type="uint" summary="window width"/>
+      <arg name="height" type="uint" summary="window height"/>
+    </request>
+
     <request name="set_minimize_rectangle">
       <description summary="tell where the window's dock icon is">
         The compositor animates minimizing towards this rectangle. The

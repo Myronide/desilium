@@ -125,6 +125,15 @@ impl Dispatch<DesiliumToplevelHandleV1, HandleData> for DesiliumState {
             HandleRequest::SetMaximized { maximized } => {
                 state.shell_set_maximized(id, maximized != 0);
             }
+            HandleRequest::SetGeometry {
+                x,
+                y,
+                width,
+                height,
+            } => {
+                let clamp = |value: u32| i32::try_from(value).unwrap_or(i32::MAX);
+                state.shell_set_geometry(id, Rect::new(x, y, clamp(width), clamp(height)));
+            }
             HandleRequest::MoveToWorkspace { index } => {
                 state.shell_move_to_workspace(id, to_index(index));
             }

@@ -4,6 +4,7 @@ pub mod appearance;
 pub mod apps;
 pub mod battery;
 pub mod protocol;
+pub mod session;
 pub mod watch;
 
 pub mod controls;

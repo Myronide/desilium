@@ -276,6 +276,21 @@ impl ShellProtocol {
         }
     }
 
+    /// Moves a window to a workspace (zero-based); the compositor ignores bad indices.
+    pub fn move_to_workspace(&self, id: WindowId, index: u32) {
+        if let Some(handle) = self.handle(id) {
+            handle.move_to_workspace(index);
+        }
+    }
+
+    /// Places a window at a global rectangle `(x, y, width, height)`.
+    pub fn set_geometry(&self, id: WindowId, rect: (i32, i32, i32, i32)) {
+        let (x, y, width, height) = rect;
+        if let Some(handle) = self.handle(id) {
+            handle.set_geometry(x, y, width.max(1) as u32, height.max(1) as u32);
+        }
+    }
+
     /// Switches to a workspace (zero-based).
     pub fn switch_workspace(&self, index: u32) {
         self.manager.switch_workspace(index);

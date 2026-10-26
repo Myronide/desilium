@@ -6,6 +6,7 @@ mod events;
 mod launcher_glue;
 mod panels;
 mod quick;
+mod session;
 mod stats;
 mod system;
 mod timers;
@@ -76,6 +77,11 @@ pub struct Shell {
     quick: crate::quick::QuickSettings,
     quick_focused: bool,
     hover: panels::Hover,
+    session_path: PathBuf,
+    session_started: bool,
+    session_seen: std::collections::HashSet<WindowId>,
+    session_saved: Option<Vec<crate::services::session::SavedWindow>>,
+    restore: Option<crate::services::session::Restore>,
     controls: Option<crate::services::controls::Worker>,
     host: LayerHost,
     proto: Option<ShellProtocol>,
@@ -168,6 +174,11 @@ impl Shell {
             quick: crate::quick::QuickSettings::new(&theme)?,
             quick_focused: false,
             hover: Default::default(),
+            session_path: crate::services::session::path(&env.state_home),
+            session_started: false,
+            session_seen: Default::default(),
+            session_saved: None,
+            restore: None,
             controls: None,
             host,
             proto,
@@ -307,6 +318,10 @@ impl Shell {
         if let Some(windows) = update.windows {
             self.windows.replace(windows);
         }
+        self.session_start();
+        if windows_changed {
+            self.session_windows_changed();
+        }
         if windows_changed || update.workspaces.is_some() || output_changed {
             self.refresh_bar();
             self.refresh_dock();
@@ -357,6 +372,8 @@ impl Shell {
         if changed || battery_changed {
             self.refresh_bar();
         }
+        // Gives up on saved windows whose application never opened one.
+        self.place_restored();
         self.deadlines
             .set(Due::Housekeeping, Instant::now() + HOUSEKEEPING);
     }
@@ -443,6 +460,7 @@ impl Shell {
             Due::Exit => self.quit = true,
             Due::Demo => self.demo_step(),
             Due::Panels => self.update_panels(),
+            Due::Session => self.save_session(),
         }
     }
 

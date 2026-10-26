@@ -95,6 +95,21 @@ on, up to five networks in range (strongest first). Selecting one runs
 password entry is not implemented. Everything goes through `nmcli`, so the
 section reads "NetworkManager unavailable" without it.
 
+## Restoring the session
+
+`shell.restore_session` (Settings → Desktop → Session, off by default) saves which
+applications have windows open, with their workspace, position, size and minimized
+state, to `$XDG_STATE_HOME/desilium/session.toml` three seconds after the last window
+change. At the next start on a desktop without windows the shell launches those
+applications again and puts each new window back, matched by Wayland app id, using the
+`move_to_workspace` and `set_geometry` requests. Windows that do not open within a
+minute are skipped. Only applications found in the desktop-file catalog are saved.
+
+This restores the arrangement of the desktop, like "reopen windows" on macOS. It does
+not freeze and thaw processes: a program's own state (browser tabs, unsaved text) is
+only back if the program restores it itself. A shell that merely restarts on a running
+desktop never moves or duplicates windows.
+
 ## Arch Linux test image
 
 `scripts/docker-run.sh --arch` builds `docker/Dockerfile.arch`: the same
@@ -102,6 +117,11 @@ binaries on an Arch runtime with pacman-installed NetworkManager, WirePlumber,
 brightnessctl and bluez-utils. Add `--net` to attach the container to the bridge
 network (the default is no network) so the Ethernet state can be tested.
 The container has no Wi-Fi radio, so only the Ethernet path is exercisable there.
+
+Besides pacman the image has the AUR helpers `yay` and `paru` (built from `yay-bin` and
+`paru-bin` while the image is built, which needs network access then), `base-devel`,
+`git` and everyday tools (`curl`, `wget`, `vim`, `nano`, `htop`, `fastfetch`, `rsync`,
+`openssh`, `unzip`, `pacman-contrib`, `reflector`). Example: `yay -S librewolf-bin`.
 
 The `desilium` user in the Arch image has passwordless `sudo`, and `--arch` runs
 the container so that it works: the root filesystem stays writable (for

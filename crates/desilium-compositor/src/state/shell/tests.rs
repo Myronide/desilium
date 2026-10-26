@@ -408,6 +408,40 @@ fn layer_surface_effects_are_clamped_and_minimize_target_follows_the_surface() {
 }
 
 #[test]
+fn set_geometry_places_a_window_and_reports_the_new_rectangle() {
+    let Some(mut harness) = trusted_harness() else {
+        return;
+    };
+    let compositor = harness.bind::<WlCompositor>("wl_compositor").unwrap();
+    let wm_base = harness.bind::<XdgWmBase>("xdg_wm_base").unwrap();
+    let _shell = harness
+        .bind::<DesiliumShellManagerV1>("desilium_shell_manager_v1")
+        .unwrap();
+    let qh = harness.qh();
+    let window = compositor.create_surface(&qh, ());
+    wm_base
+        .get_xdg_surface(&window, &qh, ())
+        .get_toplevel(&qh, ());
+    harness.pump();
+    let (id, _) = harness.state.wm.all_windows()[0];
+
+    harness.client.handles[0].set_geometry(40, 50, 300, 200);
+    harness.pump();
+    assert_eq!(
+        harness.state.wm.rect(id),
+        Some(desilium_wm::Rect::new(40, 50, 300, 200))
+    );
+
+    harness.client.handles[0].set_geometry(0, 0, 0, 0);
+    harness.pump();
+    assert_eq!(
+        harness.state.wm.rect(id),
+        Some(desilium_wm::Rect::new(40, 50, 300, 200)),
+        "an empty rectangle is ignored"
+    );
+}
+
+#[test]
 fn window_controls_and_closing_are_reported() {
     let Some(mut harness) = trusted_harness() else {
         return;

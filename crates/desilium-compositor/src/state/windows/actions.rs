@@ -135,6 +135,16 @@ impl DesiliumState {
         }
     }
 
+    /// Places `id` at `rect` (clamped to the work area), for restoring a saved layout.
+    pub(crate) fn place_window_at(&mut self, id: WindowId, rect: desilium_wm::Rect) {
+        if self.wm.window_state(id) == Some(WindowState::Minimized) {
+            return;
+        }
+        if self.change_window(id, |wm| wm.place_window(id, rect)) {
+            self.after_window_change(id);
+        }
+    }
+
     /// Applies a window-manager change to the desktop that holds `id`, without switching to it.
     /// False when no desktop holds the window or the change was refused.
     fn change_window(

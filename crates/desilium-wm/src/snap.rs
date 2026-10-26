@@ -114,6 +114,17 @@ impl WindowManager {
         let rect = snap_rect(self.work_area(), zone);
         self.enter_layout(id, Layout::Snapped, rect)
     }
+
+    /// Puts a window at `rect`, clamped into the work area, like a snap to a custom zone.
+    /// Used to restore a saved layout. Returns true if the window exists.
+    pub fn place_window(&mut self, id: WindowId, rect: Rect) -> bool {
+        let area = self.work_area();
+        let width = rect.size.w.clamp(1, area.size.w.max(1));
+        let height = rect.size.h.clamp(1, area.size.h.max(1));
+        let x = rect.loc.x.clamp(area.loc.x, (area.right() - width).max(area.loc.x));
+        let y = rect.loc.y.clamp(area.loc.y, (area.bottom() - height).max(area.loc.y));
+        self.enter_layout(id, Layout::Snapped, Rect::new(x, y, width, height))
+    }
 }
 
 #[cfg(test)]
@@ -152,6 +163,16 @@ mod tests {
         let bottom = snap_rect(area, SnapZone::BottomLeft);
         assert_eq!(top.bottom(), bottom.loc.y);
         assert_eq!(top.size.h + bottom.size.h, area.size.h);
+    }
+
+    #[test]
+    fn placed_windows_stay_inside_the_work_area() {
+        let mut manager = WindowManager::new(Rect::new(0, 0, 800, 600));
+        let id = manager.open_window(Size { w: 100, h: 100 });
+        assert!(manager.place_window(id, Rect::new(700, 500, 400, 300)));
+        assert_eq!(manager.rect(id), Some(Rect::new(400, 300, 400, 300)));
+        assert!(manager.place_window(id, Rect::new(-50, -50, 5000, 5000)));
+        assert_eq!(manager.rect(id), Some(Rect::new(0, 0, 800, 600)));
     }
 
     #[test]

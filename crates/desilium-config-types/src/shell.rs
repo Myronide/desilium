@@ -30,6 +30,8 @@ pub enum Visibility {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ShellSettings {
+    /// Reopen the applications and window layout of the last session at startup.
+    pub restore_session: bool,
     /// Show the dock or taskbar at all.
     pub panel_enabled: bool,
     pub panel_visibility: Visibility,
@@ -54,6 +56,7 @@ pub struct ShellSettings {
 impl Default for ShellSettings {
     fn default() -> Self {
         Self {
+            restore_session: false,
             panel_enabled: true,
             panel_visibility: Visibility::Always,
             bar_enabled: true,

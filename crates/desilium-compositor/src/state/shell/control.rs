@@ -47,6 +47,14 @@ impl DesiliumState {
         self.toggle_maximize_window(id);
     }
 
+    /// Places a window at a rectangle; empty or oversized requests are clamped or ignored.
+    pub(super) fn shell_set_geometry(&mut self, id: WindowId, rect: desilium_wm::Rect) {
+        if rect.size.w <= 0 || rect.size.h <= 0 {
+            return;
+        }
+        self.place_window_at(id, rect);
+    }
+
     /// Moves a window to another desktop; out-of-range indices are ignored.
     pub(super) fn shell_move_to_workspace(&mut self, id: WindowId, index: usize) {
         self.move_window_to_desktop(id, index);

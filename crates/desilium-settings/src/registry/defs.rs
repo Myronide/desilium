@@ -376,6 +376,21 @@ pub(super) static ALL: &[SettingDef] = &[
         },
     },
     SettingDef {
+        id: "shell.restore_session",
+        page: Page::Desktop,
+        section: "Session",
+        title: "Restore windows at startup",
+        description: "Reopen the applications you had open, on their workspaces and at their old positions. Program contents such as browser tabs are restored by the programs themselves",
+        keywords: &["resume", "reopen", "login", "startup", "windows", "macos"],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.shell.restore_session),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.shell.restore_session = *enabled;
+            }
+        },
+    },
+    SettingDef {
         id: "compositor.keyboard_layout",
         page: Page::Keyboard,
         section: "Layout",
