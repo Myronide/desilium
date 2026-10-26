@@ -12,7 +12,7 @@ pub fn esc(text: &str) -> String {
         .replace('\'', "&#39;")
 }
 fn icon(name: &str) -> String {
-    desilium_ui::icon_svg(name, 18, "")
+    desilium_ui::icon_svg(name, 16, "")
 }
 fn button(action: &str, label: &str) -> String {
     format!(
@@ -34,71 +34,92 @@ pub fn html(app: &App) -> String {
         dialog::html(app)
     )
 }
+/// Folders of the home directory shown under Places, with their icon.
+const HOME_FOLDERS: [(&str, &str); 6] = [
+    ("Desktop", "monitor"),
+    ("Documents", "file"),
+    ("Downloads", "enter"),
+    ("Pictures", "image"),
+    ("Music", "music"),
+    ("Videos", "play"),
+];
 fn sidebar(app: &App) -> String {
-    let mut html = format!(
-        "<div class=brand><span class=brandmark>D</span><div><strong>Doria</strong><small>DESILIUM FILES</small></div></div><h4>PLACES</h4>{}",
-        place(&app.home.display().to_string(), "Home", "folder")
-    );
-    for (folder, name) in [
-        ("Desktop", "Desktop"),
-        ("Documents", "Documents"),
-        ("Downloads", "Downloads"),
-        ("Pictures", "Pictures"),
-        ("Videos", "Videos"),
-        ("Music", "Music"),
-    ] {
+    let current = app.browser.current.0.as_str();
+    let mut html = String::from("<div class=app-title>Doria</div><nav>");
+    html.push_str(&place(
+        current,
+        &app.home.display().to_string(),
+        "Home",
+        "folder",
+    ));
+    for (folder, glyph) in HOME_FOLDERS {
         let path = app.home.join(folder);
         if path.is_dir() {
-            html.push_str(&place(&path.display().to_string(), name, "folder"));
+            html.push_str(&place(current, &path.display().to_string(), folder, glyph));
         }
     }
-    html.push_str(&place("file:///", "File system", "monitor"));
-    html.push_str(&place("trash:///", "Trash", "trash"));
-    html.push_str("<h4>PINNED FOLDERS</h4>");
-    for pin in &app.places.pins {
-        html.push_str(&format!("<div class=pinrow>{}<button class=quiet data-action=unpin data-arg='{}' title='Remove pin'>×</button></div>",place(&pin.uri,&pin.name,"folder"),esc(&pin.uri)));
-    }
-    if app.places.pins.is_empty() {
-        html.push_str("<p class=hint>Pin any open folder with the star above.</p>");
-    }
-    if !app.places_healthy {
-        html.push_str(&button("reset-places", "Reset saved places"));
-    }
-    html.push_str("<h4>DEVICES</h4>");
-    for device in &app.browser.devices {
-        let action = if device.location.is_some() {
-            "go"
-        } else {
-            "mount"
-        };
-        let arg = device
-            .location
-            .as_ref()
-            .map_or(device.id.as_str(), |location| location.0.as_str());
-        html.push_str(&format!("<div class=pinrow><button class=place data-action={action} data-arg='{}'>{}<span>{}</span></button>",esc(arg),icon("monitor"),esc(&device.name)));
-        if let Some((total, free)) = device.space {
+    html.push_str(&place(current, "trash:///", "Trash", "trash"));
+    html.push_str("</nav>");
+    if !app.places.pins.is_empty() || !app.places_healthy {
+        html.push_str("<h4>Pinned</h4><nav>");
+        for pin in &app.places.pins {
             html.push_str(&format!(
-                "<small class=disk-space>{} free / {}</small>",
-                size(free),
-                size(total)
+                "<div class=pinrow>{}<button class=quiet data-action=unpin data-arg='{}' title='Remove pin'>×</button></div>",
+                place(current, &pin.uri, &pin.name, "folder"),
+                esc(&pin.uri)
             ));
         }
-        if device.can_unmount {
-            html.push_str(&format!("<button class=quiet data-action=unmount data-arg='{}' title='Safely unmount'>⏏</button>",esc(&device.id)));
+        if !app.places_healthy {
+            html.push_str(&button("reset-places", "Reset saved places"));
         }
-        html.push_str("</div>");
+        html.push_str("</nav>");
     }
-    if app.browser.devices.is_empty() {
-        html.push_str("<p class=hint>No removable drives detected.</p>");
+    if !app.browser.devices.is_empty() {
+        html.push_str("<h4>Devices</h4><nav>");
+        for device in &app.browser.devices {
+            let action = if device.location.is_some() {
+                "go"
+            } else {
+                "mount"
+            };
+            let arg = device
+                .location
+                .as_ref()
+                .map_or(device.id.as_str(), |location| location.0.as_str());
+            html.push_str(&format!(
+                "<div class=pinrow><button class=place data-action={action} data-arg='{}'>{}<span>{}</span></button>",
+                esc(arg),
+                icon("monitor"),
+                esc(&device.name)
+            ));
+            if device.can_unmount {
+                html.push_str(&format!(
+                    "<button class=quiet data-action=unmount data-arg='{}' title='Safely unmount'>⏏</button>",
+                    esc(&device.id)
+                ));
+            }
+            if let Some((total, free)) = device.space {
+                html.push_str(&format!(
+                    "<small class=disk-space>{} free of {}</small>",
+                    size(free),
+                    size(total)
+                ));
+            }
+            html.push_str("</div>");
+        }
+        html.push_str("</nav>");
     }
-    html.push_str("<h4>NETWORK</h4>");
-    html.push_str(&place("network:///", "Browse network", "wifi"));
-    html.push_str(&button("connect", "Connect to server…"));
+    html.push_str("<h4>Network</h4><nav>");
+    html.push_str(&place(current, "network:///", "Browse network", "globe"));
+    html.push_str("<button class=place data-action=connect>");
+    html.push_str(&icon("plus"));
+    html.push_str("<span>Connect to server…</span></button></nav>");
     html
 }
-fn place(uri: &str, label: &str, glyph: &str) -> String {
+fn place(current: &str, uri: &str, label: &str, glyph: &str) -> String {
     format!(
-        "<button class=place data-action=go data-arg='{}'>{}<span>{}</span></button>",
+        "<button class='place{}' data-action=go data-arg='{}'>{}<span>{}</span></button>",
+        if current == uri { " active" } else { "" },
         esc(uri),
         icon(glyph),
         esc(label)
@@ -110,35 +131,53 @@ fn toolbar(app: &App) -> String {
         .pins
         .iter()
         .any(|pin| pin.uri == app.browser.current.0);
-    let navigation = format!(
-        "<div class=navigation>{}{}{}<input id=address data-submit=location value='{}' aria-label='Folder path or server address'/><button data-action=pin title='Pin this folder'>{}</button>{}</div>",
-        button("back", "←"),
-        button("forward", "→"),
-        button("up", "↑"),
+    format!(
+        "<header><div class=nav-group><button class=icon-btn data-action=back title='Back (Alt+Left)'>{}</button><button class=icon-btn data-action=forward title='Forward (Alt+Right)'>{}</button><button class=icon-btn data-action=up title='Parent folder (Alt+Up)'>↑</button></div><input id=address data-submit=location value='{}' aria-label='Folder path or server address'/><button class=icon-btn data-action=pin title='Pin this folder'>{}</button><button class=icon-btn data-action=refresh title='Refresh (Ctrl+R)'>↻</button><input id=search data-key=search value='{}' placeholder='Search' aria-label='Search this folder'/></header>",
+        icon("chevron-left"),
+        icon("chevron-right"),
         esc(&app.browser.current.label()),
         if pinned { "★" } else { "☆" },
-        button("refresh", "↻")
-    );
-    format!(
-        "<header>{navigation}<div class=tools>{}{}{}{}{}{}<span class=spacer></span><button data-action=hidden>{}</button><label class=search-label>Filter</label><input id=search data-key=search value='{}' placeholder='Search this folder' aria-label='Search this folder'/></div></header>",
-        button("new-folder", "New folder"),
-        button("copy", "Copy"),
-        button("cut", "Cut"),
-        button("paste", "Paste"),
-        button("rename", "Rename"),
-        button("trash", "Trash"),
-        if app.browser.show_hidden {
-            "Hide hidden"
-        } else {
-            "Show hidden"
-        },
         esc(&app.browser.query)
     )
 }
+/// New folder / paste always; item actions only while something is selected.
+fn actions(app: &App) -> String {
+    let mut html = String::from("<div class=actions>");
+    html.push_str(&format!(
+        "<button data-action=new-folder>{}<span>New folder</span></button>",
+        icon("plus")
+    ));
+    if app.clipboard.is_some() {
+        html.push_str(&button("paste", "Paste"));
+    }
+    if let Some(entry) = app.browser.selection() {
+        html.push_str(&format!(
+            "<span class=spacer></span><span class=sel-name>{}</span>{}{}{}{}{}",
+            esc(&entry.name),
+            button("open", "Open"),
+            button("copy", "Copy"),
+            button("cut", "Cut"),
+            button("rename", "Rename"),
+            "<button class=danger data-action=trash>Trash</button>"
+        ));
+    }
+    html.push_str("</div>");
+    html
+}
 pub fn listing(app: &App) -> String {
-    let mut html = String::from(
-        "<div class=columns><button data-action=sort data-arg=name>Name</button><button data-action=sort data-arg=size>Size</button><button data-action=sort data-arg=modified>Modified</button><span>Type</span></div>",
-    );
+    let sorted = |sort: Sort, action: &str, label: &str| {
+        format!(
+            "<button class='{}' data-action=sort data-arg={action}>{label}</button>",
+            if app.browser.sort == sort { "on" } else { "" }
+        )
+    };
+    let mut html = actions(app);
+    html.push_str(&format!(
+        "<div class=columns>{}{}{}</div>",
+        sorted(Sort::Name, "name", "Name"),
+        sorted(Sort::Modified, "modified", "Modified"),
+        sorted(Sort::Size, "size", "Size")
+    ));
     for (index, entry) in app
         .browser
         .visible()
@@ -152,24 +191,25 @@ pub fn listing(app: &App) -> String {
             ""
         };
         let glyph = if entry.directory { "folder" } else { "file" };
-        html.push_str(&format!("<div class='file-row{selected}' data-action=select data-arg={index}><span class=file-name>{}<span>{}</span></span><span>{}</span><span>{}</span><span class=kind>{}</span><button class=open data-action=open data-arg={index}>Open</button></div>",icon(glyph),esc(&entry.name),if entry.directory{"—".into()}else{size(entry.size)},modified(entry),esc(&entry.kind)));
+        html.push_str(&format!(
+            "<div class='file-row{selected}' data-action=select data-arg={index}><span class=file-name>{}<span>{}</span></span><span class=meta>{}</span><span class=meta>{}</span></div>",
+            icon(glyph),
+            esc(&entry.name),
+            modified(entry),
+            if entry.directory { "—".into() } else { size(entry.size) },
+        ));
     }
     if app.browser.visible().is_empty() {
         html.push_str(if app.browser.busy {
             "<div class=empty>Opening folder…</div>"
         } else {
-            "<div class=empty>No items to show.</div>"
+            "<div class=empty>This folder is empty.</div>"
         });
     }
     html
 }
 pub fn status(app: &App) -> String {
     let count = app.browser.visible().len();
-    let sort = match app.browser.sort {
-        Sort::Name => "Name",
-        Sort::Size => "Size",
-        Sort::Modified => "Modified",
-    };
     let pager = if count > 100 {
         format!(
             "<button data-action=page-prev>‹</button><span>Page {} / {}</span><button data-action=page-next>›</button>",
@@ -183,16 +223,22 @@ pub fn status(app: &App) -> String {
         String::new()
     } else {
         format!(
-            "<div class=notice>{}<button data-action=dismiss>×</button></div>",
+            "<div class=notice><span>{}</span><button class=quiet data-action=dismiss>×</button></div>",
             esc(&app.browser.notice)
         )
     };
     format!(
-        "{notice}<div class=statusline><span>{count} items · Sorted by {sort}</span>{pager}<span class=spacer></span>{}</div>",
+        "{notice}<div class=statusline><span>{count} {}</span>{pager}<span class=spacer></span>{}<button class=quiet data-action=hidden>{}</button></div>",
+        if count == 1 { "item" } else { "items" },
         if app.browser.busy {
             format!("Working… {}", button("cancel-job", "Cancel"))
         } else {
-            "Doria · Your files, your places".into()
+            String::new()
+        },
+        if app.browser.show_hidden {
+            "Hide hidden files"
+        } else {
+            "Show hidden files"
         }
     )
 }

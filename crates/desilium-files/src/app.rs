@@ -228,10 +228,16 @@ impl App {
                 }
             }
             "select" => {
-                self.browser.selected = arg
+                let index = arg
                     .parse()
                     .ok()
-                    .filter(|index| self.browser.entries.get(*index).is_some())
+                    .filter(|index| self.browser.entries.get(*index).is_some());
+                // Clicking the selected row again opens it (there is no double click).
+                if index.is_some() && index == self.browser.selected {
+                    self.open(arg);
+                } else {
+                    self.browser.selected = index;
+                }
             }
             "open" => self.open(arg),
             "pin" => self.pin(),

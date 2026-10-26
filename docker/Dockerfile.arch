@@ -39,6 +39,25 @@ RUN --mount=type=cache,target=/root/.cargo/registry \
        target/release/desilium-settings target/release/doria /usr/local/bin/
 
 # ---------------------------------------------------------------------------
+# AUR helpers: yay-bin and paru-bin, built as packages (makepkg refuses to run as root)
+# ---------------------------------------------------------------------------
+FROM ${BUILD_IMAGE} AS aur
+
+RUN pacman -Syu --noconfirm --needed git sudo \
+    && useradd --create-home builder \
+    && echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+USER builder
+WORKDIR /home/builder
+# The -bin packages ship upstream's release binaries, so no Go or Rust toolchain is needed.
+RUN set -eux; \
+    for helper in yay-bin paru-bin; do \
+        git clone --depth 1 "https://aur.archlinux.org/${helper}.git"; \
+        (cd "${helper}" && makepkg --syncdeps --noconfirm --cleanbuild); \
+    done; \
+    mkdir /home/builder/pkgs; \
+    cp yay-bin/*.pkg.tar.zst paru-bin/*.pkg.tar.zst /home/builder/pkgs/
+
+# ---------------------------------------------------------------------------
 # Runtime
 # ---------------------------------------------------------------------------
 FROM ${RUNTIME_IMAGE} AS runtime
@@ -70,7 +89,30 @@ RUN pacman -Syu --noconfirm --needed \
         brightnessctl \
         bluez-utils \
         sudo \
+        base-devel \
+        git \
+        curl \
+        wget \
+        nano \
+        vim \
+        less \
+        man-db \
+        rsync \
+        openssh \
+        unzip \
+        zip \
+        htop \
+        fastfetch \
+        pacman-contrib \
+        reflector \
     && pacman -Scc --noconfirm
+
+# AUR helpers for installing AUR packages (`yay -S librewolf-bin`, `paru -S ...`). Building needs
+# the network (`--net`) and, like pacman, sudo (the default for `--arch`).
+COPY --from=aur /home/builder/pkgs/ /tmp/aur-pkgs/
+RUN pacman -U --noconfirm /tmp/aur-pkgs/*.pkg.tar.zst \
+    && rm -rf /tmp/aur-pkgs \
+    && yay --version && paru --version
 
 # The test user may use sudo without a password (throwaway image, no secrets inside). Plain
 # `docker-run.sh --arch` starts the container so that it works; with `--no-sudo`

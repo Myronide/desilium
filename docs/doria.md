@@ -21,6 +21,17 @@ A running Wayland desktop is required for the window. The desktop entry is
 both and prefers Doria in the shell's first-run Files slot. Existing dock pins
 are not changed.
 
+## Interface
+
+The window is deliberately plain: a narrow sidebar (Home, standard folders, Trash,
+pinned folders, devices, network) with the current place highlighted, one header
+row (back, forward, parent, path, pin, refresh, search) and the file list. New folder
+is always one click away; Open, Copy, Cut, Rename and Trash appear in the action row
+only while an item is selected. Click an item to select it and click it again to open
+it. Sorting is done by clicking the column headers; "Show hidden files" sits in the
+status line. Colors come from the Desilium theme, so light/dark and the accent follow
+the desktop.
+
 ## Implemented
 
 - Local folder navigation, back/forward, parent and editable location bar.
