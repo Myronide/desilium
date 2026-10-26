@@ -1,0 +1,84 @@
+Desilium packaging
+==================
+
+This folder holds the inert files a packager or a user installs, and the script that places them.
+Nothing here runs at build time, and the session never reads these files except through the
+standard locations after installation.
+
+Layout
+------
+
+  wayland-sessions/desilium.desktop          session entry for login managers (Exec=desilium-session)
+  xdg-desktop-portal/desilium-portals.conf   portal backend preferences for the Desilium desktop
+  applications/desilium-settings.desktop     launcher entry for the settings application
+  icons/                                     hicolor icon placeholder; *.svg and *.png are installed
+  install.sh                                 installs or removes everything (see below)
+  arch/PKGBUILD                              Arch Linux package (builds the release binaries)
+  debian/README.Debian                       notes for a Debian source package
+
+install.sh
+----------
+
+  packaging/install.sh [--prefix DIR] [--target-dir DIR] [--dry-run] [--uninstall]
+
+  --prefix DIR       default /usr/local (or $PREFIX)
+  --target-dir DIR   where cargo wrote release/ (default <repo>/target, or $CARGO_TARGET_DIR)
+  --dry-run          print every install/rm/rmdir command, write nothing
+  --uninstall        remove the installed files; directories only when empty
+  DESTDIR=...        staging root prepended to every destination (packagers)
+
+Binaries come from <target>/release and are installed to $PREFIX/bin. The session file goes to
+$PREFIX/share/wayland-sessions, portal preferences to $PREFIX/share/xdg-desktop-portal,
+the settings entry to $PREFIX/share/applications, wallpapers to $PREFIX/share/desilium/wallpapers,
+and icons to $PREFIX/share/icons/hicolor/scalable/apps. Missing binaries stop a real install before
+anything is copied. Build first:
+
+  cargo build --release --locked -p desilium-compositor -p desilium-session \
+      -p desilium-shell -p desilium-settings -p desilium-notifications
+
+Dry run to review the file list without touching the system:
+
+  DESTDIR=/tmp/desilium-stage packaging/install.sh --dry-run --prefix /usr
+
+Installing into the running system is the user's decision; the script never runs by itself.
+
+Arch Linux
+----------
+
+arch/PKGBUILD builds the five binaries with --locked, runs the session crate's tests, and installs
+through install.sh with DESTDIR=$pkgdir and --prefix /usr. The source line is a placeholder that
+must point at a release archive; then run updpkgsums. Runtime dependencies are the native libraries
+the Smithay and -sys crates link against (wayland, libxkbcommon, mesa for gbm/EGL/GLES, libinput,
+systemd-libs for libudev, seatd for libseat, libdrm, fontconfig) plus the inter-font default face.
+foot is optional.
+
+Debian
+------
+
+debian/README.Debian lists the build and runtime packages and the install call for a debian/rules
+file. It uses the same install.sh, so the file list is identical across distributions.
+
+Why systemd user units are not used
+-----------------------------------
+
+Desilium supervises its own components (desilium-session) instead of shipping systemd user units.
+The reasons:
+
+  - The restart policy is part of the product: a compositor exit ends the session, shell and
+    notification restarts use Desilium's backoff and crash-loop rules, and the readiness gate waits
+    for the compositor's Wayland socket. systemd can express parts of this, but not the socket
+    hand-over, and it would make the session depend on one init system.
+  - The session must work on distributions and init systems without systemd (the supervisor only
+    needs a login manager and a session bus). Logind is still used for seat access, which is the
+    one part that has to come from the system.
+  - One process owns the whole plan, so `desilium-session --dry-run` shows exactly what will start.
+
+Packagers who want systemd units for a local setup can wrap desilium-session in a user service; the
+supervisor does not depend on that wrapper, and nothing here installs one.
+
+Portal preferences
+------------------
+
+xdg-desktop-portal reads the file named after the lowercased XDG_CURRENT_DESKTOP, so
+desilium-portals.conf applies to the Desilium session. Today it selects the GTK backend. The file
+has a marked place for a native Desilium portal, which is added once it exists.

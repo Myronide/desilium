@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Desilium Settings
+Comment=Configure the Desilium desktop
+Exec=desilium-settings
+Icon=desilium-settings
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=desktop;appearance;wallpaper;theme;

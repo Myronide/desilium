@@ -6,14 +6,15 @@ use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Child, Command, ExitStatus, Stdio};
 
-use crate::component::ComponentSpec;
+use crate::component::{ComponentSpec, EnvVar};
 use crate::policy::ExitKind;
 
-/// Starts `program` with the arguments and environment from `spec`.
-pub fn spawn(spec: &ComponentSpec, program: &Path) -> io::Result<Child> {
+/// Starts `program` with the arguments and environment from `spec`, plus `extra_env` from the session.
+pub fn spawn(spec: &ComponentSpec, program: &Path, extra_env: &[EnvVar]) -> io::Result<Child> {
     Command::new(program)
         .args(&spec.args)
         .envs(spec.env.iter().map(|(key, value)| (key, value)))
+        .envs(extra_env.iter().map(|(key, value)| (key, value)))
         .stdin(Stdio::null())
         // Own process group: terminal signals reach only the supervisor, which forwards shutdown itself.
         .process_group(0)

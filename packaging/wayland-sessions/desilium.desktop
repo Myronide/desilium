@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Desilium
+Comment=Desilium desktop session
+Exec=desilium-session
+Type=Application
+DesktopNames=Desilium

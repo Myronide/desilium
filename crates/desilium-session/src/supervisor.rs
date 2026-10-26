@@ -1,5 +1,7 @@
 //! The session loop: starts components, reacts to exits and signals, and shuts everything down.
 
+use std::ffi::OsString;
+use std::path::PathBuf;
 use std::process::ExitStatus;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::thread;
@@ -7,12 +9,15 @@ use std::time::{Duration, Instant};
 
 use tracing::{info, warn};
 
-use crate::component::{ComponentSpec, Criticality, resolve_program};
+use crate::component::{ComponentSpec, Criticality, EnvVar, WaylandRole, resolve_program};
 use crate::error::SessionError;
 use crate::policy::{Decision, ExitKind};
 use crate::process::exit_kind;
 use crate::signals::SignalListener;
 use crate::slot::Slot;
+use crate::startup::readiness::{self, SocketWait, WaylandReadiness};
+
+const WAYLAND_DISPLAY_VARIABLE: &str = "WAYLAND_DISPLAY";
 
 /// Time given to components to exit after SIGTERM before they are killed.
 pub const DEFAULT_SHUTDOWN_GRACE: Duration = Duration::from_secs(5);
@@ -44,6 +49,7 @@ pub enum SessionOutcome {
 pub struct Supervisor {
     specs: Vec<ComponentSpec>,
     shutdown_grace: Duration,
+    readiness: Option<WaylandReadiness>,
 }
 
 impl Supervisor {
@@ -52,7 +58,14 @@ impl Supervisor {
         Self {
             specs,
             shutdown_grace: DEFAULT_SHUTDOWN_GRACE,
+            readiness: None,
         }
+    }
+
+    /// Enables the Wayland gate: a `Provider` must create its socket before any `Client` starts.
+    pub fn with_wayland_readiness(mut self, readiness: WaylandReadiness) -> Self {
+        self.readiness = Some(readiness);
+        self
     }
 
     /// Overrides the time components get to exit after SIGTERM.
@@ -76,7 +89,7 @@ impl Supervisor {
         self,
         events: Receiver<SupervisorEvent>,
     ) -> Result<SessionOutcome, SessionError> {
-        let mut session = Session::new(events, self.shutdown_grace);
+        let mut session = Session::new(events, self.shutdown_grace, self.readiness);
         if let Err(error) = session.start_all(self.specs) {
             session.terminate_all();
             return Err(error);
@@ -108,14 +121,23 @@ struct Session {
     slots: Vec<Slot>,
     events: Receiver<SupervisorEvent>,
     shutdown_grace: Duration,
+    readiness: Option<WaylandReadiness>,
+    /// Socket name of the provider, once it is up; clients receive it as `WAYLAND_DISPLAY`.
+    wayland_display: Option<OsString>,
 }
 
 impl Session {
-    fn new(events: Receiver<SupervisorEvent>, shutdown_grace: Duration) -> Self {
+    fn new(
+        events: Receiver<SupervisorEvent>,
+        shutdown_grace: Duration,
+        readiness: Option<WaylandReadiness>,
+    ) -> Self {
         Self {
             slots: Vec::new(),
             events,
             shutdown_grace,
+            readiness,
+            wayland_display: None,
         }
     }
 
@@ -131,11 +153,70 @@ impl Session {
                     program: spec.program,
                 });
             };
-            let mut slot = Slot::new(spec, program);
-            slot.start(Instant::now())?;
-            self.slots.push(slot);
+            match spec.wayland {
+                WaylandRole::Provider => self.start_provider(spec, program)?,
+                WaylandRole::None | WaylandRole::Client => self.start_plain(spec, program)?,
+            }
         }
         Ok(())
+    }
+
+    fn start_plain(&mut self, spec: ComponentSpec, program: PathBuf) -> Result<(), SessionError> {
+        if spec.wayland == WaylandRole::Client && self.wayland_display.is_none() {
+            return Err(SessionError::NoWaylandProvider { name: spec.name });
+        }
+        let mut slot = Slot::new(spec, program);
+        slot.start(Instant::now(), &self.child_env())?;
+        self.slots.push(slot);
+        Ok(())
+    }
+
+    /// Starts the compositor and blocks until its socket exists, so clients never start early.
+    fn start_provider(
+        &mut self,
+        spec: ComponentSpec,
+        program: PathBuf,
+    ) -> Result<(), SessionError> {
+        let name = spec.name.clone();
+        let readiness = self
+            .readiness
+            .clone()
+            .ok_or_else(|| SessionError::MissingRuntimeDir { name: name.clone() })?;
+        let before = readiness::list_sockets(&readiness.runtime_dir).map_err(|source| {
+            SessionError::RuntimeDir {
+                path: readiness.runtime_dir.clone(),
+                source,
+            }
+        })?;
+        let mut slot = Slot::new(spec, program);
+        slot.start(Instant::now(), &[])?;
+        let outcome = readiness::wait_for_socket(&readiness, &before, || {
+            slot.try_reap(Instant::now()).is_none()
+        });
+        match outcome {
+            SocketWait::Ready(socket) => {
+                info!(socket = %socket, "Wayland socket ready, starting clients");
+                self.wayland_display = Some(OsString::from(socket));
+                self.slots.push(slot);
+                Ok(())
+            }
+            SocketWait::TimedOut => {
+                slot.kill_and_wait();
+                Err(SessionError::WaylandSocketTimeout {
+                    runtime_dir: readiness.runtime_dir,
+                    timeout: readiness.timeout,
+                })
+            }
+            SocketWait::ProviderExited => Err(SessionError::ProviderExitedEarly { name }),
+        }
+    }
+
+    /// Session-wide variables for children started after the provider is up.
+    fn child_env(&self) -> Vec<EnvVar> {
+        self.wayland_display
+            .iter()
+            .map(|display| (OsString::from(WAYLAND_DISPLAY_VARIABLE), display.clone()))
+            .collect()
     }
 
     fn event_loop(&mut self) -> SessionOutcome {
@@ -175,11 +256,12 @@ impl Session {
 
     /// Starts components whose backoff has elapsed. Returns an outcome if a failed start ends the session.
     fn start_due(&mut self, now: Instant) -> Option<SessionOutcome> {
+        let env = self.child_env();
         for slot in &mut self.slots {
             if !slot.restart_due(now) {
                 continue;
             }
-            if matches!(slot.restart(now), Some(Decision::EndSession)) {
+            if matches!(slot.restart(now, &env), Some(Decision::EndSession)) {
                 return Some(SessionOutcome::CompositorExited { code: None });
             }
         }
@@ -256,7 +338,7 @@ mod tests {
     fn closed_channel_without_children_ends_the_loop_as_signalled() {
         let (sender, events) = mpsc::channel::<SupervisorEvent>();
         drop(sender);
-        let mut session = Session::new(events, DEFAULT_SHUTDOWN_GRACE);
+        let mut session = Session::new(events, DEFAULT_SHUTDOWN_GRACE, None);
         assert_eq!(session.event_loop(), SessionOutcome::Signalled);
     }
 
@@ -266,14 +348,14 @@ mod tests {
         sender
             .send(SupervisorEvent::ShutdownRequested)
             .expect("receiver is alive");
-        let mut session = Session::new(events, DEFAULT_SHUTDOWN_GRACE);
+        let mut session = Session::new(events, DEFAULT_SHUTDOWN_GRACE, None);
         assert_eq!(session.event_loop(), SessionOutcome::Signalled);
     }
 
     #[test]
     fn next_restart_is_none_without_pending_restarts() {
         let (_sender, events) = mpsc::channel();
-        let session = Session::new(events, DEFAULT_SHUTDOWN_GRACE);
+        let session = Session::new(events, DEFAULT_SHUTDOWN_GRACE, None);
         assert_eq!(session.next_restart_in(Instant::now()), None);
     }
 }

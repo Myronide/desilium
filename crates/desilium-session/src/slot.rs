@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use tracing::{error, info, warn};
 
-use crate::component::ComponentSpec;
+use crate::component::{ComponentSpec, EnvVar};
 use crate::error::SessionError;
 use crate::policy::{Decision, ExitKind, RestartTracker};
 use crate::process;
@@ -43,12 +43,14 @@ impl Slot {
         &self.spec.name
     }
 
-    pub(crate) fn start(&mut self, now: Instant) -> Result<(), SessionError> {
-        let child =
-            process::spawn(&self.spec, &self.program).map_err(|source| SessionError::Spawn {
+    /// Spawns the child; `extra_env` carries session-wide variables such as `WAYLAND_DISPLAY`.
+    pub(crate) fn start(&mut self, now: Instant, extra_env: &[EnvVar]) -> Result<(), SessionError> {
+        let child = process::spawn(&self.spec, &self.program, extra_env).map_err(|source| {
+            SessionError::Spawn {
                 name: self.spec.name.clone(),
                 source,
-            })?;
+            }
+        })?;
         info!(component = %self.spec.name, pid = child.id(), program = ?self.program, "component started");
         self.state = SlotState::Running {
             child,
@@ -58,8 +60,8 @@ impl Slot {
     }
 
     /// Starts the component after its backoff. Returns a decision only when the start failed.
-    pub(crate) fn restart(&mut self, now: Instant) -> Option<Decision> {
-        match self.start(now) {
+    pub(crate) fn restart(&mut self, now: Instant, extra_env: &[EnvVar]) -> Option<Decision> {
+        match self.start(now, extra_env) {
             Ok(()) => None,
             Err(error) => {
                 warn!(component = %self.spec.name, error = %error, "restart failed to spawn");

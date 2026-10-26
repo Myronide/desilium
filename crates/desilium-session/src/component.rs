@@ -17,6 +17,43 @@ pub enum Criticality {
     Optional,
 }
 
+/// Environment variable handed to a child on top of its spec environment.
+pub type EnvVar = (OsString, OsString);
+
+impl Criticality {
+    /// Lower-case name used in plans and machine-readable output.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Critical => "critical",
+            Self::Restartable => "restartable",
+            Self::Optional => "optional",
+        }
+    }
+}
+
+/// How a component relates to the Wayland socket the compositor creates.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum WaylandRole {
+    /// Does not use the Wayland socket; started in order without waiting.
+    #[default]
+    None,
+    /// Creates the Wayland socket (the compositor). Clients wait until its socket is up.
+    Provider,
+    /// A Wayland client: started after the provider's socket and given `WAYLAND_DISPLAY`.
+    Client,
+}
+
+impl WaylandRole {
+    /// Lower-case name used in plans and machine-readable output.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Provider => "provider",
+            Self::Client => "client",
+        }
+    }
+}
+
 /// Everything needed to start and supervise one component.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComponentSpec {
@@ -32,6 +69,8 @@ pub struct ComponentSpec {
     pub criticality: Criticality,
     /// Restart behaviour for this component.
     pub policy: RestartPolicy,
+    /// How this component uses the Wayland socket.
+    pub wayland: WaylandRole,
 }
 
 impl ComponentSpec {
@@ -48,6 +87,7 @@ impl ComponentSpec {
             env: Vec::new(),
             criticality,
             policy: RestartPolicy::default(),
+            wayland: WaylandRole::None,
         }
     }
 }

@@ -1,0 +1,21 @@
+Desilium for Debian-style systems
+=================================
+
+The packaging here is distribution-neutral: packaging/install.sh copies the release binaries,
+the session file, the portal preferences, the desktop entries and the wallpapers into a prefix.
+A Debian source package should use the same script instead of hand-written install rules:
+
+  - Build-Depends: cargo, rustc (or rustup), pkgconf, libwayland-dev, libxkbcommon-dev,
+    libgbm-dev, libegl-dev, libgles-dev, libinput-dev, libudev-dev, libseat-dev, libdrm-dev,
+    libfontconfig-dev
+  - Depends: libwayland-server0 | libwayland-client0, libxkbcommon0, libgbm1, libegl1,
+    libinput10, libudev1, libseat1, libdrm2, libfontconfig1, fonts-inter
+  - Recommends: xdg-desktop-portal-gtk, dbus-user-session
+  - Suggests: foot
+  - In debian/rules, run: cargo build --release --locked -p desilium-compositor -p desilium-session
+    -p desilium-shell -p desilium-settings -p desilium-notifications, then
+    DESTDIR=debian/tmp packaging/install.sh --prefix /usr
+
+Use the package names of the release you target; names above follow current Debian conventions.
+The session file belongs to the desilium package, so display managers pick it up from
+/usr/share/wayland-sessions/desilium.desktop without further configuration.
