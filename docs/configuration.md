@@ -91,8 +91,12 @@ not reload it.
 | `--config-dir <path>` | Use this directory for the store instead of the default. Works with `--headless`. |
 | `--no-config` | Use built-in defaults only. Performs no file I/O. Cannot be combined with `--config-dir`. |
 | `--theme dark\|light` | Override the theme id for this run, for screenshots and tests. It wins over the file. The accent and every other setting still come from the configuration. |
-| `--shell <path>` | Start this desktop shell binary (its file name must be `desilium-shell` to be trusted). Also works with `--command`. |
-| `--no-shell` | Start no desktop shell. Cannot be combined with `--shell`. |
+| `--shell <path>` | Start this desktop shell binary (its file name must be `desilium-shell` to be trusted) instead of the one found next to the compositor or on `PATH`. |
+| `--no-shell` | Start no desktop shell. Cannot be combined with `--shell`. `desilium-session` passes it, because the session supervises the shell itself. |
+
+Without `--no-shell` the compositor starts the shell (bar, dock, launcher) at startup, also
+next to `--command` clients, and starts it again when it exits. Restarts back off (0.5 s, 1 s, ...);
+five quick failures in a row stop them, after which `Alt+Space` still tries to start a shell.
 
 `--headless` implies `--no-config` unless `--config-dir` is given explicitly. Screenshot
 and CI runs therefore never read or write a user's real configuration.

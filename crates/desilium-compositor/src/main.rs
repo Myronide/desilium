@@ -100,8 +100,8 @@ fn place_pointer(state: &mut DesiliumState, args: &Args) {
 
 /// Starts the desktop shell and the requested clients.
 ///
-/// With `--command` only those clients start, unless `--shell` asks for a shell too. Without
-/// commands the shell starts (it provides the launcher), and a terminal only if no shell exists.
+/// The shell (bar, dock, launcher) always starts unless `--no-shell` is given, next to any
+/// `--command` clients. Without commands a terminal starts only if no shell exists.
 fn autostart(state: &DesiliumState, args: &cli::Args) {
     let shell_started = start_shell(state, args);
     if !args.commands.is_empty() {
@@ -122,22 +122,21 @@ fn autostart(state: &DesiliumState, args: &cli::Args) {
     }
 }
 
-/// Starts the shell given by `--shell`, or the one next to this binary or on `PATH` when no
-/// commands were requested. Returns whether a shell was started.
+/// Starts the shell given by `--shell`, or the one next to this binary or on `PATH`.
+/// Returns whether a shell was started.
 fn start_shell(state: &DesiliumState, args: &cli::Args) -> bool {
     if args.no_shell {
         return false;
     }
     let shell = match &args.shell {
         Some(path) => path.clone(),
-        None if args.commands.is_empty() => match launch::find_shell() {
+        None => match launch::find_shell() {
             Some(path) => path,
             None => {
                 info!("no desilium-shell found; falling back to a terminal");
                 return false;
             }
         },
-        None => return false,
     };
     launch::start_shell(&shell, &[], &state.socket_name)
 }

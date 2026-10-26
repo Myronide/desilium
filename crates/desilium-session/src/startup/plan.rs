@@ -171,7 +171,14 @@ fn planned(
     request: &PlanRequest,
 ) -> PlannedComponent {
     let args = if default.name == COMPOSITOR {
-        request.compositor_args.clone()
+        let mut args = request.compositor_args.clone();
+        // The session supervises the shell itself; a second one from the compositor would
+        // put two bars and docks on screen.
+        let decided = args.iter().any(|arg| arg == "--shell" || arg == "--no-shell");
+        if !decided {
+            args.insert(0, OsString::from("--no-shell"));
+        }
+        args
     } else {
         Vec::new()
     };
@@ -358,7 +365,10 @@ mod tests {
 
         let plan = build_plan(&request, &base_env(&[]), Some(&exe_dir)).expect("plan builds");
 
-        assert_eq!(plan.components[0].args, [OsString::from("--nested")]);
+        assert_eq!(
+            plan.components[0].args,
+            [OsString::from("--no-shell"), OsString::from("--nested")]
+        );
         assert!(plan.components[1].args.is_empty());
     }
 

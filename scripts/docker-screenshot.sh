@@ -103,12 +103,18 @@ done
 # Arguments replace the image CMD; without --command the default CMD is lost,
 # so default to foot like the interactive image does.
 has_command=0
+has_shell=0
 for arg in "${compositor_args[@]}"; do
     if [[ "$arg" == "--command" || "$arg" == "-c" ]]; then
         has_command=1
     fi
+    if [[ "$arg" == "--shell" || "$arg" == "--no-shell" ]]; then
+        has_shell=1
+    fi
 done
 ((has_command)) || compositor_args+=(--command foot)
+# The compositor starts the desktop shell by default; screenshots of plain clients stay without it.
+((has_shell)) || compositor_args+=(--no-shell)
 
 status=0
 docker run "${run_args[@]}" "$IMAGE" \

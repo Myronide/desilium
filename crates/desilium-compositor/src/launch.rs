@@ -84,38 +84,72 @@ fn configure_client(command: &mut Command, socket_name: &OsStr) {
         .env_remove("DISPLAY");
 }
 
-/// Starts the desktop shell at `program` and watches it.
+/// Delay before the first restart of an exited shell; it grows with each quick failure.
+const SHELL_RESTART_DELAY: Duration = Duration::from_millis(500);
+/// A shell that ran this long counts as healthy and resets the failure count.
+const SHELL_STABLE_RUN: Duration = Duration::from_secs(10);
+/// Quick failures in a row after which the compositor stops restarting the shell.
+const SHELL_MAX_QUICK_FAILURES: u32 = 5;
+
+/// Starts the desktop shell at `program` and keeps it running.
 ///
-/// The shell is a normal client: the compositor does not wait for it and does not restart it.
-/// Returns false when it could not be started.
+/// An exited shell is started again (after a short delay, so a shell that crashes at once does not
+/// spin); `args` apply to the first start only. After repeated quick failures the compositor
+/// gives up and the launcher shortcut may start a shell again. Under a session supervisor the
+/// compositor is started with `--no-shell` and this is not used.
+/// Returns false when the first start failed.
 pub fn start_shell(program: &Path, args: &[&str], socket_name: &OsStr) -> bool {
-    let mut command = Command::new(program);
-    command.args(args);
-    configure_client(&mut command, socket_name);
-    let child = match command.spawn() {
-        Ok(child) => child,
-        Err(error) => {
-            warn!(path = %program.display(), %error, "cannot start desilium-shell");
-            return false;
-        }
+    let Some(child) = spawn_shell(program, args, socket_name) else {
+        return false;
     };
-    info!(path = %program.display(), pid = child.id(), "desilium-shell started");
     SHELL_RUNNING.store(true, Ordering::SeqCst);
-    std::thread::spawn(move || watch_shell(child));
+    let program = program.to_path_buf();
+    let socket_name = socket_name.to_owned();
+    std::thread::spawn(move || supervise_shell(child, &program, &socket_name));
     true
 }
 
-/// Waits for the shell to exit and reports it; restarting is the session supervisor's job.
-fn watch_shell(mut child: Child) {
-    let status = child.wait();
-    SHELL_RUNNING.store(false, Ordering::SeqCst);
-    match status {
-        Ok(status) => warn!(
-            %status,
-            "desilium-shell exited; restarts are left to the session supervisor"
-        ),
-        Err(error) => warn!(%error, "waiting for desilium-shell failed"),
+fn spawn_shell(program: &Path, args: &[&str], socket_name: &OsStr) -> Option<Child> {
+    let mut command = Command::new(program);
+    command.args(args);
+    configure_client(&mut command, socket_name);
+    match command.spawn() {
+        Ok(child) => {
+            info!(path = %program.display(), pid = child.id(), "desilium-shell started");
+            Some(child)
+        }
+        Err(error) => {
+            warn!(path = %program.display(), %error, "cannot start desilium-shell");
+            None
+        }
     }
+}
+
+/// Waits for the shell and starts it again each time it exits.
+fn supervise_shell(mut child: Child, program: &Path, socket_name: &OsStr) {
+    let mut quick_failures = 0u32;
+    loop {
+        let started = Instant::now();
+        match child.wait() {
+            Ok(status) => warn!(%status, "desilium-shell exited"),
+            Err(error) => warn!(%error, "waiting for desilium-shell failed"),
+        }
+        quick_failures = if started.elapsed() >= SHELL_STABLE_RUN {
+            0
+        } else {
+            quick_failures + 1
+        };
+        if quick_failures >= SHELL_MAX_QUICK_FAILURES {
+            warn!("desilium-shell keeps exiting at once; not restarting it again");
+            break;
+        }
+        std::thread::sleep(SHELL_RESTART_DELAY * quick_failures.max(1));
+        match spawn_shell(program, &[], socket_name) {
+            Some(next) => child = next,
+            None => break,
+        }
+    }
+    SHELL_RUNNING.store(false, Ordering::SeqCst);
 }
 
 /// Starts a shell for the launcher shortcut when no shell of this compositor is running.
