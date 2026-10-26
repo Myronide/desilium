@@ -1,1 +1,18 @@
 /target
+
+# Local screenshots from headless runs (see docs/testing.md)
+/screenshots/
+
+# Editor and OS junk
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+/spikes/*/target
+
+# Generated images (regenerate: scripts/docker-screenshot.sh, docs/design/shoot.sh, spikes/blitz, GPU tests).
+/docs/screenshots/
+/docs/design/screenshots/
+/spikes/*/out/

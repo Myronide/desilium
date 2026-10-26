@@ -1,0 +1,23 @@
+# Build outputs and VCS metadata
+target
+**/target
+.git
+.gitignore
+
+# Docker and tooling files are not needed inside the build context
+docker
+scripts
+
+# Documentation (the build does not read any Markdown)
+docs
+**/*.md
+
+# Editor and OS junk
+.vscode
+.idea
+*.swp
+*~
+.DS_Store
+
+# Keep the workspace inputs explicit:
+# Cargo.toml, Cargo.lock, crates/, LICENSE are NOT excluded above.
