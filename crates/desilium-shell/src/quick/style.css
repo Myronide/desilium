@@ -1,4 +1,4 @@
-.panel{height:100%;padding:16px;border-radius:20px;background:var(--glass-sheen),var(--surface-1);border:1px solid var(--border-strong);color:var(--text);display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+.panel{height:100%;padding:16px;border-radius:20px;background:var(--glass-sheen),var(--glass-bg-strong);border:1px solid var(--glass-border);box-shadow:inset 0 1px 0 var(--glass-highlight);color:var(--text);display:flex;flex-direction:column;gap:10px;overflow-y:auto}
 .heading{display:flex;align-items:center;justify-content:space-between}
 .heading h2{font-size:17px;font-weight:600}
 .heading small{font-size:11px;color:var(--text-2)}

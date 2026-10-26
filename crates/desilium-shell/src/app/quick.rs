@@ -36,11 +36,20 @@ impl Shell {
             tracing::warn!(%error,"quick settings could not open");
         }
         self.quick_send(Action::Refresh);
+        self.apply_popup_effects();
+    }
+
+    /// Backdrop blur and rounded clipping behind the popup, the same as the launcher's glass.
+    pub(super) fn apply_popup_effects(&mut self) {
         if let (Some(proto), Some(surface)) = (
             &self.proto,
             self.quick.id().and_then(|id| self.host.wl_surface(id)),
         ) {
-            proto.set_surface_effects(&surface, 24, [20; 4]);
+            proto.set_surface_effects(
+                &surface,
+                super::views::LAUNCHER_BLUR,
+                [super::views::LAUNCHER_RADIUS; 4],
+            );
         }
     }
     pub(super) fn quick_updated(&mut self, state: State) {

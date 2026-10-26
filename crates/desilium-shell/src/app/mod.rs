@@ -58,6 +58,8 @@ const ICON_THEME_VAR: &str = "DESILIUM_ICON_THEME";
 const HOUSEKEEPING: Duration = Duration::from_secs(60);
 /// Quiet time after the last configuration file event before reloading.
 const CONFIG_DEBOUNCE: Duration = Duration::from_millis(100);
+/// Quiet time after the last `.desktop` file event before the catalog is reloaded.
+const CATALOG_DEBOUNCE: Duration = Duration::from_millis(1500);
 /// Hover time before a tooltip appears.
 const TOOLTIP_DELAY: Duration = Duration::from_millis(400);
 /// The clock timer fires this long after the boundary so the new text is never stale.
@@ -109,6 +111,7 @@ pub struct Shell {
     launcher_focused: bool,
     icon_scale: u32,
     watch: Option<DirWatch>,
+    apps_watch: Option<DirWatch>,
     config_files_changed: bool,
     deadlines: Deadlines,
     demo_pending: bool,
@@ -205,6 +208,11 @@ impl Shell {
             launcher_focused: false,
             icon_scale: 1,
             watch,
+            apps_watch: DirWatch::existing(
+                env.data_dirs.iter().map(|dir| dir.join("applications")),
+            )
+            .map_err(|error| tracing::warn!(%error, "new applications appear after a minute"))
+            .ok(),
             config_files_changed: false,
             deadlines: Deadlines::default(),
             demo_pending: args.demo_hover.is_some(),
@@ -398,6 +406,43 @@ impl Shell {
         }
     }
 
+    /// The applications directories changed (a package was installed or removed).
+    ///
+    /// Returns false when the watch is broken and its source should be removed.
+    fn apps_fd_ready(&mut self) -> bool {
+        let Some(watch) = &mut self.apps_watch else {
+            return false;
+        };
+        match watch.drain() {
+            Ok(names) => {
+                if names
+                    .iter()
+                    .any(|name| name.to_string_lossy().ends_with(".desktop"))
+                {
+                    // A package install writes many files; reload once they stop coming.
+                    self.deadlines
+                        .set(Due::Catalog, Instant::now() + CATALOG_DEBOUNCE);
+                }
+                true
+            }
+            Err(error) => {
+                tracing::warn!(%error, "application watch stopped");
+                self.apps_watch = None;
+                false
+            }
+        }
+    }
+
+    /// Reloads the application catalog and what depends on it.
+    fn reload_catalog(&mut self) {
+        let mut changed = self.catalog.refresh_if_changed();
+        changed |= self.icons.revalidate();
+        if changed {
+            self.refresh_dock();
+            self.refresh_bar();
+        }
+    }
+
     /// Notes that a file in the configuration directory changed; reload after a quiet period.
     fn config_files_touched(&mut self, names: &[OsString]) {
         let relevant = names
@@ -461,6 +506,7 @@ impl Shell {
             Due::Demo => self.demo_step(),
             Due::Panels => self.update_panels(),
             Due::Session => self.save_session(),
+            Due::Catalog => self.reload_catalog(),
         }
     }
 
@@ -515,6 +561,24 @@ pub fn run(args: Args) -> Result<(), ShellError> {
                 Generic::new(fd, Interest::READ, Mode::Level),
                 |_, _, shell: &mut Shell| {
                     Ok(if shell.config_fd_ready() {
+                        PostAction::Continue
+                    } else {
+                        PostAction::Remove
+                    })
+                },
+            )
+            .map_err(|error| ShellError::EventLoop(error.to_string()))?;
+    }
+    if let Some(watch) = &shell.apps_watch {
+        let fd = watch
+            .fd()
+            .try_clone_to_owned()
+            .map_err(|error| ShellError::EventLoop(error.to_string()))?;
+        handle
+            .insert_source(
+                Generic::new(fd, Interest::READ, Mode::Level),
+                |_, _, shell: &mut Shell| {
+                    Ok(if shell.apps_fd_ready() {
                         PostAction::Continue
                     } else {
                         PostAction::Remove

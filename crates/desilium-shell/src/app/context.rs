@@ -55,6 +55,7 @@ impl Shell {
         {
             tracing::warn!(%error,"app menu could not open");
         }
+        self.apply_popup_effects();
     }
     pub(super) fn context_action(&mut self, action: &str, arg: &str) -> bool {
         match action {
