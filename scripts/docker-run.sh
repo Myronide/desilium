@@ -5,6 +5,8 @@
 #   scripts/docker-run.sh [--no-build] [--arch] [--net] [compositor args...]
 #     --arch  run on an Arch Linux image (pacman packages) instead of Debian
 #     --net   attach the container to the bridge network instead of none
+#     --sudo  (with --arch) allow passwordless sudo/pacman for the desilium user; this turns off
+#             no-new-privileges and the read-only root and adds a few capabilities
 #   scripts/docker-run.sh --command kitty
 #
 # The compositor is a Wayland client of the host session (winit backend), so
@@ -28,6 +30,7 @@ CONTAINER_XDG="/tmp/xdg"
 build=1
 dockerfile="Dockerfile"
 network="none"
+sudo_mode=0
 while (($#)); do
     case "$1" in
         --no-build) build=0 ;;
@@ -38,6 +41,8 @@ while (($#)); do
             ;;
         # Container network (bridge) instead of none: enables the Ethernet quick settings.
         --net) network="bridge" ;;
+        # Let the container user run sudo/pacman (Arch image only): weakens the isolation below.
+        --sudo) sudo_mode=1 ;;
         *) break ;;
     esac
     shift
@@ -94,7 +99,6 @@ run_args=(
     --init
     --name desilium-dev
     --user "${CONTAINER_UID}:${CONTAINER_GID}"
-    --read-only
     --tmpfs /tmp
     --tmpfs "${CONTAINER_XDG}:mode=0700,uid=${CONTAINER_UID},gid=${CONTAINER_GID}"
     -v "${HOST_SOCKET}:${CONTAINER_XDG}/${WAYLAND_DISPLAY}"
@@ -105,12 +109,24 @@ run_args=(
     --device "${RENDER_NODE}"
     --group-add "${RENDER_GID}"
     --cap-drop ALL
-    --security-opt no-new-privileges
     --network "${network}"
     --pids-limit 256
     --memory 2g
     --cpus 4
 )
+
+if ((sudo_mode)); then
+    [[ "$dockerfile" == "Dockerfile.arch" ]] || die "--sudo needs --arch (only that image has sudo)"
+    # sudo needs setuid/setgid; pacman as root needs to own and chmod files. The root filesystem
+    # stays writable so packages can be installed; it is discarded with the container (--rm).
+    printf 'docker-run: --sudo: no-new-privileges and the read-only root are off for this run\n' >&2
+    run_args+=(
+        --cap-add SETUID --cap-add SETGID --cap-add AUDIT_WRITE
+        --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER --cap-add FSETID --cap-add SETFCAP
+    )
+else
+    run_args+=(--read-only --security-opt no-new-privileges)
+fi
 
 # Development overrides are forwarded only when set (see docs/headless.md).
 for dev_var in DESILIUM_WALLPAPER DESILIUM_DEBUG_SNAP; do

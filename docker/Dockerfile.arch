@@ -69,10 +69,17 @@ RUN pacman -Syu --noconfirm --needed \
         wireplumber \
         brightnessctl \
         bluez-utils \
+        sudo \
     && pacman -Scc --noconfirm
 
+# The test user may use sudo without a password (throwaway image, no secrets inside). Plain
+# `docker-run.sh --arch` still blocks it: no-new-privileges and dropped capabilities stop setuid
+# binaries. Use `--sudo` to start a container where it works.
 RUN groupadd --gid 1000 desilium \
-    && useradd --uid 1000 --gid 1000 --no-create-home --home-dir /tmp/home --shell /bin/bash desilium
+    && useradd --uid 1000 --gid 1000 --groups wheel --no-create-home --home-dir /tmp/home --shell /bin/bash desilium \
+    && echo 'desilium ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/10-desilium \
+    && chmod 0440 /etc/sudoers.d/10-desilium \
+    && visudo -c
 
 COPY --from=builder /usr/local/bin/desilium-compositor /usr/local/bin/desilium-compositor
 COPY --from=builder /usr/local/bin/desilium-shell /usr/local/bin/desilium-shell

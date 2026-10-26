@@ -103,6 +103,11 @@ brightnessctl and bluez-utils. Add `--net` to attach the container to the bridge
 network (the default is no network) so the Ethernet state can be tested.
 The container has no Wi-Fi radio, so only the Ethernet path is exercisable there.
 
+The `desilium` user in the Arch image has passwordless `sudo`. It only works with
+`--sudo`, which also keeps the root filesystem writable (for `sudo pacman -S ...`),
+turns off `no-new-privileges` and adds the capabilities sudo and pacman need. Use it
+only for interactive testing; the default run stays locked down.
+
 ## Validation
 
 Unit tests cover service-output parsing, invalid power-profile rejection,
