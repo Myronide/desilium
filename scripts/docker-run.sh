@@ -114,7 +114,7 @@ run_args=(
     --group-add "${RENDER_GID}"
     --cap-drop ALL
     --network "${network}"
-    --pids-limit 256
+    --pids-limit "${DESILIUM_PIDS:-4096}"
     --memory "${DESILIUM_MEMORY:-8g}"
     --cpus 4
     # Docker's default /dev/shm is 64 MB, too small for browsers (Firefox exits at startup).
