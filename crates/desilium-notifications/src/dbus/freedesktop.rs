@@ -30,12 +30,12 @@ const VENDOR: &str = "Myronide";
 const SPEC_VERSION: &str = "1.2";
 
 /// The freedesktop server object.
-pub struct Freedesktop {
+pub(super) struct Freedesktop {
     shared: Arc<Shared>,
 }
 
 impl Freedesktop {
-    pub fn new(shared: Arc<Shared>) -> Self {
+    pub(super) fn new(shared: Arc<Shared>) -> Self {
         Self { shared }
     }
 }

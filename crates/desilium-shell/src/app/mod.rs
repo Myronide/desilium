@@ -1,16 +1,12 @@
 //! The shell process: owns the UI host, the models and the single event loop.
 
 mod context;
-mod demo;
 mod desktop;
 mod events;
 mod launcher_glue;
 mod panels;
 mod quick;
-mod session;
-mod stats;
-mod system;
-mod timers;
+mod runtime;
 mod views;
 
 use std::{
@@ -50,7 +46,10 @@ use crate::{
     tooltip::Tooltip,
     wallpaper::{Look, Wallpaper},
 };
-use timers::{Deadlines, Due};
+use runtime::{
+    demo, stats, system,
+    timers::{Deadlines, Due},
+};
 
 /// Quiet time after `kdeglobals` changed before the KDE theme is read again.
 const KDE_DEBOUNCE: Duration = Duration::from_millis(300);
@@ -75,7 +74,7 @@ pub(crate) struct PendingTip {
 }
 
 /// Everything the shell process owns.
-pub struct Shell {
+pub(crate) struct Shell {
     quick: crate::quick::QuickSettings,
     quick_focused: bool,
     hover: panels::Hover,
@@ -135,7 +134,7 @@ pub struct Shell {
 
 impl Shell {
     /// Connects, loads configuration and creates all surfaces.
-    pub fn new(args: Args) -> Result<Self, ShellError> {
+    pub(crate) fn new(args: Args) -> Result<Self, ShellError> {
         let connection = Connection::connect_to_env()?;
         let mut host = LayerHost::from_connection(connection.clone())?;
         let proto = ShellProtocol::connect(&connection)?;
@@ -294,7 +293,8 @@ impl Shell {
         }
         if let Some(id) = self.launcher.id() {
             self.host.update(id, |ui| {
-                let _ = ui.set_attr("#panel", "style", &format!("border-radius:{popup}px"));
+                let style = format!("border-radius:{popup}px");
+                crate::view::note_failed(ui.set_attr("#panel", "style", &style), "popup radius");
             });
         }
     }
@@ -318,7 +318,7 @@ impl Shell {
     }
 
     /// Handles everything pending on the socket and in the models.
-    pub fn pump(&mut self) {
+    pub(crate) fn pump(&mut self) {
         if let Err(error) = self.host.dispatch(Instant::now()) {
             tracing::warn!(%error, "compositor connection lost, exiting");
             self.quit = true;
@@ -616,7 +616,7 @@ impl Shell {
 }
 
 /// Runs the shell until the compositor goes away or `--exit-after` elapses.
-pub fn run(args: Args) -> Result<(), ShellError> {
+pub(crate) fn run(args: Args) -> Result<(), ShellError> {
     let open_launcher = args.open_launcher;
     let query = args.launcher_query.clone().unwrap_or_default();
     let mut shell = Shell::new(args)?;

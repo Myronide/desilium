@@ -12,7 +12,7 @@ const SUGGESTED: usize = 5;
 const APP_ROWS: usize = 6;
 
 /// Everything a query needs besides the text.
-pub struct Context<'a> {
+pub(crate) struct Context<'a> {
     /// Installed applications.
     pub catalog: &'a Catalog,
     /// Launch history for ranking.
@@ -114,7 +114,7 @@ fn web_row(text: &str) -> Row {
 }
 
 /// `24*7` shown as `24 × 7`.
-pub fn display_expression(text: &str) -> String {
+pub(super) fn display_expression(text: &str) -> String {
     let mut out = String::new();
     for c in text.trim().chars() {
         match c {
@@ -132,7 +132,7 @@ pub fn display_expression(text: &str) -> String {
 }
 
 /// All results for `query` in `category`.
-pub fn compute(ctx: &Context<'_>, query: &str, category: Category) -> Results {
+pub(crate) fn compute(ctx: &Context<'_>, query: &str, category: Category) -> Results {
     let text = query.trim();
     let apps_wanted = matches!(category, Category::All | Category::Apps);
     if text.is_empty() {

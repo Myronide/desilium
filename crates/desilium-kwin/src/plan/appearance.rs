@@ -50,18 +50,17 @@ fn select_theme_id(
     if let Some(mode) = theme_override {
         return builtin_id_for(mode);
     }
-    match BUILTIN_THEMES
+    if let Some(builtin) = BUILTIN_THEMES
         .iter()
         .find(|builtin| builtin.id == configured)
     {
-        Some(builtin) => builtin.id,
-        None => {
-            warnings.push(format!(
-                "unknown theme \"{configured}\"; using {DEFAULT_THEME}"
-            ));
-            DEFAULT_THEME
-        }
+        return builtin.id;
     }
+
+    warnings.push(format!(
+        "unknown theme \"{configured}\"; using {DEFAULT_THEME}"
+    ));
+    DEFAULT_THEME
 }
 
 /// The id of the built-in theme for `mode`.

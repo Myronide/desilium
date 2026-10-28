@@ -1,3 +1,5 @@
+// Test code: a failing unwrap or expect is the failure report.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Real pointer input against the real document: find a control by its tooltip, click it,
 //! and check that the configuration changes and the document follows.
 

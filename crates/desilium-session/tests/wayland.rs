@@ -1,3 +1,5 @@
+// Test code: a failing unwrap or expect is the failure report.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Wayland gate tests: `sh` scripts stand in for the compositor (provider) and for clients.
 //!
 //! The provider creates a `wayland-N` file in a scratch runtime directory the same way the real

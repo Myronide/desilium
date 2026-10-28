@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 /// Why the loop woke up.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Due {
+pub(crate) enum Due {
     /// The clock text changes now.
     Clock,
     /// The tooltip delay elapsed.
@@ -34,7 +34,7 @@ pub enum Due {
 
 /// One optional deadline per [`Due`] kind.
 #[derive(Debug, Default)]
-pub struct Deadlines {
+pub(crate) struct Deadlines {
     slots: [Option<Instant>; 11],
 }
 
@@ -71,21 +71,21 @@ fn index(due: Due) -> usize {
 
 impl Deadlines {
     /// Arms `due` to fire at `at`, replacing an earlier arming.
-    pub fn set(&mut self, due: Due, at: Instant) {
+    pub(crate) fn set(&mut self, due: Due, at: Instant) {
         if let Some(slot) = self.slots.get_mut(index(due)) {
             *slot = Some(at);
         }
     }
 
     /// Disarms `due`.
-    pub fn clear(&mut self, due: Due) {
+    pub(crate) fn clear(&mut self, due: Due) {
         if let Some(slot) = self.slots.get_mut(index(due)) {
             *slot = None;
         }
     }
 
     /// Time to sleep: until the earliest deadline, `None` when nothing is armed.
-    pub fn timeout(&self, now: Instant) -> Option<Duration> {
+    pub(crate) fn timeout(&self, now: Instant) -> Option<Duration> {
         self.slots
             .iter()
             .flatten()
@@ -94,7 +94,7 @@ impl Deadlines {
     }
 
     /// Removes and returns every deadline that has passed.
-    pub fn take_due(&mut self, now: Instant) -> Vec<Due> {
+    pub(crate) fn take_due(&mut self, now: Instant) -> Vec<Due> {
         let mut fired = Vec::new();
         for (slot, due) in self.slots.iter_mut().zip(ALL) {
             if slot.is_some_and(|at| at <= now) {

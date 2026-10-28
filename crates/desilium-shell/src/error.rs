@@ -4,7 +4,7 @@ use crate::services::protocol::ProtocolError;
 
 /// Why the shell cannot run.
 #[derive(Debug, thiserror::Error)]
-pub enum ShellError {
+pub(crate) enum ShellError {
     /// No compositor to talk to.
     #[error("cannot connect to the Wayland compositor: {0}")]
     Connect(#[from] wayland_client::ConnectError),

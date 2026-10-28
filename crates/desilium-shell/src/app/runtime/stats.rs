@@ -1,7 +1,7 @@
 //! Process statistics printed by `--exit-after`, to check the idle cost.
 
 /// CPU seconds (user + system) used by this process so far.
-pub fn cpu_seconds() -> f64 {
+pub(crate) fn cpu_seconds() -> f64 {
     let stat = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
     // Fields after the parenthesised command name; utime and stime are the 12th and 13th.
     let fields: Vec<&str> = stat
@@ -20,7 +20,7 @@ pub fn cpu_seconds() -> f64 {
 }
 
 /// Peak resident memory in MiB.
-pub fn peak_rss_mib() -> f64 {
+pub(crate) fn peak_rss_mib() -> f64 {
     let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
     let kib = status
         .lines()

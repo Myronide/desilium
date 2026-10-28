@@ -21,11 +21,11 @@ use crate::{
 };
 
 /// Backdrop blur behind the bar.
-pub const BAR_BLUR: u32 = 20;
+pub(super) const BAR_BLUR: u32 = 20;
 /// Backdrop blur behind the dock tile.
-pub const DOCK_BLUR: u32 = 24;
+pub(super) const DOCK_BLUR: u32 = 24;
 /// Backdrop blur behind the launcher.
-pub const LAUNCHER_BLUR: u32 = 32;
+pub(super) const LAUNCHER_BLUR: u32 = 32;
 /// Edge of the dock's app icons in logical pixels.
 const DOCK_ICON_PX: u32 = 48;
 /// Edge of the application icon in the bar.
@@ -35,7 +35,7 @@ const DESKTOP_NAME: &str = "Desktop";
 const DESKTOP_GLYPH: &str = "monitor";
 
 /// First content of the bar and dock, built before their surfaces exist.
-pub struct InitialViews {
+pub(super) struct InitialViews {
     pub bar: BarView,
     pub dock: DockView,
 }
@@ -94,7 +94,7 @@ fn display_name(app_id: &str, title: &str) -> String {
 }
 
 /// The bar content for the current state.
-pub fn bar_view(
+pub(super) fn bar_view(
     model: &WindowModel,
     workspaces: Workspaces,
     lookup: &dyn AppLookup,
@@ -113,7 +113,7 @@ pub fn bar_view(
 }
 
 /// The dock content and the merged model items behind it.
-pub fn dock_view(
+pub(super) fn dock_view(
     pins: &DockConfig,
     model: &WindowModel,
     catalog: &Catalog,
@@ -148,7 +148,7 @@ pub fn dock_view(
 }
 
 /// Content for the surfaces' creation: no windows yet.
-pub fn initial_views(
+pub(super) fn initial_views(
     catalog: &Catalog,
     pins: &DockConfig,
     clock: &ClockText,

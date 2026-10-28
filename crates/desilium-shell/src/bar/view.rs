@@ -15,12 +15,12 @@ use crate::{
 };
 
 /// Height of the bar in logical pixels (also its exclusive zone).
-pub const BAR_HEIGHT: u32 = 32;
+pub(crate) const BAR_HEIGHT: u32 = 32;
 const ICON_PX: u32 = 16;
 
 /// The focused application as the bar shows it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ActiveApp {
+pub(crate) struct ActiveApp {
     /// Application name.
     pub name: String,
     /// The application's own icon.
@@ -31,7 +31,7 @@ pub struct ActiveApp {
 
 /// Everything the bar displays.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BarView {
+pub(crate) struct BarView {
     /// Workspace pills.
     pub workspaces: Workspaces,
     /// Focused window, or the desktop.
@@ -49,7 +49,7 @@ fn icon(name: &str) -> String {
 }
 
 /// Workspace pills; the active one is the long accent pill.
-pub fn workspaces_html(workspaces: Workspaces) -> String {
+pub(super) fn workspaces_html(workspaces: Workspaces) -> String {
     let pills: String = (0..workspaces.count)
         .map(|index| {
             let on = if index == workspaces.active { " on" } else { "" };
@@ -63,7 +63,7 @@ pub fn workspaces_html(workspaces: Workspaces) -> String {
 }
 
 /// Left cluster: workspaces, application, window title.
-pub fn left_html(view: &BarView) -> String {
+pub(super) fn left_html(view: &BarView) -> String {
     let title = if view.app.title.is_empty() {
         String::new()
     } else {
@@ -97,7 +97,7 @@ fn battery_html(battery: Battery) -> String {
 ///
 /// The wifi and volume icons are static placeholders until a network and an audio
 /// service feed them (planned: NetworkManager and PipeWire/PulseAudio over D-Bus).
-pub fn right_html(view: &BarView) -> String {
+pub(super) fn right_html(view: &BarView) -> String {
     let battery = view.battery.map(battery_html).unwrap_or_default();
     format!(
         "<div class=\"tb-btn dim bar-layout\" data-action=layout data-tooltip=\"Keyboard layout (click to switch)\">{layout}</div>\
@@ -112,7 +112,7 @@ pub fn right_html(view: &BarView) -> String {
 }
 
 /// Centre: date and time.
-pub fn clock_html(clock: &ClockText) -> String {
+pub(super) fn clock_html(clock: &ClockText) -> String {
     format!(
         "<span class=date id=date>{}</span><span id=time>{}</span>",
         esc(&clock.date),
@@ -121,7 +121,7 @@ pub fn clock_html(clock: &ClockText) -> String {
 }
 
 /// The whole bar document body.
-pub fn bar_html(view: &BarView) -> String {
+pub(crate) fn bar_html(view: &BarView) -> String {
     format!(
         "<div class=bar><div class=left id=left>{}</div>\
          <div class=\"tb-btn tb-clock\" id=clock data-action=calendar data-tooltip=\"Calendar and notifications\">{}</div>\

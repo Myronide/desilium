@@ -12,13 +12,13 @@ use crate::migrate;
 use crate::recovery::Recovery;
 
 /// A parsed document plus the repairs that were needed to build it.
-pub struct Loaded {
+pub(crate) struct Loaded {
     pub config: DesiliumConfig,
     pub recovery: Vec<Recovery>,
 }
 
 /// Parses, migrates and field-repairs a document.
-pub fn load_document(bytes: &[u8]) -> Result<Loaded, ConfigError> {
+pub(crate) fn load_document(bytes: &[u8]) -> Result<Loaded, ConfigError> {
     let text =
         std::str::from_utf8(bytes).map_err(|error| ConfigError::Corrupt(error.to_string()))?;
     let table: Table = text

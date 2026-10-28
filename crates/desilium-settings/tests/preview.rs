@@ -1,3 +1,5 @@
+// Test code: a failing unwrap or expect is the failure report.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! A wallpaper chosen after the window is up must show in the live preview, even though the
 //! thumbnail is a file that appears later and the markup is swapped in afterwards.
 

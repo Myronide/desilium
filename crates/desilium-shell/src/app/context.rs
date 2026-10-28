@@ -1,10 +1,12 @@
 use desilium_ui::{DragPhase, UiDrag};
 
-use super::{Shell, system};
+use super::{Shell, runtime::system};
 use crate::{
     model::{dock, windows::WindowId},
     quick::AppMenu,
+    view::note_failed,
 };
+
 impl Shell {
     pub(super) fn open_context(&mut self, key: &str) {
         let Some(item) = self.dock_items.iter().find(|item| item.key == key) else {
@@ -78,7 +80,11 @@ impl Shell {
         match drag.phase {
             DragPhase::Start => {
                 self.host.update(self.dock.id(), |ui| {
-                    let _ = ui.set_attr(&format!("#dock-{index}"), "class", "dock-item dragging");
+                    let item = format!("#dock-{index}");
+                    note_failed(
+                        ui.set_attr(&item, "class", "dock-item dragging"),
+                        "dock drag",
+                    );
                 });
             }
             DragPhase::Move => {}

@@ -1,20 +1,25 @@
 //! All popup coordinates are output-local and clamped before requesting a layer surface.
 use desilium_ui::Rect;
 #[derive(Debug, Clone, Copy)]
-pub enum Origin {
+pub(crate) enum Origin {
     Top,
     Bottom,
     App { button: Rect, below: bool },
 }
 /// Space taken from the top and bottom screen edges by the bar and the dock.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Insets {
+pub(crate) struct Insets {
     pub top: u32,
     pub bottom: u32,
 }
 /// Gap between a panel and a popup that hangs off it.
 const GAP: f64 = 8.0;
-pub fn bounds(output: (i32, i32), origin: Origin, desired_height: u32, insets: Insets) -> Rect {
+pub(crate) fn bounds(
+    output: (i32, i32),
+    origin: Origin,
+    desired_height: u32,
+    insets: Insets,
+) -> Rect {
     let width = f64::from(output.0.max(1));
     let height = f64::from(output.1.max(1));
     let margin = 12.0f64.min((width.min(height) - 1.0).max(0.0) / 2.0);

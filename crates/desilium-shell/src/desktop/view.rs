@@ -23,7 +23,7 @@ const MENU_EDGE: i32 = 8;
 const CELL_PADDING: i32 = 4;
 
 /// Where `menu` goes so that it stays on a surface of `size`, with `rows` commands.
-pub fn menu_origin(menu: &Menu, rows: usize, size: (u32, u32)) -> (i32, i32) {
+pub(super) fn menu_origin(menu: &Menu, rows: usize, size: (u32, u32)) -> (i32, i32) {
     let width = i32::try_from(size.0).unwrap_or(i32::MAX);
     let height = i32::try_from(size.1).unwrap_or(i32::MAX);
     let menu_height = i32::try_from(rows).unwrap_or(0) * MENU_ROW + MENU_PADDING;
@@ -111,7 +111,7 @@ fn menu_html(desktop: &Desktop, menu: &Menu, size: (u32, u32)) -> String {
 /// while one is drawn, the open menu, the last problem.
 ///
 /// `icons` and `cells` have one entry per item. `size` is the surface.
-pub fn html(
+pub(crate) fn html(
     desktop: &Desktop,
     icons: &[IconSpec],
     grid: &Grid,

@@ -37,14 +37,14 @@ fn panel_height(state: &State, networks_open: bool) -> u32 {
     }
     height
 }
-pub struct AppMenu {
+pub(crate) struct AppMenu {
     pub key: String,
     pub name: String,
     pub pinned: bool,
     pub can_pin: bool,
     pub windows: Vec<(u32, String)>,
 }
-pub struct QuickSettings {
+pub(crate) struct QuickSettings {
     pub menu: Option<AppMenu>,
     slot: Slot,
     origin: placement::Origin,
@@ -57,7 +57,7 @@ pub struct QuickSettings {
     placed: Option<(i32, i32, u32, u32)>,
 }
 impl QuickSettings {
-    pub fn new(theme: &Theme) -> Result<Self, UiError> {
+    pub(crate) fn new(theme: &Theme) -> Result<Self, UiError> {
         let mut options = SurfaceOptions::new(410, 620);
         options.theme = theme.clone();
         let ui = UiSurface::new(
@@ -87,22 +87,22 @@ impl QuickSettings {
             menu: None,
         })
     }
-    pub fn id(&self) -> Option<SurfaceId> {
+    pub(crate) fn id(&self) -> Option<SurfaceId> {
         self.slot.id()
     }
-    pub fn owns(&self, id: SurfaceId) -> bool {
+    pub(crate) fn owns(&self, id: SurfaceId) -> bool {
         self.slot.owns(id)
     }
-    pub fn is_open(&self) -> bool {
+    pub(crate) fn is_open(&self) -> bool {
         self.slot.is_shown()
     }
-    pub fn close(&mut self, host: &mut LayerHost) {
+    pub(crate) fn close(&mut self, host: &mut LayerHost) {
         self.slot.hide(host);
         self.menu = None;
         self.networks_open = false;
         self.placed = None;
     }
-    pub fn open(
+    pub(crate) fn open(
         &mut self,
         host: &mut LayerHost,
         settings: &desilium_config_types::ShellSettings,
@@ -117,7 +117,7 @@ impl QuickSettings {
         self.slot.show(host)?;
         Ok(())
     }
-    pub fn reposition(
+    pub(crate) fn reposition(
         &mut self,
         host: &mut LayerHost,
         output: (i32, i32),
@@ -155,7 +155,7 @@ impl QuickSettings {
             config.margins.right = 0;
         })
     }
-    pub fn redraw(
+    pub(crate) fn redraw(
         &mut self,
         host: &mut LayerHost,
         settings: &desilium_config_types::ShellSettings,
@@ -175,14 +175,17 @@ impl QuickSettings {
         }
         Ok(())
     }
-    pub fn theme(&mut self, host: &mut LayerHost, theme: &Theme) {
+    pub(crate) fn theme(&mut self, host: &mut LayerHost, theme: &Theme) {
         if let Some(ui) = self.slot.ui_mut(host) {
             ui.set_theme(theme);
         }
     }
 }
 #[cfg(test)]
-pub fn html_for_tests(state: &State, settings: &desilium_config_types::ShellSettings) -> String {
+pub(crate) fn html_for_tests(
+    state: &State,
+    settings: &desilium_config_types::ShellSettings,
+) -> String {
     let look = view::Look {
         dark: true,
         battery: "87%",

@@ -9,18 +9,18 @@ use desilium_ui::{
 };
 
 use crate::{
-    view::{BAR_CSS, BASE_CSS},
+    view::{BAR_CSS, BASE_CSS, note_failed},
     visibility::Presence,
 };
-pub use view::{ActiveApp, BAR_HEIGHT, BarView, bar_html};
+pub(crate) use view::{ActiveApp, BAR_HEIGHT, BarView, bar_html};
 
 /// Namespace of the bar's layer surface.
-pub const NAMESPACE: &str = "desilium-bar";
+pub(crate) const NAMESPACE: &str = "desilium-bar";
 /// Initial width before the compositor configures the real one.
 const PLACEHOLDER_WIDTH: u32 = 1920;
 
 /// The bar surface and what it currently shows.
-pub struct Bar {
+pub(crate) struct Bar {
     id: SurfaceId,
     shown: BarView,
     /// Presence, reserved zone and full height as last applied.
@@ -29,7 +29,7 @@ pub struct Bar {
 
 impl Bar {
     /// Creates the surface showing `view`.
-    pub fn new(host: &mut LayerHost, theme: &Theme, view: BarView) -> Result<Self, UiError> {
+    pub(crate) fn new(host: &mut LayerHost, theme: &Theme, view: BarView) -> Result<Self, UiError> {
         let mut options = SurfaceOptions::new(PLACEHOLDER_WIDTH, BAR_HEIGHT);
         options.theme = theme.clone();
         let ui = UiSurface::new(&bar_html(&view), &[BASE_CSS, BAR_CSS], options)?;
@@ -45,13 +45,13 @@ impl Bar {
     }
 
     /// The layer surface id.
-    pub fn id(&self) -> SurfaceId {
+    pub(crate) fn id(&self) -> SurfaceId {
         self.id
     }
 
     /// Moves the bar between full, edge strip and off; `reserve` keeps windows out from under it.
     /// `full` is the bar's height when shown.
-    pub fn place(
+    pub(crate) fn place(
         &mut self,
         host: &mut LayerHost,
         presence: Presence,
@@ -80,17 +80,14 @@ impl Bar {
         })
     }
 
-    pub fn configure(
+    pub(crate) fn configure(
         &mut self,
         host: &mut LayerHost,
         settings: &desilium_config_types::ShellSettings,
     ) {
         host.update(self.id, |ui| {
-            let _ = ui.set_attr(
-                ".bar",
-                "style",
-                &format!("height:{}px", settings.bar_height),
-            );
+            let height = format!("height:{}px", settings.bar_height);
+            note_failed(ui.set_attr(".bar", "style", &height), "bar height");
             for (selector, visible) in [
                 (".ws-dots", settings.show_workspaces),
                 (".bar-app", settings.bar_show_app),
@@ -102,13 +99,14 @@ impl Bar {
                 (".bat", settings.show_battery),
                 (".tb-group", settings.quick_settings),
             ] {
-                let _ = ui.set_attr(selector, "style", if visible { "" } else { "display:none" });
+                let style = if visible { "" } else { "display:none" };
+                note_failed(ui.set_attr(selector, "style", style), "bar item");
             }
         });
     }
 
     /// Updates only the parts of the bar that changed.
-    pub fn show(&mut self, host: &mut LayerHost, view: BarView) {
+    pub(crate) fn show(&mut self, host: &mut LayerHost, view: BarView) {
         if view == self.shown {
             return;
         }

@@ -63,12 +63,12 @@ pub struct WireGroup {
 }
 
 /// The shell-facing object.
-pub struct Shell {
+pub(super) struct Shell {
     shared: Arc<Shared>,
 }
 
 impl Shell {
-    pub fn new(shared: Arc<Shared>) -> Self {
+    pub(super) fn new(shared: Arc<Shared>) -> Self {
         Self { shared }
     }
 }

@@ -15,11 +15,11 @@ use wayland_protocols_plasma::blur::client::{
 use super::state::ProtoState;
 
 /// A rectangle `(x, y, width, height)` in surface-local logical pixels.
-pub type Rect = (i32, i32, i32, i32);
+pub(super) type Rect = (i32, i32, i32, i32);
 
 /// The area to blur for a surface of `size` with the corner radii `[top-left, top-right,
 /// bottom-right, bottom-left]`, as non-overlapping rectangles.
-pub fn blur_rects(size: (u32, u32), radii: [u32; 4]) -> Vec<Rect> {
+pub(super) fn blur_rects(size: (u32, u32), radii: [u32; 4]) -> Vec<Rect> {
     let width = i32::try_from(size.0).unwrap_or(i32::MAX);
     let height = i32::try_from(size.1).unwrap_or(i32::MAX);
     if width == 0 || height == 0 {
@@ -94,7 +94,7 @@ fn corner_inset(radius: u32, distance: i32) -> i32 {
 
 /// What a surface currently has applied, to skip identical requests.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Effect {
+pub(super) struct Effect {
     /// Logical surface size.
     pub size: (u32, u32),
     /// Blur strength requested by the shell; only zero/non-zero matters to KWin.
@@ -104,7 +104,7 @@ pub struct Effect {
 }
 
 /// A surface with a blur object attached.
-pub struct BlurEntry {
+pub(super) struct BlurEntry {
     pub surface: wayland_client::protocol::wl_surface::WlSurface,
     pub blur: OrgKdeKwinBlur,
     pub applied: Effect,
@@ -112,7 +112,7 @@ pub struct BlurEntry {
 
 impl BlurEntry {
     /// The surface is still usable.
-    pub fn alive(&self) -> bool {
+    pub(super) fn alive(&self) -> bool {
         self.surface.is_alive()
     }
 }

@@ -18,7 +18,7 @@ use crate::model::{
     grid::{self, Cell, Grid},
 };
 
-pub use view::html;
+pub(crate) use view::html;
 
 /// Two clicks on the same icon within this time open it.
 const DOUBLE_CLICK: Duration = Duration::from_millis(450);
@@ -27,7 +27,7 @@ const BAND_INSET: i32 = 8;
 
 /// A command of the desktop's context menus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Command {
+pub(crate) enum Command {
     /// Open the icon (start a launcher, open a folder or file).
     Open,
     /// Let a double click start an untrusted launcher.
@@ -48,7 +48,7 @@ pub enum Command {
 
 impl Command {
     /// The name carried by the menu button.
-    pub fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Open => "open",
             Self::AllowLaunching => "allow",
@@ -62,7 +62,7 @@ impl Command {
     }
 
     /// The command behind a menu button's name.
-    pub fn from_name(name: &str) -> Option<Self> {
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
         [
             Self::Open,
             Self::AllowLaunching,
@@ -78,7 +78,7 @@ impl Command {
     }
 
     /// The menu text.
-    pub fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Open => "Open",
             Self::AllowLaunching => "Allow launching",
@@ -94,7 +94,7 @@ impl Command {
 
 /// An open context menu.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Menu {
+pub(crate) struct Menu {
     /// File name of the icon it belongs to; `None` for the desktop itself.
     pub target: Option<String>,
     /// Where it opened, in surface pixels. New icons are created in the cell under this point.
@@ -103,7 +103,7 @@ pub struct Menu {
 
 /// What a click on an icon asks for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Click {
+pub(crate) enum Click {
     /// Only select it.
     Select,
     /// It was the second click: open it.
@@ -112,7 +112,7 @@ pub enum Click {
 
 /// A pointer gesture in progress.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Gesture {
+pub(crate) enum Gesture {
     /// Icons are being carried. `anchor` is the one under the pointer; the selected ones follow it.
     Icons {
         /// File name of the icon the user holds.
@@ -135,7 +135,7 @@ pub enum Gesture {
 
 /// The desktop's changing state.
 #[derive(Debug, Default)]
-pub struct Desktop {
+pub(crate) struct Desktop {
     /// The desktop folder, or `None` when there is none.
     pub dir: Option<PathBuf>,
     /// What is on the desktop, in listing order.
@@ -161,7 +161,7 @@ pub struct Desktop {
 
 impl Desktop {
     /// The icon at `index` of the listing.
-    pub fn item(&self, index: usize) -> Option<&DeskItem> {
+    pub(crate) fn item(&self, index: usize) -> Option<&DeskItem> {
         self.items.get(index)
     }
 
@@ -176,7 +176,7 @@ impl Desktop {
     /// icon waiting to be renamed enters rename mode as soon as it is there. Saved positions of
     /// icons that vanished are forgotten, unless the listing is empty (a failed read must not
     /// erase the layout).
-    pub fn set_items(&mut self, items: Vec<DeskItem>) {
+    pub(crate) fn set_items(&mut self, items: Vec<DeskItem>) {
         self.items = items;
         let present: BTreeSet<String> = self.items.iter().map(|i| i.file_name.clone()).collect();
         self.selected.retain(|name| present.contains(name));
@@ -203,10 +203,10 @@ impl Desktop {
     }
 
     /// The cell of every icon, in listing order, and remembers the cells of icons that had none.
-    pub fn cells(&mut self, grid: &Grid) -> Vec<Cell> {
+    pub(crate) fn cells(&mut self, grid: &Grid) -> Vec<Cell> {
         let placed = grid.place(&self.names(), &self.layout);
-        for (index, cell) in placed.iter().enumerate() {
-            let name = self.items[index].file_name.clone();
+        for (item, cell) in self.items.iter().zip(&placed) {
+            let name = item.file_name.clone();
             if let std::collections::btree_map::Entry::Vacant(slot) = self.layout.entry(name) {
                 slot.insert(*cell);
                 self.layout_dirty = true;
@@ -220,7 +220,7 @@ impl Desktop {
     }
 
     /// Puts a not yet listed icon into the free cell nearest to `wanted`.
-    pub fn reserve_near(&mut self, name: &str, wanted: Cell, grid: &Grid) {
+    pub(crate) fn reserve_near(&mut self, name: &str, wanted: Cell, grid: &Grid) {
         let taken = self.placed(grid).into_iter().collect();
         let cell = grid.nearest_free(wanted, &taken);
         self.layout.insert(name.to_owned(), cell);
@@ -228,7 +228,7 @@ impl Desktop {
     }
 
     /// An icon was renamed: it keeps its place.
-    pub fn renamed(&mut self, old: &str, new: &str) {
+    pub(crate) fn renamed(&mut self, old: &str, new: &str) {
         if let Some(cell) = self.layout.remove(old) {
             self.layout.insert(new.to_owned(), cell);
             self.layout_dirty = true;
@@ -236,7 +236,7 @@ impl Desktop {
     }
 
     /// Selects the icon at `index` and says whether this click was the second of a double click.
-    pub fn click(&mut self, index: usize, now: Instant) -> Click {
+    pub(crate) fn click(&mut self, index: usize, now: Instant) -> Click {
         self.menu = None;
         self.notice.clear();
         let Some(name) = self.item(index).map(|item| item.file_name.clone()) else {
@@ -259,7 +259,7 @@ impl Desktop {
 
     /// Right click on the icon at `index`: it is selected unless it already belongs to the
     /// selection (then the menu applies to the whole selection).
-    pub fn select_for_menu(&mut self, index: usize) {
+    pub(crate) fn select_for_menu(&mut self, index: usize) {
         self.last_click = None;
         self.notice.clear();
         let Some(name) = self.item(index).map(|item| item.file_name.clone()) else {
@@ -271,7 +271,7 @@ impl Desktop {
     }
 
     /// A click on empty desktop: nothing is selected, no menu or rename stays open.
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.selected.clear();
         self.menu = None;
         self.renaming = None;
@@ -281,7 +281,7 @@ impl Desktop {
     }
 
     /// The commands of the menu of `target`.
-    pub fn commands(&self, target: Option<&str>) -> Vec<Command> {
+    pub(crate) fn commands(&self, target: Option<&str>) -> Vec<Command> {
         let item = target.and_then(|name| self.items.iter().find(|item| item.file_name == name));
         let Some(item) = item else {
             return vec![
@@ -304,7 +304,7 @@ impl Desktop {
 
     /// The icons a command on `target` applies to: the whole selection when `target` is part of
     /// it, else `target` alone.
-    pub fn affected(&self, target: &str) -> Vec<String> {
+    pub(crate) fn affected(&self, target: &str) -> Vec<String> {
         if self.selected.contains(target) {
             return self
                 .items
@@ -318,7 +318,7 @@ impl Desktop {
 
     /// The button went down on the icon at `index` and the pointer moved: the icons are carried.
     /// The selection becomes that icon alone unless it was part of it.
-    pub fn begin_icon_drag(&mut self, index: usize, origin: (f64, f64), grid: &Grid) {
+    pub(crate) fn begin_icon_drag(&mut self, index: usize, origin: (f64, f64), grid: &Grid) {
         let Some(name) = self.item(index).map(|item| item.file_name.clone()) else {
             return;
         };
@@ -338,7 +338,7 @@ impl Desktop {
     }
 
     /// The pointer moved while icons are carried.
-    pub fn drag_icons(&mut self, pointer: (f64, f64), grid: &Grid) {
+    pub(crate) fn drag_icons(&mut self, pointer: (f64, f64), grid: &Grid) {
         if let Some(Gesture::Icons {
             pointer: held,
             target,
@@ -351,7 +351,7 @@ impl Desktop {
     }
 
     /// The button went up: the carried icons land around the cell under the pointer.
-    pub fn drop_icons(&mut self, grid: &Grid) {
+    pub(crate) fn drop_icons(&mut self, grid: &Grid) {
         let Some(Gesture::Icons { anchor, target, .. }) = self.gesture.take() else {
             return;
         };
@@ -373,7 +373,7 @@ impl Desktop {
     }
 
     /// The button went down on empty desktop and the pointer moved: a selection rectangle starts.
-    pub fn begin_band(&mut self, origin: (f64, f64)) {
+    pub(crate) fn begin_band(&mut self, origin: (f64, f64)) {
         self.menu = None;
         self.renaming = None;
         self.selected.clear();
@@ -386,7 +386,7 @@ impl Desktop {
     }
 
     /// The pointer moved while the rectangle is drawn: it selects the icons it touches.
-    pub fn drag_band(&mut self, pointer: (f64, f64), grid: &Grid) {
+    pub(crate) fn drag_band(&mut self, pointer: (f64, f64), grid: &Grid) {
         let Some(Gesture::Band { from, to }) = &mut self.gesture else {
             return;
         };
@@ -412,7 +412,7 @@ impl Desktop {
     }
 
     /// A gesture ended or was cancelled; what it selected stays.
-    pub fn end_gesture(&mut self) {
+    pub(crate) fn end_gesture(&mut self) {
         self.gesture = None;
     }
 }

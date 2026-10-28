@@ -38,7 +38,7 @@ const STDERR_LIMIT: u64 = 300;
 
 /// Why a change to the desktop folder failed.
 #[derive(Debug, thiserror::Error)]
-pub enum DeskError {
+pub(crate) enum DeskError {
     /// The new name is not usable.
     #[error(transparent)]
     Name(#[from] NameError),
@@ -64,7 +64,7 @@ pub enum DeskError {
 
 /// The desktop folder: `XDG_DESKTOP_DIR` of `user-dirs.dirs`, else `~/Desktop`. `None` when the
 /// user turned the desktop folder off by pointing it at the home directory.
-pub fn desktop_dir(home: &Path, config_home: &Path) -> Option<PathBuf> {
+pub(crate) fn desktop_dir(home: &Path, config_home: &Path) -> Option<PathBuf> {
     match fs::read_to_string(config_home.join(USER_DIRS_FILE)) {
         Ok(text) => parse_user_dirs(&text, home),
         Err(_) => Some(home.join(DEFAULT_DESKTOP_NAME)),
@@ -89,7 +89,7 @@ fn parse_user_dirs(text: &str, home: &Path) -> Option<PathBuf> {
 }
 
 /// Reads the application launcher at `path`; `None` for anything that is not one.
-pub fn load_launcher(path: &Path, locales: &[String]) -> Option<DesktopEntry> {
+pub(crate) fn load_launcher(path: &Path, locales: &[String]) -> Option<DesktopEntry> {
     let id = DesktopId::new(path.file_name()?.to_str()?)?;
     let text = fs::read(path).ok()?;
     let file: IniFile = ini::parse(&String::from_utf8_lossy(&text)).ok()?;
@@ -97,7 +97,7 @@ pub fn load_launcher(path: &Path, locales: &[String]) -> Option<DesktopEntry> {
 }
 
 /// The icons on the desktop: folders, launchers and files, hidden ones left out, in display order.
-pub fn scan(dir: &Path, locales: &[String]) -> Vec<DeskItem> {
+pub(crate) fn scan(dir: &Path, locales: &[String]) -> Vec<DeskItem> {
     let Ok(entries) = fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -163,7 +163,7 @@ fn exists(dir: &Path, name: &str) -> bool {
 
 /// Creates an empty folder and returns its name. The folder of the desktop itself is created
 /// when it is missing.
-pub fn create_folder(dir: &Path) -> Result<String, DeskError> {
+pub(crate) fn create_folder(dir: &Path) -> Result<String, DeskError> {
     fs::create_dir_all(dir)?;
     for _ in 0..=MAX_ITEMS {
         let name = desktop::unique_name(NEW_FOLDER, "", |name| exists(dir, name));
@@ -178,7 +178,7 @@ pub fn create_folder(dir: &Path) -> Result<String, DeskError> {
 }
 
 /// Creates an empty text file and returns its name.
-pub fn create_file(dir: &Path) -> Result<String, DeskError> {
+pub(crate) fn create_file(dir: &Path) -> Result<String, DeskError> {
     fs::create_dir_all(dir)?;
     for _ in 0..=MAX_ITEMS {
         let name = desktop::unique_name(NEW_FILE, NEW_FILE_EXTENSION, |name| exists(dir, name));
@@ -197,7 +197,7 @@ pub fn create_file(dir: &Path) -> Result<String, DeskError> {
 
 /// Renames `from` to `to` inside the desktop folder and returns the new name. Never replaces
 /// something that exists.
-pub fn rename(dir: &Path, from: &str, to: &str) -> Result<String, DeskError> {
+pub(crate) fn rename(dir: &Path, from: &str, to: &str) -> Result<String, DeskError> {
     let source = inside(dir, from)?;
     let name = desktop::validate_name(to)?.to_owned();
     if name == from {
@@ -212,7 +212,7 @@ pub fn rename(dir: &Path, from: &str, to: &str) -> Result<String, DeskError> {
 }
 
 /// Marks a launcher as one the user trusts, which is what lets a double click start it.
-pub fn allow_launching(dir: &Path, file_name: &str) -> Result<(), DeskError> {
+pub(crate) fn allow_launching(dir: &Path, file_name: &str) -> Result<(), DeskError> {
     let path = inside(dir, file_name)?;
     let mode = fs::metadata(&path)?.permissions().mode();
     fs::set_permissions(&path, fs::Permissions::from_mode(mode | OWNER_EXECUTE))?;
@@ -221,7 +221,7 @@ pub fn allow_launching(dir: &Path, file_name: &str) -> Result<(), DeskError> {
 
 /// Copies the launcher `source` onto the desktop, trusted, and returns its file name there. An
 /// existing launcher of that name is left as it is.
-pub fn add_launcher(dir: &Path, source: &Path) -> Result<String, DeskError> {
+pub(crate) fn add_launcher(dir: &Path, source: &Path) -> Result<String, DeskError> {
     let name = source
         .file_name()
         .and_then(|name| name.to_str())
@@ -248,12 +248,12 @@ struct LayoutFile {
 }
 
 /// Where the icon positions are kept for the given state home.
-pub fn layout_path(state_home: &Path) -> PathBuf {
+pub(crate) fn layout_path(state_home: &Path) -> PathBuf {
     state_home.join("desilium").join(LAYOUT_FILE)
 }
 
 /// The saved cell of every icon; a missing or unreadable file gives an empty layout.
-pub fn load_layout(path: &Path) -> BTreeMap<String, (u32, u32)> {
+pub(crate) fn load_layout(path: &Path) -> BTreeMap<String, (u32, u32)> {
     let Ok(text) = fs::read_to_string(path) else {
         return BTreeMap::new();
     };
@@ -267,7 +267,7 @@ pub fn load_layout(path: &Path) -> BTreeMap<String, (u32, u32)> {
 }
 
 /// Writes the icon positions atomically (temporary file, then rename).
-pub fn save_layout(path: &Path, cells: &BTreeMap<String, (u32, u32)>) -> io::Result<()> {
+pub(crate) fn save_layout(path: &Path, cells: &BTreeMap<String, (u32, u32)>) -> io::Result<()> {
     let text = toml::to_string_pretty(&LayoutFile {
         cells: cells.clone(),
     })
@@ -283,7 +283,7 @@ pub fn save_layout(path: &Path, cells: &BTreeMap<String, (u32, u32)>) -> io::Res
 }
 
 /// Moves an item to the trash with `gio trash`.
-pub fn trash(dir: &Path, file_name: &str) -> Result<(), DeskError> {
+pub(crate) fn trash(dir: &Path, file_name: &str) -> Result<(), DeskError> {
     let path = inside(dir, file_name)?;
     let mut child = Command::new("gio")
         .arg("trash")

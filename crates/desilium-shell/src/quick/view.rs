@@ -16,7 +16,7 @@ const SMALL_ICON_PX: u32 = 14;
 
 /// What the panel shows besides the controls' own state.
 #[derive(Debug, Clone, Copy)]
-pub struct Look<'a> {
+pub(super) struct Look<'a> {
     /// The dark theme is active.
     pub dark: bool,
     /// Battery charge such as `87%`; empty on machines without a battery.
@@ -185,7 +185,7 @@ fn wifi_list(networks: &[WifiNetwork]) -> String {
     format!("<div class=aps>{rows}</div>")
 }
 
-pub fn html(state: &State, settings: &ShellSettings, look: Look<'_>) -> String {
+pub(super) fn html(state: &State, settings: &ShellSettings, look: Look<'_>) -> String {
     let taskbar = settings.mode == PanelMode::Taskbar;
     let battery = if look.battery.is_empty() {
         String::new()
@@ -236,7 +236,7 @@ fn button(action: &str, arg: &str, label: &str) -> String {
     )
 }
 
-pub fn app_menu(menu: &super::AppMenu, notice: &str) -> String {
+pub(super) fn app_menu(menu: &super::AppMenu, notice: &str) -> String {
     let mut html = format!(
         "<div class=panel><div class=heading><h2>{}</h2><button data-action=close>×</button></div>",
         esc(&menu.name)

@@ -1,9 +1,9 @@
 //! Shared HTML building blocks: escaping, style sheets and application icons.
 
-pub mod icon;
+pub(crate) mod icon;
 
 /// Escapes text for HTML content and double-quoted attributes.
-pub fn esc(text: &str) -> String {
+pub(crate) fn esc(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
         match c {
@@ -18,16 +18,24 @@ pub fn esc(text: &str) -> String {
     out
 }
 
+/// Logs a failed document edit. A missing element only means the surface is not built yet; the
+/// next full draw sets the same state, so the edit is not worth more than a debug line.
+pub(crate) fn note_failed(edit: Result<(), desilium_ui::UiError>, what: &str) {
+    if let Err(error) = edit {
+        tracing::debug!(%error, what, "document edit skipped");
+    }
+}
+
 /// Style sheets shared by all surfaces (design tokens come from the theme, not from here).
-pub const BASE_CSS: &str = include_str!("../../assets/base.css");
+pub(crate) const BASE_CSS: &str = include_str!("../../assets/base.css");
 /// Top bar sheet.
-pub const BAR_CSS: &str = include_str!("../../assets/bar.css");
+pub(crate) const BAR_CSS: &str = include_str!("../../assets/bar.css");
 /// Dock sheet.
-pub const DOCK_CSS: &str = include_str!("../../assets/dock.css");
+pub(crate) const DOCK_CSS: &str = include_str!("../../assets/dock.css");
 /// Launcher sheet.
-pub const LAUNCHER_CSS: &str = include_str!("../../assets/launcher.css");
+pub(crate) const LAUNCHER_CSS: &str = include_str!("../../assets/launcher.css");
 /// Tooltip sheet.
-pub const TOOLTIP_CSS: &str = include_str!("../../assets/tooltip.css");
+pub(crate) const TOOLTIP_CSS: &str = include_str!("../../assets/tooltip.css");
 
 #[cfg(test)]
 mod tests {

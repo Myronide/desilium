@@ -2,11 +2,11 @@
 
 /// Compositor window id (`desilium_toplevel_handle_v1.window_id`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct WindowId(pub u32);
+pub(crate) struct WindowId(pub u32);
 
 /// Everything the shell knows about one window.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WindowInfo {
+pub(crate) struct WindowInfo {
     /// Stable id.
     pub id: WindowId,
     /// Window title, possibly empty.
@@ -29,7 +29,7 @@ pub struct WindowInfo {
 
 impl WindowInfo {
     /// A window with no state flags and no title, for tests and as the protocol default.
-    pub fn new(id: WindowId) -> Self {
+    pub(crate) fn new(id: WindowId) -> Self {
         Self {
             id,
             title: String::new(),
@@ -44,14 +44,14 @@ impl WindowInfo {
     }
 
     /// Whether the window is visible on `workspace`.
-    pub fn on_workspace(&self, workspace: u32) -> bool {
+    pub(crate) fn on_workspace(&self, workspace: u32) -> bool {
         self.on_all_workspaces || self.workspace == workspace
     }
 }
 
 /// Workspace count and the active one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Workspaces {
+pub(crate) struct Workspaces {
     /// Number of workspaces, at least 1.
     pub count: u32,
     /// Zero-based active index, below `count`.
@@ -69,7 +69,7 @@ impl Default for Workspaces {
 
 /// The window list in creation order plus the recency of activation.
 #[derive(Debug, Clone, Default)]
-pub struct WindowModel {
+pub(crate) struct WindowModel {
     windows: Vec<WindowInfo>,
     /// Most recently activated first; contains only live windows.
     recent: Vec<WindowId>,
@@ -77,7 +77,7 @@ pub struct WindowModel {
 
 impl WindowModel {
     /// Replaces the list (in creation order) and updates the recency order.
-    pub fn replace(&mut self, windows: Vec<WindowInfo>) {
+    pub(crate) fn replace(&mut self, windows: Vec<WindowInfo>) {
         self.windows = windows;
         let live = |id: &WindowId| self.windows.iter().any(|w| w.id == *id);
         self.recent.retain(live);
@@ -94,29 +94,29 @@ impl WindowModel {
     }
 
     /// All windows in creation order.
-    pub fn windows(&self) -> &[WindowInfo] {
+    pub(crate) fn windows(&self) -> &[WindowInfo] {
         &self.windows
     }
 
     /// The window with `id`.
-    pub fn get(&self, id: WindowId) -> Option<&WindowInfo> {
+    pub(crate) fn get(&self, id: WindowId) -> Option<&WindowInfo> {
         self.windows.iter().find(|w| w.id == id)
     }
 
     /// The focused window, if any.
-    pub fn active(&self) -> Option<&WindowInfo> {
+    pub(crate) fn active(&self) -> Option<&WindowInfo> {
         self.windows.iter().find(|w| w.activated)
     }
 
     /// The focused window if it is visible on `workspace`. KWin can keep reporting the window of
     /// the workspace just left as active for a moment; the bar must not show it then.
-    pub fn active_on(&self, workspace: u32) -> Option<&WindowInfo> {
+    pub(crate) fn active_on(&self, workspace: u32) -> Option<&WindowInfo> {
         self.active()
             .filter(|window| window.on_workspace(workspace))
     }
 
     /// Position of `id` in the recency order (0 = most recent).
-    pub fn recency(&self, id: WindowId) -> Option<usize> {
+    pub(crate) fn recency(&self, id: WindowId) -> Option<usize> {
         self.recent.iter().position(|recent| *recent == id)
     }
 }

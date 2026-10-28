@@ -18,7 +18,7 @@ const SMALL_ICON_PX: u32 = 24;
 
 /// What to draw for an application.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum IconSpec {
+pub(crate) enum IconSpec {
     /// An icon file (SVG or PNG) rendered through `<img>`.
     File(String),
     /// A neutral outline glyph from the shell's sprite, when no icon file exists at all.
@@ -27,11 +27,11 @@ pub enum IconSpec {
 
 impl IconSpec {
     /// The outline glyph of last resort.
-    pub const NEUTRAL: IconSpec = IconSpec::Glyph(LAST_RESORT_GLYPH);
+    pub(crate) const NEUTRAL: IconSpec = IconSpec::Glyph(LAST_RESORT_GLYPH);
 }
 
 /// Percent-encodes a path into a `file://` URL.
-pub fn file_url(path: &Path) -> String {
+pub(crate) fn file_url(path: &Path) -> String {
     let mut url = String::from("file://");
     for byte in path.to_string_lossy().bytes() {
         let plain = byte.is_ascii_alphanumeric() || b"/-_.~".contains(&byte);
@@ -47,7 +47,7 @@ pub fn file_url(path: &Path) -> String {
 /// Icon names to try for an application, best first: the icon its desktop file or window names,
 /// then names derived from its desktop id or app id (`org.kde.Dolphin.desktop` also tries
 /// `org.kde.Dolphin`, `org.kde.dolphin` and `dolphin`).
-pub fn candidate_names(icon: Option<&str>, id: &str) -> Vec<String> {
+pub(crate) fn candidate_names(icon: Option<&str>, id: &str) -> Vec<String> {
     let stem = id.strip_suffix(".desktop").unwrap_or(id);
     let last = stem.rsplit('.').next().unwrap_or(stem);
     let mut names: Vec<String> = Vec::new();
@@ -66,7 +66,7 @@ pub fn candidate_names(icon: Option<&str>, id: &str) -> Vec<String> {
 
 /// The first name the icon theme has; the theme's generic application icon if none; the neutral
 /// glyph if even that is missing.
-pub fn resolve_icon(
+pub(crate) fn resolve_icon(
     resolver: &mut IconResolver,
     names: &[String],
     px: u32,
@@ -87,7 +87,7 @@ pub fn resolve_icon(
 }
 
 /// HTML for an icon; `size` is a design size class (`sm`, `md`, `lg`) or empty for the CSS default.
-pub fn icon_html(spec: &IconSpec, size: &str, px: u32) -> String {
+pub(crate) fn icon_html(spec: &IconSpec, size: &str, px: u32) -> String {
     match spec {
         IconSpec::File(url) => format!(
             "<img class=\"app-img {size}\" style=\"width:{px}px;height:{px}px\" src=\"{}\">",

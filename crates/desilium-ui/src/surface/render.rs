@@ -151,7 +151,10 @@ impl UiSurface {
             .chunks_exact(w * BYTES_PER_PIXEL)
             .zip(dst.chunks_mut(stride))
         {
-            rgba_to_bgra(row, &mut out[..w * BYTES_PER_PIXEL]);
+            let Some(out) = out.get_mut(..w * BYTES_PER_PIXEL) else {
+                continue;
+            };
+            rgba_to_bgra(row, out);
         }
         self.frame.finish_frame();
         self.dirty = false;

@@ -23,7 +23,7 @@ pub fn tokens_css(theme: &Theme) -> String {
 }
 
 /// Only the declarations (`--name: value;` lines), usable as an inline `style`.
-pub fn tokens_declarations(theme: &Theme) -> String {
+pub(crate) fn tokens_declarations(theme: &Theme) -> String {
     let mut out = Decls::default();
     brand(&mut out, theme);
     metrics(&mut out, theme);

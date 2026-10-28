@@ -5,7 +5,7 @@ use std::time::Instant;
 use desilium_config_types::{PanelEdge, Visibility};
 use desilium_ui::wayland::SurfaceId;
 
-use super::{Shell, timers::Due};
+use super::{Shell, runtime::timers::Due};
 use crate::{
     dock::layout::screen_rect,
     quick::placement::Insets,

@@ -20,7 +20,7 @@ const SEMIBOLD_WEIGHT: u16 = 600;
 const SHADOW_ALPHA_BOOST_PERCENT: f32 = 12.0;
 
 /// Weight to emit for a design weight (needs a variable Inter to take effect).
-pub fn weight(design: u16) -> u16 {
+pub(super) fn weight(design: u16) -> u16 {
     let correction = match design {
         MEDIUM_WEIGHT => MEDIUM_WEIGHT_CORRECTION,
         SEMIBOLD_WEIGHT => SEMIBOLD_WEIGHT_CORRECTION,
@@ -30,7 +30,7 @@ pub fn weight(design: u16) -> u16 {
 }
 
 /// Alpha to emit for a shadow colour of design alpha `alpha`.
-pub fn shadow_alpha(alpha: f32) -> f32 {
+pub(super) fn shadow_alpha(alpha: f32) -> f32 {
     (alpha * (1.0 + SHADOW_ALPHA_BOOST_PERCENT / 100.0)).clamp(0.0, 1.0)
 }
 

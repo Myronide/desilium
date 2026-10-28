@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// Namespace of the tooltip's layer surface.
-pub const NAMESPACE: &str = "desilium-tooltip";
+pub(crate) const NAMESPACE: &str = "desilium-tooltip";
 /// Transparent margin around the bubble for its shadow (matches `.tip-wrap` padding).
 const SHADOW_PAD: i32 = 10;
 /// Space between target and bubble.
@@ -28,7 +28,7 @@ const EDGE: i32 = 4;
 
 /// Where the bubble goes relative to its target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Placement {
+pub(crate) enum Placement {
     /// Under the target (top bar, launcher).
     Below,
     /// Over the target (dock).
@@ -38,7 +38,7 @@ pub enum Placement {
 /// Top-left corner of the surface so the bubble of `bubble` size sits next to `target`.
 ///
 /// Pure so the placement rules are testable; `screen_width` clamps horizontally.
-pub fn position(
+pub(crate) fn position(
     target: Rect,
     bubble: (i32, i32),
     placement: Placement,
@@ -59,14 +59,14 @@ pub fn position(
 }
 
 /// The tooltip surface.
-pub struct Tooltip {
+pub(crate) struct Tooltip {
     slot: Slot,
     text: String,
 }
 
 impl Tooltip {
     /// Builds the document; the surface is created when a tooltip is shown.
-    pub fn new(theme: &Theme) -> Result<Self, UiError> {
+    pub(crate) fn new(theme: &Theme) -> Result<Self, UiError> {
         let mut options = SurfaceOptions::new(PLACEHOLDER.0, PLACEHOLDER.1);
         options.theme = theme.clone();
         let html = "<div class=tip-wrap><div class=tooltip id=tip></div></div>";
@@ -87,17 +87,17 @@ impl Tooltip {
     }
 
     /// True when `id` is the visible bubble's surface.
-    pub fn owns(&self, id: SurfaceId) -> bool {
+    pub(crate) fn owns(&self, id: SurfaceId) -> bool {
         self.slot.owns(id)
     }
 
     /// True while on screen.
-    pub fn is_visible(&self) -> bool {
+    pub(crate) fn is_visible(&self) -> bool {
         self.slot.is_shown()
     }
 
     /// Shows `text` next to `target` (screen coordinates).
-    pub fn show(
+    pub(crate) fn show(
         &mut self,
         host: &mut LayerHost,
         text: &str,
@@ -140,12 +140,12 @@ impl Tooltip {
     }
 
     /// Removes the bubble from the screen.
-    pub fn hide(&mut self, host: &mut LayerHost) {
+    pub(crate) fn hide(&mut self, host: &mut LayerHost) {
         self.slot.hide(host);
     }
 
     /// Applies a new theme, shown or not.
-    pub fn set_theme(&mut self, host: &mut LayerHost, theme: &Theme) {
+    pub(crate) fn set_theme(&mut self, host: &mut LayerHost, theme: &Theme) {
         if let Some(ui) = self.slot.ui_mut(host) {
             ui.set_theme(theme);
         }

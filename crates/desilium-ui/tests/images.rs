@@ -1,3 +1,5 @@
+// Test code: a failing unwrap or expect is the failure report.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! `<img>` with `file://` URLs: PNG and SVG icons must render, also when inserted after creation.
 
 use std::path::Path;

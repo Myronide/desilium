@@ -144,14 +144,22 @@ impl App {
         };
         let summary = now_bound(action, modifiers, &pending.key);
         let result = changes::edit_shortcuts(&mut self.store, summary, |list| {
-            if index >= list.len() || other >= list.len() {
+            let Some((old_modifiers, old_key)) = list
+                .get(index)
+                .map(|entry| (entry.modifiers, entry.key.clone()))
+            else {
                 return;
-            }
-            let (old_modifiers, old_key) = (list[index].modifiers, list[index].key.clone());
-            list[other].modifiers = old_modifiers;
-            list[other].key = old_key;
-            list[index].modifiers = modifiers;
-            list[index].key = pending.key;
+            };
+            let Some(swapped) = list.get_mut(other) else {
+                return;
+            };
+            swapped.modifiers = old_modifiers;
+            swapped.key = old_key;
+            let Some(rebound) = list.get_mut(index) else {
+                return;
+            };
+            rebound.modifiers = modifiers;
+            rebound.key = pending.key;
         });
         self.finish_shortcut_change(result, now)
     }

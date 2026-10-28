@@ -5,7 +5,7 @@ use std::{path::PathBuf, time::Duration};
 use desilium_theme::Mode;
 
 /// Usage text printed for `--help` and after a parse error.
-pub const USAGE: &str = "\
+pub(crate) const USAGE: &str = "\
 desilium-shell: top bar, dock and launcher
 
 USAGE:
@@ -24,7 +24,7 @@ OPTIONS:
 
 /// Element that `--demo-hover` points the synthetic pointer at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DemoHover {
+pub(crate) enum DemoHover {
     /// App cell `n` of the dock (0 is the launcher button).
     Dock(usize),
     /// A spot on the bar.
@@ -33,7 +33,7 @@ pub enum DemoHover {
 
 /// Bar elements `--demo-hover` can point at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BarSpot {
+pub(crate) enum BarSpot {
     /// The date and time button.
     Clock,
     /// The status group (quick settings).
@@ -42,7 +42,7 @@ pub enum BarSpot {
 
 /// Parsed options.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct Args {
+pub(crate) struct Args {
     /// Open the launcher at start.
     pub open_launcher: bool,
     /// Initial launcher query.
@@ -63,7 +63,7 @@ pub struct Args {
 
 /// A command line the shell cannot use.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
-pub enum ArgsError {
+pub(crate) enum ArgsError {
     /// Unknown flag.
     #[error("unknown option {0}")]
     Unknown(String),
@@ -92,7 +92,7 @@ fn parse_hover(value: &str) -> Option<DemoHover> {
 
 impl Args {
     /// Parses the arguments after the program name.
-    pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Self, ArgsError> {
+    pub(crate) fn parse(args: impl IntoIterator<Item = String>) -> Result<Self, ArgsError> {
         let mut out = Args::default();
         let mut args = args.into_iter();
         while let Some(flag) = args.next() {

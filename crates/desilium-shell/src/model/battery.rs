@@ -2,7 +2,7 @@
 
 /// Charging state of a battery.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BatteryStatus {
+pub(crate) enum BatteryStatus {
     /// Drawing from the battery.
     Discharging,
     /// Charging from mains.
@@ -15,7 +15,7 @@ pub enum BatteryStatus {
 
 /// One battery's reading.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Battery {
+pub(crate) struct Battery {
     /// Charge level, 0-100.
     pub percent: u8,
     /// Charging state.
@@ -23,13 +23,13 @@ pub struct Battery {
 }
 
 /// Parses `capacity` (`"82\n"`); values above 100 are clamped, garbage is `None`.
-pub fn parse_capacity(text: &str) -> Option<u8> {
+pub(crate) fn parse_capacity(text: &str) -> Option<u8> {
     let value: u32 = text.trim().parse().ok()?;
     u8::try_from(value.min(100)).ok()
 }
 
 /// Parses `status` (`"Charging\n"`).
-pub fn parse_status(text: &str) -> BatteryStatus {
+pub(crate) fn parse_status(text: &str) -> BatteryStatus {
     match text.trim().to_ascii_lowercase().as_str() {
         "discharging" => BatteryStatus::Discharging,
         "charging" => BatteryStatus::Charging,
@@ -39,7 +39,7 @@ pub fn parse_status(text: &str) -> BatteryStatus {
 }
 
 /// Merges all batteries of the machine: the mean level; charging if any one charges.
-pub fn combine(batteries: &[Battery]) -> Option<Battery> {
+pub(crate) fn combine(batteries: &[Battery]) -> Option<Battery> {
     if batteries.is_empty() {
         return None;
     }

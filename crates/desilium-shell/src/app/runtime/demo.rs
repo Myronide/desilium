@@ -5,11 +5,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use super::{Shell, timers::Due};
+use crate::app::{Shell, runtime::timers::Due};
 
 /// One step of the script.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Step {
+pub(crate) enum Step {
     /// Open the launcher with this query.
     Open(String),
     /// Close it.
@@ -17,7 +17,7 @@ pub enum Step {
 }
 
 /// Steps with the delay after the previous one.
-pub fn launcher_cycle() -> VecDeque<(Duration, Step)> {
+pub(crate) fn launcher_cycle() -> VecDeque<(Duration, Step)> {
     let second = Duration::from_secs(1);
     VecDeque::from([
         (second * 2, Step::Open(String::new())),
@@ -28,7 +28,7 @@ pub fn launcher_cycle() -> VecDeque<(Duration, Step)> {
 
 impl Shell {
     /// Runs the step that is due and arms the next one.
-    pub(super) fn demo_step(&mut self) {
+    pub(in crate::app) fn demo_step(&mut self) {
         let Some((_, step)) = self.demo_steps.pop_front() else {
             return;
         };
@@ -43,7 +43,7 @@ impl Shell {
     }
 
     /// Arms the first step of the script, if any.
-    pub(super) fn start_demo(&mut self) {
+    pub(in crate::app) fn start_demo(&mut self) {
         if let Some((delay, _)) = self.demo_steps.front() {
             self.deadlines.set(Due::Demo, Instant::now() + *delay);
         }

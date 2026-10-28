@@ -4,7 +4,7 @@ use std::ops::Range;
 
 /// Folded characters with the byte range each one came from in the original string.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Folded {
+pub(super) struct Folded {
     /// One folded character per original character.
     pub chars: Vec<char>,
     /// `spans[i]` is the byte range in the original text of `chars[i]`.
@@ -12,7 +12,7 @@ pub struct Folded {
 }
 
 /// Folds `text` one character at a time, so positions in the folded form map back exactly.
-pub fn fold(text: &str) -> Folded {
+pub(super) fn fold(text: &str) -> Folded {
     let mut folded = Folded::default();
     for (start, c) in text.char_indices() {
         folded.chars.push(fold_char(c));
@@ -22,7 +22,7 @@ pub fn fold(text: &str) -> Folded {
 }
 
 /// Lowercases one character and strips common Latin diacritics.
-pub fn fold_char(c: char) -> char {
+pub(super) fn fold_char(c: char) -> char {
     let lower = c.to_lowercase().next().unwrap_or(c);
     match lower {
         'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'æ' => 'a',

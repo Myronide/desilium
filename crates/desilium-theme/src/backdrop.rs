@@ -48,7 +48,10 @@ impl Gradient {
             return first.color;
         }
         for pair in self.stops.windows(2) {
-            let (from, to) = (pair[0], pair[1]);
+            let [from, to] = pair else {
+                continue;
+            };
+            let (from, to) = (*from, *to);
             if t <= to.position {
                 let span = (to.position - from.position).max(f32::EPSILON);
                 return from.color.mix(to.color, (t - from.position) / span);

@@ -27,3 +27,6 @@ wayland-protocols-plasma = { version = "0.3", features = ["client"] }
 [dev-dependencies]
 png = "0.17"
 tempfile = "3"
+
+[lints]
+workspace = true

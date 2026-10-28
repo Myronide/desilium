@@ -17,13 +17,13 @@ use crate::{
     slot::Slot,
     view::{BASE_CSS, LAUNCHER_CSS},
 };
-pub use results::{Context, compute};
-pub use view::{PinView, RowIcons};
+pub(crate) use results::{Context, compute};
+pub(crate) use view::{PinView, RowIcons};
 
 /// Namespace of the launcher's layer surface.
-pub const NAMESPACE: &str = "desilium-launcher";
+pub(crate) const NAMESPACE: &str = "desilium-launcher";
 /// Panel width in logical pixels.
-pub const WIDTH: u32 = 800;
+pub(crate) const WIDTH: u32 = 800;
 /// Panel height before the first measurement.
 const PLACEHOLDER_HEIGHT: u32 = 600;
 /// Layer-shell value that places a surface regardless of other surfaces' exclusive zones.
@@ -34,7 +34,7 @@ const TOP_SHARE_PERCENT: i32 = 15;
 const FALLBACK_TOP: i32 = 120;
 
 /// Inputs the launcher needs to draw itself.
-pub struct Parts<'a> {
+pub(crate) struct Parts<'a> {
     /// Desktop ids behind `Alt+1..6`.
     pub pinned: &'a [String],
     /// The pinned strip.
@@ -44,7 +44,7 @@ pub struct Parts<'a> {
 }
 
 /// Launcher surface plus its state machine.
-pub struct Launcher {
+pub(crate) struct Launcher {
     slot: Slot,
     /// Search text, category, results and selection.
     pub model: LauncherModel,
@@ -60,7 +60,7 @@ fn log_failure(result: Option<Result<(), UiError>>) {
 
 impl Launcher {
     /// Builds the document; the surface is created on the compositor when opened.
-    pub fn new(theme: &Theme) -> Result<Self, UiError> {
+    pub(crate) fn new(theme: &Theme) -> Result<Self, UiError> {
         let mut options = SurfaceOptions::new(WIDTH, PLACEHOLDER_HEIGHT);
         options.theme = theme.clone();
         let ui = UiSurface::new("<div id=root></div>", &[BASE_CSS, LAUNCHER_CSS], options)?;
@@ -83,27 +83,27 @@ impl Launcher {
     }
 
     /// The layer surface id while open.
-    pub fn id(&self) -> Option<SurfaceId> {
+    pub(crate) fn id(&self) -> Option<SurfaceId> {
         self.slot.id()
     }
 
     /// True when `id` is the open launcher's surface.
-    pub fn owns(&self, id: SurfaceId) -> bool {
+    pub(crate) fn owns(&self, id: SurfaceId) -> bool {
         self.slot.owns(id)
     }
 
     /// True while the panel is on screen.
-    pub fn is_open(&self) -> bool {
+    pub(crate) fn is_open(&self) -> bool {
         self.slot.is_shown()
     }
 
     /// Distance of the panel from the top of the screen and its height.
-    pub fn top_and_height(&self) -> (i32, u32) {
+    pub(crate) fn top_and_height(&self) -> (i32, u32) {
         (self.top, self.height)
     }
 
     /// Fills the panel with `query` and `results`, then puts it on screen.
-    pub fn open(
+    pub(crate) fn open(
         &mut self,
         host: &mut LayerHost,
         output_height: Option<i32>,
@@ -130,13 +130,13 @@ impl Launcher {
     }
 
     /// Takes the panel off the screen and forgets the query.
-    pub fn close(&mut self, host: &mut LayerHost) {
+    pub(crate) fn close(&mut self, host: &mut LayerHost) {
         self.model.reset();
         self.slot.hide(host);
     }
 
     /// Replaces the results and chips after a query or category change.
-    pub fn show_results(
+    pub(crate) fn show_results(
         &mut self,
         host: &mut LayerHost,
         results: Results,
@@ -147,7 +147,7 @@ impl Launcher {
     }
 
     /// Redraws chips and results from the current model (selection change).
-    pub fn redraw(&mut self, host: &mut LayerHost, parts: Parts<'_>) -> Result<(), UiError> {
+    pub(crate) fn redraw(&mut self, host: &mut LayerHost, parts: Parts<'_>) -> Result<(), UiError> {
         let Some(id) = self.slot.id() else {
             return Ok(());
         };
@@ -161,7 +161,7 @@ impl Launcher {
     }
 
     /// Applies a new theme, shown or not.
-    pub fn set_theme(&mut self, host: &mut LayerHost, theme: &Theme) {
+    pub(crate) fn set_theme(&mut self, host: &mut LayerHost, theme: &Theme) {
         if let Some(ui) = self.slot.ui_mut(host) {
             ui.set_theme(theme);
         }
@@ -192,7 +192,7 @@ impl Launcher {
 
 /// Launcher markup for snapshot tests.
 #[cfg(test)]
-pub fn launcher_html_for_tests(
+pub(crate) fn launcher_html_for_tests(
     model: &LauncherModel,
     pins: &[PinView],
     icons: &mut dyn RowIcons,

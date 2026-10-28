@@ -18,7 +18,7 @@ use crate::model::{Config, Event, Model, Timestamp};
 ///
 /// Requests mutate the model under a short lock, then queue the resulting events.
 /// The timer task drains the queue and emits signals, so no lock is held across an await.
-pub struct Shared {
+pub(super) struct Shared {
     model: Mutex<Model>,
     outbox: Mutex<Vec<Event>>,
     wake: Sender<()>,
@@ -36,7 +36,7 @@ impl Shared {
     }
 
     /// The current time: a monotonic clock for deadlines and a wall clock for display.
-    pub fn now(&self) -> Timestamp {
+    pub(super) fn now(&self) -> Timestamp {
         Timestamp {
             monotonic_ms: millis(self.started.elapsed().as_millis()),
             unix_ms: millis(
@@ -49,13 +49,13 @@ impl Shared {
     }
 
     /// Runs `operation` against the model while holding its lock.
-    pub fn with_model<T>(&self, operation: impl FnOnce(&mut Model) -> T) -> T {
+    pub(super) fn with_model<T>(&self, operation: impl FnOnce(&mut Model) -> T) -> T {
         let mut guard = lock(&self.model);
         operation(&mut guard)
     }
 
     /// Queues events for publication and wakes the timer task.
-    pub fn submit(&self, events: Vec<Event>) {
+    pub(super) fn submit(&self, events: Vec<Event>) {
         if events.is_empty() {
             return;
         }

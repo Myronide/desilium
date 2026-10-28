@@ -12,7 +12,7 @@ const NANOS_PER_SECOND: u32 = 1_000_000_000;
 
 /// Broken-down local wall-clock time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LocalTime {
+pub(crate) struct LocalTime {
     /// Day of the week, Monday = 0.
     pub weekday: u8,
     /// Day of the month, 1-based.
@@ -31,7 +31,7 @@ pub struct LocalTime {
 
 /// How the time of day is shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum HourCycle {
+pub(crate) enum HourCycle {
     /// `14:32`.
     #[default]
     H24,
@@ -41,7 +41,7 @@ pub enum HourCycle {
 
 /// The two strings the bar shows.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClockText {
+pub(crate) struct ClockText {
     /// `Mon 26 Oct`.
     pub date: String,
     /// `14:32`.
@@ -49,7 +49,7 @@ pub struct ClockText {
 }
 
 /// Formats `time`; seconds are appended when `with_seconds` is set.
-pub fn format_clock(time: &LocalTime, cycle: HourCycle, with_seconds: bool) -> ClockText {
+pub(crate) fn format_clock(time: &LocalTime, cycle: HourCycle, with_seconds: bool) -> ClockText {
     let weekday = WEEKDAYS
         .get(usize::from(time.weekday))
         .copied()
@@ -84,7 +84,7 @@ pub fn format_clock(time: &LocalTime, cycle: HourCycle, with_seconds: bool) -> C
 /// Time until the displayed text changes next (the next minute, or second boundary).
 ///
 /// Never zero, so a timer armed with it cannot spin when it fires exactly on the boundary.
-pub fn until_next_change(time: &LocalTime, with_seconds: bool) -> Duration {
+pub(crate) fn until_next_change(time: &LocalTime, with_seconds: bool) -> Duration {
     let into_second = Duration::new(0, time.nanos.min(NANOS_PER_SECOND - 1));
     let remaining_seconds = if with_seconds {
         1

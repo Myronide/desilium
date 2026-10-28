@@ -13,14 +13,14 @@ use crate::{
     view::{BASE_CSS, DOCK_CSS},
     visibility::{Presence, bar_inset, panel_zone, reserves_space},
 };
-pub use layout::{BOTTOM_MARGIN, DockLayout, HEIGHT};
-pub use view::{DockCell, DockView, Status, panel_radius};
+pub(crate) use layout::{BOTTOM_MARGIN, DockLayout, HEIGHT};
+pub(crate) use view::{DockCell, DockView, Status, panel_radius};
 
 /// Namespace of the dock's layer surface.
-pub const NAMESPACE: &str = "desilium-dock";
+pub(crate) const NAMESPACE: &str = "desilium-dock";
 
 /// The dock surface and what it shows.
-pub struct Dock {
+pub(crate) struct Dock {
     id: SurfaceId,
     view: DockView,
     layout: DockLayout,
@@ -37,7 +37,11 @@ fn layout_for(view: &DockView) -> DockLayout {
 
 impl Dock {
     /// Creates the surface showing `view`.
-    pub fn new(host: &mut LayerHost, theme: &Theme, view: DockView) -> Result<Self, UiError> {
+    pub(crate) fn new(
+        host: &mut LayerHost,
+        theme: &Theme,
+        view: DockView,
+    ) -> Result<Self, UiError> {
         let layout = layout_for(&view);
         let html = format!("<div id=root>{}</div>", view::dock_html(&view, &layout));
         let mut options = SurfaceOptions::new(layout.width, HEIGHT);
@@ -60,27 +64,27 @@ impl Dock {
     }
 
     /// The layer surface id.
-    pub fn id(&self) -> SurfaceId {
+    pub(crate) fn id(&self) -> SurfaceId {
         self.id
     }
 
     /// Current geometry (surface-local pixels).
-    pub fn layout(&self) -> &DockLayout {
+    pub(crate) fn layout(&self) -> &DockLayout {
         &self.layout
     }
 
     /// Rect of the launcher button or app cell `index`.
-    pub fn cell_rect(&self, index: usize) -> Option<Rect> {
+    pub(crate) fn cell_rect(&self, index: usize) -> Option<Rect> {
         self.layout.items.get(index).copied()
     }
 
     /// Makes the next [`show`](Self::show) draw the dock again even if its content is unchanged.
-    pub fn invalidate(&mut self) {
+    pub(crate) fn invalidate(&mut self) {
         self.dirty = true;
     }
 
     /// Read the current scrolled client rectangle and clip it to the app strip.
-    pub fn visible_cell_rect(&self, host: &mut LayerHost, index: usize) -> Option<Rect> {
+    pub(crate) fn visible_cell_rect(&self, host: &mut LayerHost, index: usize) -> Option<Rect> {
         let rect = host
             .surface_mut(self.id)?
             .element_rect(&format!("#dock-{index}"))
@@ -103,7 +107,7 @@ impl Dock {
         })
     }
 
-    pub fn configure(
+    pub(crate) fn configure(
         &mut self,
         host: &mut LayerHost,
         settings: &desilium_config_types::ShellSettings,
@@ -123,7 +127,11 @@ impl Dock {
     }
 
     /// Moves the dock between full, edge strip and off.
-    pub fn place(&mut self, host: &mut LayerHost, presence: Presence) -> Result<(), UiError> {
+    pub(crate) fn place(
+        &mut self,
+        host: &mut LayerHost,
+        presence: Presence,
+    ) -> Result<(), UiError> {
         if presence == self.presence {
             return Ok(());
         }
@@ -183,7 +191,7 @@ impl Dock {
     }
 
     /// Shows `view`; returns true when the geometry changed (minimize rectangles need an update).
-    pub fn show(&mut self, host: &mut LayerHost, view: DockView) -> Result<bool, UiError> {
+    pub(crate) fn show(&mut self, host: &mut LayerHost, view: DockView) -> Result<bool, UiError> {
         if view == self.view && !self.dirty {
             return Ok(false);
         }
@@ -219,12 +227,12 @@ impl Dock {
 
 /// Dock markup for snapshot tests.
 #[cfg(test)]
-pub fn dock_html_for_tests(view: &DockView, layout: &DockLayout) -> String {
+pub(crate) fn dock_html_for_tests(view: &DockView, layout: &DockLayout) -> String {
     view::dock_html(view, layout)
 }
 
 #[cfg(test)]
-pub fn configured_html_for_tests(
+pub(crate) fn configured_html_for_tests(
     view: &DockView,
     layout: &DockLayout,
     settings: &desilium_config_types::ShellSettings,

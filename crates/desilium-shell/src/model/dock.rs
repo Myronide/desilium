@@ -3,11 +3,11 @@
 use super::windows::{WindowId, WindowInfo, WindowModel};
 
 /// Most window dots drawn under one dock icon.
-pub const MAX_DOTS: usize = 4;
+pub(crate) const MAX_DOTS: usize = 4;
 
 /// What the dock needs to know about an installed application.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AppInfo {
+pub(crate) struct AppInfo {
     /// Desktop file id (`firefox.desktop`).
     pub desktop_id: String,
     /// Display name.
@@ -19,7 +19,7 @@ pub struct AppInfo {
 }
 
 /// Application lookups, implemented by the real catalog and by test fakes.
-pub trait AppLookup {
+pub(crate) trait AppLookup {
     /// The app installed under this desktop file id.
     fn by_desktop_id(&self, desktop_id: &str) -> Option<AppInfo>;
     /// The app a window with this Wayland app id belongs to.
@@ -28,7 +28,7 @@ pub trait AppLookup {
 
 /// One icon in the dock.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DockItem {
+pub(crate) struct DockItem {
     /// Stable key: the desktop id, or `app:<app_id>` for windows without a desktop file.
     pub key: String,
     /// Desktop file id when the app is installed.
@@ -45,7 +45,7 @@ pub struct DockItem {
 
 /// One dot under an icon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Dot {
+pub(crate) enum Dot {
     /// A window that is open but not focused.
     Open,
     /// The focused window.
@@ -54,7 +54,7 @@ pub enum Dot {
 
 /// What a click on an icon should do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DockClick {
+pub(crate) enum DockClick {
     /// Not running: start the application.
     Launch,
     /// Bring this window up (restores it when minimized).
@@ -65,7 +65,7 @@ pub enum DockClick {
 
 impl DockItem {
     /// Indicator dots: one per window, at most [`MAX_DOTS`], the focused one marked.
-    pub fn dots(&self, model: &WindowModel) -> Vec<Dot> {
+    pub(crate) fn dots(&self, model: &WindowModel) -> Vec<Dot> {
         self.windows
             .iter()
             .take(MAX_DOTS)
@@ -77,7 +77,7 @@ impl DockItem {
     }
 
     /// Click behaviour; repeated clicks cycle through several windows in creation order.
-    pub fn click(&self, model: &WindowModel) -> DockClick {
+    pub(crate) fn click(&self, model: &WindowModel) -> DockClick {
         let Some(newest_used) = self.most_recent(model) else {
             return DockClick::Launch;
         };
@@ -96,7 +96,7 @@ impl DockItem {
     }
 
     /// The most recently used window of this app.
-    pub fn most_recent(&self, model: &WindowModel) -> Option<WindowId> {
+    pub(crate) fn most_recent(&self, model: &WindowModel) -> Option<WindowId> {
         self.windows
             .iter()
             .min_by_key(|id| model.recency(**id).unwrap_or(usize::MAX))
@@ -133,7 +133,11 @@ fn item_for_unknown(window: &WindowInfo) -> DockItem {
 
 /// Merges pinned apps (in pinned order; uninstalled ones are skipped) with running windows
 /// (apps without a pin follow in order of their oldest window).
-pub fn build(pinned: &[String], model: &WindowModel, lookup: &dyn AppLookup) -> Vec<DockItem> {
+pub(crate) fn build(
+    pinned: &[String],
+    model: &WindowModel,
+    lookup: &dyn AppLookup,
+) -> Vec<DockItem> {
     let mut items: Vec<DockItem> = pinned
         .iter()
         .filter_map(|id| lookup.by_desktop_id(id))
@@ -145,17 +149,14 @@ pub fn build(pinned: &[String], model: &WindowModel, lookup: &dyn AppLookup) -> 
             None => format!("app:{}", window.app_id),
         };
         let at = items.iter().position(|item| item.key == key);
-        let index = match at {
-            Some(index) => index,
-            None => {
-                let fresh = match lookup.by_app_id(&window.app_id) {
-                    Some(app) => item_from_app(app, false),
-                    None => item_for_unknown(window),
-                };
-                items.push(fresh);
-                items.len() - 1
-            }
-        };
+        let index = at.unwrap_or_else(|| {
+            let fresh = match lookup.by_app_id(&window.app_id) {
+                Some(app) => item_from_app(app, false),
+                None => item_for_unknown(window),
+            };
+            items.push(fresh);
+            items.len() - 1
+        });
         if let Some(item) = items.get_mut(index) {
             item.windows.push(window.id);
         }
@@ -170,7 +171,7 @@ pub fn build(pinned: &[String], model: &WindowModel, lookup: &dyn AppLookup) -> 
 /// shown ones. `slot` counts items of the dock, so it may point past the pinned ones (an
 /// unpinned running app dropped there is pinned at the end). A pinned app that is moved leaves
 /// its old place first, so `slot` after it counts one less.
-pub fn reordered_pins(
+pub(crate) fn reordered_pins(
     pinned: &[String],
     visible: &[String],
     moving: &str,
@@ -193,7 +194,7 @@ pub fn reordered_pins(
 }
 
 /// Index of the first running-but-unpinned item (where the separator goes).
-pub fn separator_index(items: &[DockItem]) -> Option<usize> {
+pub(crate) fn separator_index(items: &[DockItem]) -> Option<usize> {
     let first = items.iter().position(|item| !item.pinned)?;
     (first > 0).then_some(first)
 }

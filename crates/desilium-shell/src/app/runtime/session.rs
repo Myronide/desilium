@@ -2,7 +2,7 @@
 
 use std::time::Instant;
 
-use super::{Shell, timers::Due};
+use crate::app::{Shell, runtime::timers::Due};
 use crate::services::{
     apps::CatalogLookup,
     session::{self, Restore, SAVE_DELAY},
@@ -10,7 +10,7 @@ use crate::services::{
 
 impl Shell {
     /// Runs once, with the first window list: decides whether a saved layout is restored.
-    pub(super) fn session_start(&mut self) {
+    pub(in crate::app) fn session_start(&mut self) {
         if self.session_started {
             return;
         }
@@ -41,7 +41,7 @@ impl Shell {
     }
 
     /// Windows changed: place new ones that a saved window is waiting for, and plan a save.
-    pub(super) fn session_windows_changed(&mut self) {
+    pub(in crate::app) fn session_windows_changed(&mut self) {
         self.session_start();
         self.place_restored();
         if self.store.get().shell.restore_session && self.restore.is_none() {
@@ -51,7 +51,7 @@ impl Shell {
     }
 
     /// Moves newly opened windows to the workspace and rectangle their saved twin had.
-    pub(super) fn place_restored(&mut self) {
+    pub(in crate::app) fn place_restored(&mut self) {
         let Some(restore) = self.restore.as_mut() else {
             return;
         };
@@ -82,7 +82,7 @@ impl Shell {
     }
 
     /// Writes the current layout when the option is on and a restore is not still running.
-    pub(super) fn save_session(&mut self) {
+    pub(in crate::app) fn save_session(&mut self) {
         if !self.session_started
             || self.restore.is_some()
             || !self.store.get().shell.restore_session

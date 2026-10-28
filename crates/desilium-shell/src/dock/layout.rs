@@ -3,29 +3,29 @@
 use desilium_ui::Rect;
 
 /// Icon cell edge.
-pub const ITEM: u32 = 48;
+pub(crate) const ITEM: u32 = 48;
 /// Space between cells.
-pub const GAP: u32 = 8;
+pub(crate) const GAP: u32 = 8;
 /// Horizontal padding inside the tile.
-pub const PAD_X: u32 = 10;
+pub(crate) const PAD_X: u32 = 10;
 /// Vertical padding inside the tile.
-pub const PAD_Y: u32 = 7;
+pub(crate) const PAD_Y: u32 = 7;
 /// Tile border width.
-pub const BORDER: u32 = 1;
+pub(crate) const BORDER: u32 = 1;
 /// Separator width including its 2 px side margins.
-pub const SEPARATOR: u32 = 5;
+pub(crate) const SEPARATOR: u32 = 5;
 /// Tile height.
-pub const HEIGHT: u32 = ITEM + 2 * (PAD_Y + BORDER);
+pub(crate) const HEIGHT: u32 = ITEM + 2 * (PAD_Y + BORDER);
 /// Distance between the tile and the screen edge.
-pub const BOTTOM_MARGIN: i32 = 14;
+pub(crate) const BOTTOM_MARGIN: i32 = 14;
 /// Quick buttons a taskbar shows next to the launcher.
-pub const TASKBAR_TOOLS: usize = 2;
+pub(crate) const TASKBAR_TOOLS: usize = 2;
 /// Width of the taskbar's right cluster: tray icons, two-line clock and the settings button.
-pub const SYSTEM_WIDTH: u32 = 236;
+pub(crate) const SYSTEM_WIDTH: u32 = 236;
 
 /// Where everything sits inside the dock surface.
 #[derive(Debug, Clone, PartialEq)]
-pub struct DockLayout {
+pub(crate) struct DockLayout {
     /// Surface width.
     pub width: u32,
     pub height: u32,
@@ -49,7 +49,7 @@ fn cell(x: u32) -> Rect {
 }
 
 /// Lays out the launcher button, `count` app cells and an optional separator before cell `separator`.
-pub fn layout(count: usize, separator: Option<usize>) -> DockLayout {
+pub(crate) fn layout(count: usize, separator: Option<usize>) -> DockLayout {
     let mut x = BORDER + PAD_X;
     let launcher = cell(x);
     x += ITEM;
@@ -76,7 +76,7 @@ pub fn layout(count: usize, separator: Option<usize>) -> DockLayout {
 }
 
 /// Runtime layout shares its hit rectangles with minimize animations.
-pub fn configured(
+pub(crate) fn configured(
     count: usize,
     separator: Option<usize>,
     settings: &desilium_config_types::ShellSettings,
@@ -269,7 +269,7 @@ mod configured_tests {
 }
 
 /// Output-local surface rectangle, matching the layer-shell anchor contract.
-pub fn screen_rect(
+pub(crate) fn screen_rect(
     settings: &desilium_config_types::ShellSettings,
     layout: &DockLayout,
     output: (i32, i32),

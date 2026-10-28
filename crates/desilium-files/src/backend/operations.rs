@@ -9,7 +9,7 @@ async fn result(
         .map_err(|_| "The mount service disconnected.".to_owned())?
         .map_err(super::friendly)
 }
-pub async fn location(
+pub(super) async fn location(
     file: &gio::File,
     operation: &gio::MountOperation,
     cancel: &gio::Cancellable,
@@ -25,7 +25,7 @@ pub async fn location(
     );
     result(receiver).await
 }
-pub async fn volume(
+pub(super) async fn volume(
     volume: &gio::Volume,
     operation: &gio::MountOperation,
     cancel: &gio::Cancellable,
@@ -41,7 +41,7 @@ pub async fn volume(
     );
     result(receiver).await
 }
-pub async fn unmount(
+pub(super) async fn unmount(
     mount: &gio::Mount,
     operation: &gio::MountOperation,
     cancel: &gio::Cancellable,

@@ -21,15 +21,15 @@ use crate::model::{
 /// File name below `$XDG_STATE_HOME/desilium`.
 const FILE_NAME: &str = "session.toml";
 /// Most windows kept; a runaway session must not start hundreds of programs.
-pub const MAX_WINDOWS: usize = 24;
+pub(crate) const MAX_WINDOWS: usize = 24;
 /// Saved windows that did not show up this long after the start are given up on.
-pub const RESTORE_PATIENCE: Duration = Duration::from_secs(60);
+pub(crate) const RESTORE_PATIENCE: Duration = Duration::from_secs(60);
 /// Quiet time after the last window change before the layout is written.
-pub const SAVE_DELAY: Duration = Duration::from_secs(3);
+pub(crate) const SAVE_DELAY: Duration = Duration::from_secs(3);
 
 /// One window of the saved layout.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SavedWindow {
+pub(crate) struct SavedWindow {
     /// Wayland app id the window will have again.
     pub app_id: String,
     /// Desktop file that starts the application.
@@ -50,12 +50,12 @@ struct File {
 }
 
 /// Where the layout is stored for the given state home.
-pub fn path(state_home: &Path) -> PathBuf {
+pub(crate) fn path(state_home: &Path) -> PathBuf {
     state_home.join("desilium").join(FILE_NAME)
 }
 
 /// The saved layout; a missing or unreadable file gives an empty one.
-pub fn load(path: &Path) -> Vec<SavedWindow> {
+pub(crate) fn load(path: &Path) -> Vec<SavedWindow> {
     let Ok(text) = fs::read_to_string(path) else {
         return Vec::new();
     };
@@ -69,7 +69,7 @@ pub fn load(path: &Path) -> Vec<SavedWindow> {
 }
 
 /// Writes the layout atomically (temporary file, then rename).
-pub fn save(path: &Path, windows: &[SavedWindow]) -> io::Result<()> {
+pub(crate) fn save(path: &Path, windows: &[SavedWindow]) -> io::Result<()> {
     let text = toml::to_string_pretty(&File {
         windows: windows.to_vec(),
     })
@@ -85,7 +85,7 @@ pub fn save(path: &Path, windows: &[SavedWindow]) -> io::Result<()> {
 }
 
 /// The windows worth saving: those whose application can be started again.
-pub fn capture(model: &WindowModel, lookup: &dyn AppLookup) -> Vec<SavedWindow> {
+pub(crate) fn capture(model: &WindowModel, lookup: &dyn AppLookup) -> Vec<SavedWindow> {
     model
         .windows()
         .iter()
@@ -114,13 +114,13 @@ fn saved(window: &WindowInfo, desktop_id: String) -> SavedWindow {
 
 /// Saved windows waiting for their application to open a window.
 #[derive(Debug)]
-pub struct Restore {
+pub(crate) struct Restore {
     pending: Vec<SavedWindow>,
     started: Instant,
 }
 
 impl Restore {
-    pub fn new(pending: Vec<SavedWindow>, now: Instant) -> Self {
+    pub(crate) fn new(pending: Vec<SavedWindow>, now: Instant) -> Self {
         Self {
             pending,
             started: now,
@@ -128,7 +128,7 @@ impl Restore {
     }
 
     /// The saved window for a new window with this app id, removing it from the waiting list.
-    pub fn claim(&mut self, app_id: &str) -> Option<SavedWindow> {
+    pub(crate) fn claim(&mut self, app_id: &str) -> Option<SavedWindow> {
         let index = self
             .pending
             .iter()
@@ -137,12 +137,12 @@ impl Restore {
     }
 
     /// True once everything was placed or given up on.
-    pub fn is_done(&self, now: Instant) -> bool {
+    pub(crate) fn is_done(&self, now: Instant) -> bool {
         self.pending.is_empty() || now.saturating_duration_since(self.started) > RESTORE_PATIENCE
     }
 
     /// Desktop ids to start, one per saved window.
-    pub fn desktop_ids(&self) -> impl Iterator<Item = &str> {
+    pub(crate) fn desktop_ids(&self) -> impl Iterator<Item = &str> {
         self.pending.iter().map(|saved| saved.desktop_id.as_str())
     }
 }

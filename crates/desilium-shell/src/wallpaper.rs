@@ -18,7 +18,7 @@ use crate::view::{BASE_CSS, esc, icon::file_url};
 const DESKTOP_CSS: &str = include_str!("../assets/desktop.css");
 
 /// Namespace of the wallpaper layer surfaces.
-pub const NAMESPACE: &str = "desilium-wallpaper";
+pub(crate) const NAMESPACE: &str = "desilium-wallpaper";
 /// Size used until KWin configures the real one.
 const PLACEHOLDER: (u32, u32) = (1920, 1080);
 const CSS: &str = "html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden}\
@@ -34,7 +34,7 @@ pub(crate) const STYLES: [&str; 3] = [BASE_CSS, CSS, DESKTOP_CSS];
 
 /// What the background looks like; two equal looks need no rebuild.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Look {
+pub(crate) struct Look {
     /// CSS `background` value drawn behind (and without) the image.
     pub backdrop: String,
     /// `file://` URL of the image, if one is configured and exists.
@@ -45,7 +45,7 @@ pub struct Look {
 
 impl Look {
     /// The look for `appearance` under `theme`.
-    pub fn of(appearance: &AppearanceSettings, theme: &Theme) -> Self {
+    pub(crate) fn of(appearance: &AppearanceSettings, theme: &Theme) -> Self {
         let image = appearance
             .wallpaper
             .as_deref()
@@ -105,21 +105,21 @@ fn gradient_css(gradient: &Gradient) -> String {
 }
 
 /// The wallpaper surfaces and the look they show.
-pub struct Wallpaper {
+pub(crate) struct Wallpaper {
     surfaces: Vec<SurfaceId>,
     look: Look,
 }
 
 impl Wallpaper {
     /// Creates one surface per output the compositor reports (one anywhere when it reports none).
-    pub fn new(host: &mut LayerHost, look: Look) -> Result<Self, UiError> {
+    pub(crate) fn new(host: &mut LayerHost, look: Look) -> Result<Self, UiError> {
         let surfaces = Self::create(host, &look)?;
         Ok(Self { surfaces, look })
     }
 
     /// Rebuilds the surfaces when the look changed. Returns whether it did, because everything
     /// that was drawn onto them (the desktop icons) is gone then.
-    pub fn update(&mut self, host: &mut LayerHost, look: Look) -> Result<bool, UiError> {
+    pub(crate) fn update(&mut self, host: &mut LayerHost, look: Look) -> Result<bool, UiError> {
         if look == self.look {
             return Ok(false);
         }
@@ -132,17 +132,17 @@ impl Wallpaper {
     }
 
     /// The surface that carries the desktop icons: the first output's.
-    pub fn primary(&self) -> Option<SurfaceId> {
+    pub(crate) fn primary(&self) -> Option<SurfaceId> {
         self.surfaces.first().copied()
     }
 
     /// Whether `id` is one of the wallpaper surfaces.
-    pub fn owns(&self, id: SurfaceId) -> bool {
+    pub(crate) fn owns(&self, id: SurfaceId) -> bool {
         self.surfaces.contains(&id)
     }
 
     /// Whether `id` is the surface that carries the desktop icons.
-    pub fn is_primary(&self, id: SurfaceId) -> bool {
+    pub(crate) fn is_primary(&self, id: SurfaceId) -> bool {
         self.primary() == Some(id)
     }
 

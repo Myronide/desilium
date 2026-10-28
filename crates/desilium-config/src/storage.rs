@@ -10,7 +10,7 @@ use std::time::SystemTime;
 
 use desilium_config_types::DesiliumConfig;
 
-pub const CONFIG_FILE_NAME: &str = "config.toml";
+pub(crate) const CONFIG_FILE_NAME: &str = "config.toml";
 const BACKUPS_DIR_NAME: &str = "backups";
 const BACKUP_PREFIX: &str = "config-";
 const BACKUP_SUFFIX: &str = ".toml";
@@ -33,42 +33,42 @@ pub struct BackupInfo {
 
 /// Identity of a file's contents, used to detect external edits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Fingerprint {
+pub(crate) struct Fingerprint {
     modified: Option<SystemTime>,
     len: u64,
     hash: u64,
 }
 
 /// A file read together with its fingerprint.
-pub struct Snapshot {
+pub(crate) struct Snapshot {
     pub fingerprint: Fingerprint,
     pub bytes: Vec<u8>,
 }
 
 /// Paths inside one configuration directory.
 #[derive(Debug, Clone)]
-pub struct Layout {
+pub(crate) struct Layout {
     dir: PathBuf,
 }
 
 impl Layout {
-    pub fn new(dir: PathBuf) -> Self {
+    pub(crate) fn new(dir: PathBuf) -> Self {
         Self { dir }
     }
 
-    pub fn dir(&self) -> &Path {
+    pub(crate) fn dir(&self) -> &Path {
         &self.dir
     }
 
-    pub fn config_file(&self) -> PathBuf {
+    pub(crate) fn config_file(&self) -> PathBuf {
         self.dir.join(CONFIG_FILE_NAME)
     }
 
-    pub fn backups_dir(&self) -> PathBuf {
+    pub(crate) fn backups_dir(&self) -> PathBuf {
         self.dir.join(BACKUPS_DIR_NAME)
     }
 
-    pub fn backup_file(&self, seq: u64) -> PathBuf {
+    pub(crate) fn backup_file(&self, seq: u64) -> PathBuf {
         self.backups_dir()
             .join(format!("{BACKUP_PREFIX}{seq}{BACKUP_SUFFIX}"))
     }
@@ -92,7 +92,7 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 }
 
 /// Reads `path`; `Ok(None)` when it does not exist.
-pub fn read_snapshot(path: &Path) -> io::Result<Option<Snapshot>> {
+pub(crate) fn read_snapshot(path: &Path) -> io::Result<Option<Snapshot>> {
     let metadata = match fs::metadata(path) {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
@@ -104,7 +104,7 @@ pub fn read_snapshot(path: &Path) -> io::Result<Option<Snapshot>> {
 }
 
 /// Creates the config and backup directories with private permissions.
-pub fn ensure_dirs(layout: &Layout) -> io::Result<()> {
+pub(crate) fn ensure_dirs(layout: &Layout) -> io::Result<()> {
     DirBuilder::new()
         .recursive(true)
         .mode(DIR_MODE)
@@ -112,14 +112,14 @@ pub fn ensure_dirs(layout: &Layout) -> io::Result<()> {
 }
 
 /// Serializes the config with a header comment.
-pub fn render(config: &DesiliumConfig) -> Result<String, toml::ser::Error> {
+pub(crate) fn render(config: &DesiliumConfig) -> Result<String, toml::ser::Error> {
     Ok(format!("{HEADER}{}", toml::to_string_pretty(config)?))
 }
 
 /// Writes `bytes` to `path` via a synced temp file and rename, then syncs the directory.
 ///
 /// A crash leaves either the old or the new file, never a partial one.
-pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
         return Err(io::Error::other(
             "path has no parent directory or file name",
@@ -150,7 +150,7 @@ fn write_and_sync(path: &Path, bytes: &[u8]) -> io::Result<()> {
 }
 
 /// Lists backups sorted by sequence number, oldest first.
-pub fn list_backups(layout: &Layout) -> io::Result<Vec<BackupInfo>> {
+pub(crate) fn list_backups(layout: &Layout) -> io::Result<Vec<BackupInfo>> {
     let entries = match fs::read_dir(layout.backups_dir()) {
         Ok(entries) => entries,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -180,7 +180,7 @@ fn parse_backup_seq(name: &str) -> Option<u64> {
 }
 
 /// Stores `bytes` as the next backup and prunes to [`KEEP_BACKUPS`]. Returns the new sequence number.
-pub fn write_backup(layout: &Layout, bytes: &[u8]) -> io::Result<u64> {
+pub(crate) fn write_backup(layout: &Layout, bytes: &[u8]) -> io::Result<u64> {
     let existing = list_backups(layout)?;
     let seq = existing.last().map_or(1, |last| last.seq.saturating_add(1));
     write_atomic(&layout.backup_file(seq), bytes)?;
@@ -192,7 +192,7 @@ pub fn write_backup(layout: &Layout, bytes: &[u8]) -> io::Result<u64> {
 }
 
 /// Moves the config file aside as `config.toml.corrupt-<n>` using the first free `n`.
-pub fn quarantine(layout: &Layout) -> io::Result<PathBuf> {
+pub(crate) fn quarantine(layout: &Layout) -> io::Result<PathBuf> {
     let target = (1u64..)
         .map(|n| {
             layout

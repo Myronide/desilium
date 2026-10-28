@@ -1,3 +1,6 @@
+// Test code: a failing unwrap or expect is the failure report.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use desilium_files::{
     backend::files,
     location::{Location, valid_name},

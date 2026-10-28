@@ -9,7 +9,7 @@ use crate::model::limits::HINTS_MAX;
 use crate::model::{HintValue, RawImage};
 
 /// Converts the `a{sv}` hints dictionary, ignoring entries past the cap.
-pub fn hint_pairs(hints: &HashMap<&str, Value<'_>>) -> Vec<(String, HintValue)> {
+pub(super) fn hint_pairs(hints: &HashMap<&str, Value<'_>>) -> Vec<(String, HintValue)> {
     hints
         .iter()
         .take(HINTS_MAX)

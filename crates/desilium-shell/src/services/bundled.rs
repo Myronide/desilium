@@ -15,7 +15,7 @@ const BUNDLED: [(&str, &str, &str); 2] = [
         include_str!("../../../../packaging/applications/desilium-settings.desktop"),
     ),
 ];
-pub fn catalog(env: &Environment, binary_dir: Option<&Path>) -> Catalog {
+pub(crate) fn catalog(env: &Environment, binary_dir: Option<&Path>) -> Catalog {
     let mut catalog = Catalog::load(env);
     for (binary, id, raw) in BUNDLED {
         let program = binary_dir

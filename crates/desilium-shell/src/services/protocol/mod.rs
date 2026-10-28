@@ -39,7 +39,7 @@ const SETTLE_ROUNDTRIPS: usize = 3;
 
 /// Why the protocol could not be used.
 #[derive(Debug, thiserror::Error)]
-pub enum ProtocolError {
+pub(crate) enum ProtocolError {
     /// The registry could not be read.
     #[error("cannot read the Wayland registry: {0}")]
     Registry(String),
@@ -50,7 +50,7 @@ pub enum ProtocolError {
 
 /// Changes since the last [`ShellProtocol::take_update`].
 #[derive(Debug, Clone, Default)]
-pub struct Update {
+pub(crate) struct Update {
     /// The full window list in creation order, when it changed.
     pub windows: Option<Vec<WindowInfo>>,
     /// New workspace state.
@@ -58,7 +58,7 @@ pub struct Update {
 }
 
 /// The bound protocols and everything they reported.
-pub struct ShellProtocol {
+pub(crate) struct ShellProtocol {
     queue: EventQueue<ProtoState>,
     state: ProtoState,
     handle: QueueHandle<ProtoState>,
@@ -76,7 +76,7 @@ impl ShellProtocol {
     ///
     /// Returns `Ok(None)` when nothing usable is offered: the shell then runs without windows,
     /// workspaces and effects.
-    pub fn connect(connection: &Connection) -> Result<Option<Self>, ProtocolError> {
+    pub(crate) fn connect(connection: &Connection) -> Result<Option<Self>, ProtocolError> {
         let (globals, mut queue) = registry_queue_init::<ProtoState>(connection)
             .map_err(|error| ProtocolError::Registry(error.to_string()))?;
         let handle = queue.handle();
@@ -121,12 +121,12 @@ impl ShellProtocol {
     }
 
     /// KWin gave this shell the window list, so windows can be listed and controlled.
-    pub fn has_windows(&self) -> bool {
+    pub(crate) fn has_windows(&self) -> bool {
         self.windows.is_some()
     }
 
     /// Handles events the shared socket reader already queued for these protocols.
-    pub fn dispatch_pending(&mut self) -> Result<(), ProtocolError> {
+    pub(crate) fn dispatch_pending(&mut self) -> Result<(), ProtocolError> {
         self.queue
             .dispatch_pending(&mut self.state)
             .map(|_| ())
@@ -134,7 +134,7 @@ impl ShellProtocol {
     }
 
     /// Takes the changes accumulated by [`dispatch_pending`](Self::dispatch_pending).
-    pub fn take_update(&mut self) -> Update {
+    pub(crate) fn take_update(&mut self) -> Update {
         let removed = self.state.forget_closed();
         let windows_dirty = std::mem::take(&mut self.state.windows_dirty) || removed;
         let workspaces_dirty = std::mem::take(&mut self.state.workspaces_dirty);
@@ -152,7 +152,7 @@ impl ShellProtocol {
     }
 
     /// Focuses and raises a window (restores it when minimized).
-    pub fn activate(&self, id: WindowId) {
+    pub(crate) fn activate(&self, id: WindowId) {
         if let Some(tracked) = self.tracked(id) {
             tracked
                 .handle
@@ -161,14 +161,14 @@ impl ShellProtocol {
     }
 
     /// Asks a window to close.
-    pub fn close_window(&self, id: WindowId) {
+    pub(crate) fn close_window(&self, id: WindowId) {
         if let Some(tracked) = self.tracked(id) {
             tracked.handle.close();
         }
     }
 
     /// Minimizes or restores a window.
-    pub fn set_minimized(&self, id: WindowId, minimized: bool) {
+    pub(crate) fn set_minimized(&self, id: WindowId, minimized: bool) {
         if let Some(tracked) = self.tracked(id) {
             let state = if minimized { STATE_MINIMIZED } else { 0 };
             tracked.handle.set_state(STATE_MINIMIZED, state);
@@ -179,7 +179,7 @@ impl ShellProtocol {
     ///
     /// The window enters the new desktop first and leaves the others afterwards: leaving the
     /// last one would make it appear on all desktops.
-    pub fn move_to_workspace(&self, id: WindowId, index: u32) {
+    pub(crate) fn move_to_workspace(&self, id: WindowId, index: u32) {
         let Some(tracked) = self.tracked(id) else {
             return;
         };
@@ -206,7 +206,7 @@ impl ShellProtocol {
     ///
     /// The protocol cannot do this; a one-shot KWin script does, on a helper thread because it
     /// talks to D-Bus and the disk.
-    pub fn set_geometry(&self, id: WindowId, rect: (i32, i32, i32, i32)) {
+    pub(crate) fn set_geometry(&self, id: WindowId, rect: (i32, i32, i32, i32)) {
         let Some(tracked) = self.tracked(id) else {
             return;
         };
@@ -224,7 +224,7 @@ impl ShellProtocol {
     }
 
     /// Switches to a workspace (zero-based).
-    pub fn switch_workspace(&self, index: u32) {
+    pub(crate) fn switch_workspace(&self, index: u32) {
         let desktop = usize::try_from(index)
             .ok()
             .and_then(|index| self.state.desktops.get(index));
@@ -237,7 +237,7 @@ impl ShellProtocol {
     ///
     /// `size` is the surface's logical size. A `blur` of zero removes the effect. Returns whether
     /// pending state was changed; the caller then commits the surface so KWin applies it.
-    pub fn set_surface_effects(
+    pub(crate) fn set_surface_effects(
         &self,
         surface: &WlSurface,
         size: (u32, u32),
@@ -260,7 +260,7 @@ impl ShellProtocol {
             entry.blur.release();
             return true;
         }
-        if position.is_some_and(|at| entries[at].applied == wanted) {
+        if position.is_some_and(|at| entries.get(at).is_some_and(|entry| entry.applied == wanted)) {
             return false;
         }
         let at = position.unwrap_or_else(|| {
@@ -276,7 +276,9 @@ impl ShellProtocol {
             });
             entries.len() - 1
         });
-        let entry = &mut entries[at];
+        let Some(entry) = entries.get_mut(at) else {
+            return false;
+        };
         self.set_region(entry, &wanted);
         entry.blur.commit();
         entry.applied = wanted;
@@ -299,7 +301,7 @@ impl ShellProtocol {
 
     /// Tells KWin where a window's dock icon is (surface-local logical pixels), for its
     /// minimize animation. `None` forgets the target.
-    pub fn set_minimize_rectangle(
+    pub(crate) fn set_minimize_rectangle(
         &self,
         id: WindowId,
         surface: Option<&WlSurface>,

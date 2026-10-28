@@ -1,3 +1,5 @@
+// Test code: a failing unwrap or expect is the failure report.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! End-to-end test over a private session bus.
 //!
 //! Skips (passes with a message) when `dbus-daemon` is not installed.

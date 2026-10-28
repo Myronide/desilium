@@ -7,11 +7,11 @@ use std::ops::Range;
 use desilium_ui::{Key, KeyEvent};
 
 /// Number of pinned apps reachable with `Alt+1..6`.
-pub const PINNED_SLOTS: usize = 6;
+pub(crate) const PINNED_SLOTS: usize = 6;
 
 /// Result filter chips.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Category {
+pub(crate) enum Category {
     /// Everything.
     All,
     /// Applications only.
@@ -28,7 +28,7 @@ pub enum Category {
 
 impl Category {
     /// All chips in display order.
-    pub const ALL: [Category; 6] = [
+    pub(crate) const ALL: [Category; 6] = [
         Category::All,
         Category::Apps,
         Category::Files,
@@ -38,7 +38,7 @@ impl Category {
     ];
 
     /// Chip label.
-    pub fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Category::All => "All",
             Category::Apps => "Apps",
@@ -50,7 +50,7 @@ impl Category {
     }
 
     /// Sprite icon of the chip; `All` has none.
-    pub fn icon(self) -> Option<&'static str> {
+    pub(crate) fn icon(self) -> Option<&'static str> {
         match self {
             Category::All => None,
             Category::Apps => Some("grid"),
@@ -62,12 +62,12 @@ impl Category {
     }
 
     /// False for chips that are shown but not implemented yet.
-    pub fn enabled(self) -> bool {
+    pub(crate) fn enabled(self) -> bool {
         !matches!(self, Category::Files | Category::Settings)
     }
 
     /// Stable name used in `data-arg`.
-    pub fn id(self) -> &'static str {
+    pub(crate) fn id(self) -> &'static str {
         match self {
             Category::All => "all",
             Category::Apps => "apps",
@@ -79,14 +79,14 @@ impl Category {
     }
 
     /// Inverse of [`Category::id`].
-    pub fn from_id(id: &str) -> Option<Category> {
+    pub(crate) fn from_id(id: &str) -> Option<Category> {
         Category::ALL.into_iter().find(|c| c.id() == id)
     }
 }
 
 /// Group heading of a result row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Section {
+pub(crate) enum Section {
     /// Most used apps shown for an empty query.
     Suggested,
     /// Matching applications.
@@ -99,7 +99,7 @@ pub enum Section {
 
 impl Section {
     /// Heading text.
-    pub fn title(self) -> &'static str {
+    pub(crate) fn title(self) -> &'static str {
         match self {
             Section::Suggested => "Suggested",
             Section::Applications => "Applications",
@@ -111,7 +111,7 @@ impl Section {
 
 /// What Enter does on a row.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Activation {
+pub(crate) enum Activation {
     /// Start an installed application.
     LaunchApp {
         /// Desktop file id.
@@ -127,7 +127,7 @@ pub enum Activation {
 
 /// Icon of a row.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RowIcon {
+pub(crate) enum RowIcon {
     /// An application icon.
     App {
         /// Desktop file id (its stem is tried as an icon name when the entry names none).
@@ -143,7 +143,7 @@ pub enum RowIcon {
 
 /// One selectable result.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Row {
+pub(crate) struct Row {
     /// Heading it appears under.
     pub section: Section,
     /// Effect of Enter.
@@ -160,7 +160,7 @@ pub struct Row {
 
 /// The calculator answer card.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CalcCard {
+pub(crate) struct CalcCard {
     /// The expression as typed.
     pub expression: String,
     /// The formatted result.
@@ -169,7 +169,7 @@ pub struct CalcCard {
 
 /// Everything a query produced.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Results {
+pub(crate) struct Results {
     /// Calculator answer, if the query is arithmetic.
     pub calc: Option<CalcCard>,
     /// Selectable rows in display order.
@@ -178,7 +178,7 @@ pub struct Results {
 
 /// What the caller must do after a key press.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Outcome {
+pub(crate) enum Outcome {
     /// Nothing changed.
     Ignored,
     /// Selection moved: redraw only.
@@ -193,7 +193,7 @@ pub enum Outcome {
 
 /// Launcher state while it is open.
 #[derive(Debug, Clone)]
-pub struct LauncherModel {
+pub(crate) struct LauncherModel {
     query: String,
     category: Category,
     results: Results,
@@ -213,48 +213,48 @@ impl Default for LauncherModel {
 
 impl LauncherModel {
     /// The text in the search field.
-    pub fn query(&self) -> &str {
+    pub(crate) fn query(&self) -> &str {
         &self.query
     }
 
     /// Active chip.
-    pub fn category(&self) -> Category {
+    pub(crate) fn category(&self) -> Category {
         self.category
     }
 
     /// Current results.
-    pub fn results(&self) -> &Results {
+    pub(crate) fn results(&self) -> &Results {
         &self.results
     }
 
     /// Index of the selected row.
-    pub fn selected(&self) -> usize {
+    pub(crate) fn selected(&self) -> usize {
         self.selected
     }
 
     /// The selected row, if there are any.
-    pub fn selected_row(&self) -> Option<&Row> {
+    pub(crate) fn selected_row(&self) -> Option<&Row> {
         self.results.rows.get(self.selected)
     }
 
     /// Stores the new query text. Call [`set_results`](Self::set_results) afterwards.
-    pub fn set_query(&mut self, query: &str) {
+    pub(crate) fn set_query(&mut self, query: &str) {
         self.query = query.to_owned();
     }
 
     /// Replaces the results; the selection returns to the first row.
-    pub fn set_results(&mut self, results: Results) {
+    pub(crate) fn set_results(&mut self, results: Results) {
         self.results = results;
         self.selected = 0;
     }
 
     /// Back to the empty state for the next opening.
-    pub fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         *self = Self::default();
     }
 
     /// Selects a category (disabled ones are refused).
-    pub fn set_category(&mut self, category: Category) -> bool {
+    pub(crate) fn set_category(&mut self, category: Category) -> bool {
         let changed = category.enabled() && category != self.category;
         if changed {
             self.category = category;
@@ -294,7 +294,7 @@ impl LauncherModel {
     }
 
     /// Interprets a key press. `pinned` are the desktop ids behind `Alt+1..6`.
-    pub fn handle_key(&mut self, event: &KeyEvent, pinned: &[String]) -> Outcome {
+    pub(crate) fn handle_key(&mut self, event: &KeyEvent, pinned: &[String]) -> Outcome {
         let mods = event.modifiers;
         if mods.alt {
             return alt_pinned(event, pinned);
@@ -344,7 +344,7 @@ fn selection_outcome(moved: bool) -> Outcome {
 }
 
 /// The activation for text that is not an app: `>` means a shell line.
-pub fn terminal_activation(text: &str) -> Activation {
+pub(crate) fn terminal_activation(text: &str) -> Activation {
     match text.strip_prefix('>') {
         Some(line) => Activation::RunShell(line.trim().to_owned()),
         None => Activation::RunInTerminal(text.to_owned()),

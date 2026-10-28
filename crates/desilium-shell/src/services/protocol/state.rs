@@ -18,14 +18,14 @@ use wayland_protocols_plasma::{
 use crate::model::windows::{WindowId, WindowInfo, Workspaces};
 
 /// `org_kde_plasma_window_management.state` bits.
-pub const STATE_ACTIVE: u32 = 0x1;
-pub const STATE_MINIMIZED: u32 = 0x2;
+pub(super) const STATE_ACTIVE: u32 = 0x1;
+pub(super) const STATE_MINIMIZED: u32 = 0x2;
 /// Panels, docks and the like: not shown in a task list.
-pub const STATE_SKIP_TASKBAR: u32 = 0x1000;
+pub(super) const STATE_SKIP_TASKBAR: u32 = 0x1000;
 
 /// Everything known about one window that does not need the Wayland object.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WindowRecord {
+pub(super) struct WindowRecord {
     /// Uuid KWin names the window by; the address for scripts.
     pub uuid: String,
     /// Window data in the shell's own model.
@@ -42,7 +42,7 @@ pub struct WindowRecord {
 
 impl WindowRecord {
     /// A window that was announced and not described yet.
-    pub fn new(id: u32, uuid: String) -> Self {
+    pub(super) fn new(id: u32, uuid: String) -> Self {
         Self {
             uuid,
             info: WindowInfo::new(WindowId(id)),
@@ -54,7 +54,7 @@ impl WindowRecord {
     }
 
     /// Takes one event into the record. Returns whether something the shell shows changed.
-    pub fn apply(&mut self, event: org_kde_plasma_window::Event) -> bool {
+    pub(super) fn apply(&mut self, event: org_kde_plasma_window::Event) -> bool {
         use org_kde_plasma_window::Event;
         match event {
             Event::TitleChanged { title } => self.info.title = title,
@@ -88,14 +88,14 @@ impl WindowRecord {
     }
 
     /// Whether the shell lists the window at all.
-    pub fn listed(&self) -> bool {
+    pub(super) fn listed(&self) -> bool {
         self.ready && !self.closed && self.flags & STATE_SKIP_TASKBAR == 0
     }
 }
 
 /// Zero-based index of the first of `entered` that is in `order`; the first desktop when the
 /// window is on none (all desktops) or only on unknown ones.
-pub fn workspace_index(entered: &[String], order: &[&str]) -> u32 {
+pub(super) fn workspace_index(entered: &[String], order: &[&str]) -> u32 {
     entered
         .iter()
         .find_map(|id| order.iter().position(|known| known == id))
@@ -104,13 +104,13 @@ pub fn workspace_index(entered: &[String], order: &[&str]) -> u32 {
 }
 
 /// A window with its Wayland object.
-pub struct Tracked {
+pub(super) struct Tracked {
     pub handle: OrgKdePlasmaWindow,
     pub record: WindowRecord,
 }
 
 /// A virtual desktop with its Wayland object.
-pub struct Desktop {
+pub(super) struct Desktop {
     pub handle: OrgKdePlasmaVirtualDesktop,
     pub id: String,
     pub active: bool,
@@ -118,7 +118,7 @@ pub struct Desktop {
 
 /// State shared by all handlers of the protocol queue.
 #[derive(Default)]
-pub struct ProtoState {
+pub(super) struct ProtoState {
     pub tracked: Vec<Tracked>,
     pub desktops: Vec<Desktop>,
     pub windows_dirty: bool,
@@ -127,7 +127,7 @@ pub struct ProtoState {
 
 impl ProtoState {
     /// The windows to show, in creation order, with workspaces resolved.
-    pub fn window_list(&self) -> Vec<WindowInfo> {
+    pub(super) fn window_list(&self) -> Vec<WindowInfo> {
         let order: Vec<&str> = self.desktops.iter().map(|d| d.id.as_str()).collect();
         self.tracked
             .iter()
@@ -141,7 +141,7 @@ impl ProtoState {
     }
 
     /// Desktop count and the active one.
-    pub fn workspaces(&self) -> Workspaces {
+    pub(super) fn workspaces(&self) -> Workspaces {
         let count = u32::try_from(self.desktops.len())
             .unwrap_or(u32::MAX)
             .max(1);
@@ -158,7 +158,7 @@ impl ProtoState {
     }
 
     /// Drops windows that were unmapped. Returns true when the visible list may have changed.
-    pub fn forget_closed(&mut self) -> bool {
+    pub(super) fn forget_closed(&mut self) -> bool {
         let before = self.tracked.len();
         self.tracked.retain(|tracked| {
             if tracked.record.closed {

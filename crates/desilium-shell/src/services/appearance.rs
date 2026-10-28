@@ -8,7 +8,7 @@ const LIGHT_THEME_ID: &str = "desilium-light";
 /// Builds the theme for `settings`; `mode_override` (`--theme`) replaces the theme id only.
 ///
 /// Never fails: unknown ids and invalid accents fall back and are logged.
-pub fn resolve_theme(settings: &AppearanceSettings, mode_override: Option<Mode>) -> Theme {
+pub(crate) fn resolve_theme(settings: &AppearanceSettings, mode_override: Option<Mode>) -> Theme {
     let mut theme = resolve_base(settings, mode_override);
     theme.window.corner_radius = f32::from(settings.corner_radius);
     theme.window.control_radius = f32::from(settings.control_radius);
@@ -50,7 +50,7 @@ const ICON_THEME_VAR: &str = "DESILIUM_ICON_THEME";
 /// The icon theme to resolve application icons in: `DESILIUM_ICON_THEME`, the configured theme,
 /// KDE's `[Icons] Theme`, then `breeze`. The resolver follows the theme's `Inherits` and always
 /// ends in `hicolor` and the pixmaps directory, where most applications ship their icon.
-pub fn icon_theme(settings: &AppearanceSettings) -> String {
+pub(crate) fn icon_theme(settings: &AppearanceSettings) -> String {
     pick_icon_theme(
         std::env::var(ICON_THEME_VAR).ok().as_deref(),
         settings.icon_theme.as_deref(),

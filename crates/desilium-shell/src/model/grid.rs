@@ -7,21 +7,21 @@
 use std::collections::{BTreeMap, HashSet};
 
 /// Smallest width a cell may get; the column count is the area width divided by this.
-pub const MIN_CELL_WIDTH: i32 = 88;
+pub(crate) const MIN_CELL_WIDTH: i32 = 88;
 /// Smallest height a cell may get.
-pub const MIN_CELL_HEIGHT: i32 = 96;
+pub(crate) const MIN_CELL_HEIGHT: i32 = 96;
 /// Space between the screen edges, the panels and the grid.
-pub const MARGIN: i32 = 12;
+pub(crate) const MARGIN: i32 = 12;
 
 /// A grid cell as `(column, row)`.
-pub type Cell = (u32, u32);
+pub(crate) type Cell = (u32, u32);
 
 /// A rectangle `(x, y, width, height)` in surface pixels.
-pub type Rect = (i32, i32, i32, i32);
+pub(crate) type Rect = (i32, i32, i32, i32);
 
 /// The grid for one surface size.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Grid {
+pub(crate) struct Grid {
     /// Columns that fit the width.
     pub cols: u32,
     /// Rows that fit the height.
@@ -35,7 +35,7 @@ pub struct Grid {
 impl Grid {
     /// The grid for a surface of `size`, with `top` and `bottom` pixels taken by the panels.
     /// At least one column and one row always exist, so a tiny surface still has a grid.
-    pub fn new(size: (u32, u32), top: u32, bottom: u32) -> Self {
+    pub(crate) fn new(size: (u32, u32), top: u32, bottom: u32) -> Self {
         let surface = |value: u32| i32::try_from(value).unwrap_or(i32::MAX);
         let left = MARGIN;
         let top = surface(top).saturating_add(MARGIN);
@@ -54,13 +54,13 @@ impl Grid {
     }
 
     /// Whether `cell` is on the screen.
-    pub fn contains(&self, cell: Cell) -> bool {
+    pub(crate) fn contains(&self, cell: Cell) -> bool {
         cell.0 < self.cols && cell.1 < self.rows
     }
 
     /// The pixels of `cell`. Neighbouring cells share their edge exactly, so nothing is lost to
     /// rounding. Cells right of the last column continue at the same pitch (off screen).
-    pub fn rect(&self, cell: Cell) -> Rect {
+    pub(crate) fn rect(&self, cell: Cell) -> Rect {
         let cols = i64::from(self.cols);
         let rows = i64::from(self.rows);
         let edge = |index: i64, count: i64, extent: i32, origin: i32| {
@@ -75,7 +75,7 @@ impl Grid {
     }
 
     /// The cell a point lies in; points outside the grid belong to the nearest edge cell.
-    pub fn cell_at(&self, x: f64, y: f64) -> Cell {
+    pub(crate) fn cell_at(&self, x: f64, y: f64) -> Cell {
         let index = |value: f64, origin: i32, extent: i32, count: u32| {
             let relative = (value - f64::from(origin)) / f64::from(extent) * f64::from(count);
             (relative.floor().max(0.0) as u32).min(count - 1)
@@ -95,7 +95,7 @@ impl Grid {
 
     /// The free cell nearest to `target` (by steps along columns and rows; ties go to the lower
     /// column, then the lower row). When the screen is full, the first free cell past it.
-    pub fn nearest_free(&self, target: Cell, taken: &HashSet<Cell>) -> Cell {
+    pub(crate) fn nearest_free(&self, target: Cell, taken: &HashSet<Cell>) -> Cell {
         let target = (target.0.min(self.cols - 1), target.1.min(self.rows - 1));
         let mut best: Option<(u32, Cell)> = None;
         for column in 0..self.cols {
@@ -122,7 +122,7 @@ impl Grid {
     ///
     /// A saved cell that is off the screen (the screen got smaller) is kept in `saved` by the
     /// caller; the icon only sits somewhere else for now.
-    pub fn place(&self, names: &[&str], saved: &BTreeMap<String, Cell>) -> Vec<Cell> {
+    pub(crate) fn place(&self, names: &[&str], saved: &BTreeMap<String, Cell>) -> Vec<Cell> {
         let mut taken: HashSet<Cell> = HashSet::new();
         let mut cells: Vec<Option<Cell>> = names
             .iter()
@@ -149,7 +149,7 @@ impl Grid {
     /// Moves the icons `moving` so that `anchor` lands on `target` and the others keep their
     /// distance to it, clamped to the screen. An icon whose new cell is taken by one that stays
     /// goes to the nearest free cell. `cells` holds where every icon is now.
-    pub fn move_group(
+    pub(crate) fn move_group(
         &self,
         cells: &mut BTreeMap<String, Cell>,
         moving: &[String],
@@ -193,12 +193,12 @@ impl Grid {
 }
 
 /// Whether two rectangles overlap (touching edges do not count).
-pub fn intersects(a: Rect, b: Rect) -> bool {
+pub(crate) fn intersects(a: Rect, b: Rect) -> bool {
     a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.3 && b.1 < a.1 + a.3
 }
 
 /// The rectangle between two corners, whichever way the pointer moved.
-pub fn spanned(from: (f64, f64), to: (f64, f64)) -> Rect {
+pub(crate) fn spanned(from: (f64, f64), to: (f64, f64)) -> Rect {
     let (x0, x1) = (from.0.min(to.0), from.0.max(to.0));
     let (y0, y1) = (from.1.min(to.1), from.1.max(to.1));
     (x0 as i32, y0 as i32, (x1 - x0) as i32, (y1 - y0) as i32)

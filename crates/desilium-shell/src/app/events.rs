@@ -7,7 +7,7 @@ use desilium_ui::{
     wayland::{HostEvent, SurfaceId},
 };
 
-use super::{PendingTip, Shell, TOOLTIP_DELAY, timers::Due};
+use super::{PendingTip, Shell, TOOLTIP_DELAY, runtime::timers::Due};
 use crate::{launcher::WIDTH as LAUNCHER_WIDTH, model::dock::DockClick, tooltip::Placement};
 
 impl Shell {

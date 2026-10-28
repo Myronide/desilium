@@ -80,6 +80,12 @@ Read the specification when a case is unclear.
 | 9 | Comments explain why | Do not restate the code. Document the reason, the invariant or the trade-off. | PL-DOC-001 |
 | 10 | Test the invalid paths | Every feature needs tests for the error and edge cases, not only the happy path. Tests must be deterministic: pass time in, do not sleep. | PL-RS-020 |
 
+Several of these rules are enforced by clippy through the workspace lints in `Cargo.toml`
+(`unwrap_used`, `expect_used`, `panic`, `redundant_else`, `manual_let_else` and rustc's
+`unreachable_pub`) and `clippy.toml` (tests may unwrap). Items that are only used inside their
+crate are `pub(crate)` or narrower (PL-RS-001). Integration test files may carry one
+`#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]` with a reason comment.
+
 Also expected, although the checker does not flag all of it: `cargo fmt` is
 the formatting authority, clippy runs with `-D warnings`, and clippy lints are
 not silenced with blanket `#[allow(...)]` groups. A single, specific

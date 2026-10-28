@@ -3,9 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 /// Schema version written to `dock.toml`.
-pub const DOCK_FILE_VERSION: u32 = 1;
+pub(crate) const DOCK_FILE_VERSION: u32 = 1;
 /// File name inside the Desilium config directory.
-pub const DOCK_FILE_NAME: &str = "dock.toml";
+pub(crate) const DOCK_FILE_NAME: &str = "dock.toml";
 
 /// Well-known desktop ids per dock slot; the first installed one of each slot is pinned.
 ///
@@ -57,7 +57,7 @@ const SLOT_CANDIDATES: [&[&str]; 5] = [
 /// Contents of `dock.toml`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct DockConfig {
+pub(crate) struct DockConfig {
     /// Schema version.
     pub version: u32,
     /// Pinned desktop file ids, in dock order.
@@ -75,7 +75,7 @@ impl Default for DockConfig {
 
 /// Errors reading or writing `dock.toml`.
 #[derive(Debug, thiserror::Error)]
-pub enum PinsError {
+pub(crate) enum PinsError {
     /// The file is not valid TOML for [`DockConfig`].
     #[error("invalid dock.toml: {0}")]
     Parse(#[from] toml::de::Error),
@@ -86,7 +86,7 @@ pub enum PinsError {
 
 impl DockConfig {
     /// Parses a file body. Duplicate and blank ids are dropped.
-    pub fn parse(text: &str) -> Result<Self, PinsError> {
+    pub(crate) fn parse(text: &str) -> Result<Self, PinsError> {
         let mut config: DockConfig = toml::from_str(text)?;
         let mut seen = Vec::new();
         config.pinned.retain(|id| {
@@ -100,12 +100,12 @@ impl DockConfig {
     }
 
     /// Serialises to the file body.
-    pub fn render(&self) -> Result<String, PinsError> {
+    pub(crate) fn render(&self) -> Result<String, PinsError> {
         Ok(toml::to_string_pretty(self)?)
     }
 
     /// First-run default: the first installed candidate of every slot.
-    pub fn first_run(is_installed: impl Fn(&str) -> bool) -> Self {
+    pub(crate) fn first_run(is_installed: impl Fn(&str) -> bool) -> Self {
         let pinned = SLOT_CANDIDATES
             .iter()
             .filter_map(|slot| slot.iter().find(|id| is_installed(id)))

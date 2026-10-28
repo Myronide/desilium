@@ -7,16 +7,16 @@ use desilium_config_types::Visibility;
 use crate::model::windows::WindowModel;
 
 /// Thickness of the strip an auto-hidden panel leaves at the screen edge to catch the pointer.
-pub const PEEK: u32 = 2;
+pub(crate) const PEEK: u32 = 2;
 /// Time the pointer must have left a panel before it hides again.
-pub const HIDE_DELAY: Duration = Duration::from_millis(350);
+pub(crate) const HIDE_DELAY: Duration = Duration::from_millis(350);
 
 /// Global logical rectangle as `(x, y, width, height)`.
-pub type Rect = (i32, i32, i32, i32);
+pub(crate) type Rect = (i32, i32, i32, i32);
 
 /// What a panel surface currently does on screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Presence {
+pub(crate) enum Presence {
     /// Fully visible.
     Shown,
     /// Reduced to a thin strip at the edge that reveals it on hover.
@@ -27,7 +27,7 @@ pub enum Presence {
 
 impl Presence {
     /// Presence of a panel that is `enabled` and wanted hidden or not.
-    pub fn of(enabled: bool, hidden: bool) -> Self {
+    pub(crate) fn of(enabled: bool, hidden: bool) -> Self {
         match (enabled, hidden) {
             (false, _) => Self::Off,
             (true, true) => Self::Peek,
@@ -36,7 +36,7 @@ impl Presence {
     }
 
     /// Height of a layer surface whose full height is `full`.
-    pub fn height(self, full: u32) -> u32 {
+    pub(crate) fn height(self, full: u32) -> u32 {
         match self {
             Self::Shown => full,
             Self::Peek => PEEK.min(full),
@@ -46,7 +46,7 @@ impl Presence {
 }
 
 /// Height the top bar takes from the top edge for other surfaces to stay clear of.
-pub fn bar_inset(settings: &desilium_config_types::ShellSettings) -> i32 {
+pub(crate) fn bar_inset(settings: &desilium_config_types::ShellSettings) -> i32 {
     if settings.bar_enabled && settings.bar_visibility == Visibility::Always {
         i32::from(settings.bar_height)
     } else {
@@ -55,7 +55,7 @@ pub fn bar_inset(settings: &desilium_config_types::ShellSettings) -> i32 {
 }
 
 /// Whether the dock or taskbar keeps windows out of the space it covers.
-pub fn reserves_space(settings: &desilium_config_types::ShellSettings) -> bool {
+pub(crate) fn reserves_space(settings: &desilium_config_types::ShellSettings) -> bool {
     settings.panel_enabled
         && settings.panel_visibility == Visibility::Always
         && settings.panel_reserve
@@ -66,14 +66,14 @@ pub fn reserves_space(settings: &desilium_config_types::ShellSettings) -> bool {
 ///
 /// The compositor adds the margin of the anchored edge to a positive zone itself, which is the
 /// gap on the screen side; the margin in the zone is the matching gap on the window side.
-pub fn panel_zone(settings: &desilium_config_types::ShellSettings, height: u32) -> i32 {
+pub(crate) fn panel_zone(settings: &desilium_config_types::ShellSettings, height: u32) -> i32 {
     i32::try_from(height)
         .unwrap_or(i32::MAX)
         .saturating_add(i32::from(settings.margin))
 }
 
 /// Whether a panel in `mode`, occupying `panel` when shown, should currently be hidden.
-pub fn hidden(
+pub(crate) fn hidden(
     mode: Visibility,
     panel: Rect,
     windows: &WindowModel,
@@ -88,7 +88,7 @@ pub fn hidden(
 }
 
 /// Whether a visible window of `workspace` overlaps `panel`.
-pub fn overlapped(panel: Rect, windows: &WindowModel, workspace: u32) -> bool {
+pub(crate) fn overlapped(panel: Rect, windows: &WindowModel, workspace: u32) -> bool {
     windows
         .windows()
         .iter()

@@ -5,9 +5,9 @@
 use std::path::PathBuf;
 
 /// Edge of an icon.
-pub const ICON_PX: u32 = 48;
+pub(crate) const ICON_PX: u32 = 48;
 /// Most icons shown; a folder with more is cut off rather than slowing the shell down.
-pub const MAX_ITEMS: usize = 512;
+pub(crate) const MAX_ITEMS: usize = 512;
 /// Longest file name Linux file systems accept, in bytes.
 const MAX_NAME_BYTES: usize = 255;
 /// Characters of a label before it is shortened with an ellipsis.
@@ -15,7 +15,7 @@ const LABEL_CHARS: usize = 22;
 
 /// What an icon stands for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Kind {
+pub(crate) enum Kind {
     /// A `.desktop` application launcher. Only a `trusted` one (executable bit set) is started
     /// by a double click: a launcher that arrived by download must not run on a click.
     Launcher { trusted: bool },
@@ -27,7 +27,7 @@ pub enum Kind {
 
 /// One icon on the desktop.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DeskItem {
+pub(crate) struct DeskItem {
     /// Where it lives.
     pub path: PathBuf,
     /// Its file name, which is what renaming changes.
@@ -41,7 +41,7 @@ pub struct DeskItem {
 }
 
 /// Folders first, then everything else, each group by name without regard to case.
-pub fn sort(items: &mut [DeskItem]) {
+pub(crate) fn sort(items: &mut [DeskItem]) {
     items.sort_by_cached_key(|item| {
         (
             item.kind != Kind::Folder,
@@ -52,7 +52,7 @@ pub fn sort(items: &mut [DeskItem]) {
 }
 
 /// The label under an icon, shortened so two lines are enough.
-pub fn short_label(name: &str) -> String {
+pub(crate) fn short_label(name: &str) -> String {
     if name.chars().count() <= LABEL_CHARS {
         return name.to_owned();
     }
@@ -62,7 +62,7 @@ pub fn short_label(name: &str) -> String {
 
 /// Why a name cannot be used for a file or folder.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum NameError {
+pub(crate) enum NameError {
     /// Nothing but blanks.
     #[error("the name is empty")]
     Empty,
@@ -81,7 +81,7 @@ pub enum NameError {
 }
 
 /// The name without surrounding blanks, or why it cannot be used.
-pub fn validate_name(name: &str) -> Result<&str, NameError> {
+pub(crate) fn validate_name(name: &str) -> Result<&str, NameError> {
     let name = name.trim();
     if name.is_empty() {
         return Err(NameError::Empty);
@@ -102,7 +102,7 @@ pub fn validate_name(name: &str) -> Result<&str, NameError> {
 }
 
 /// `stem` plus `extension` if that name is free, else `stem 2`, `stem 3`, ... plus `extension`.
-pub fn unique_name(stem: &str, extension: &str, exists: impl Fn(&str) -> bool) -> String {
+pub(crate) fn unique_name(stem: &str, extension: &str, exists: impl Fn(&str) -> bool) -> String {
     let first = format!("{stem}{extension}");
     if !exists(&first) {
         return first;
@@ -115,7 +115,7 @@ pub fn unique_name(stem: &str, extension: &str, exists: impl Fn(&str) -> bool) -
 
 /// Icon names for a plain file, best first, from its extension. The last ones are generic so
 /// that every file has some icon.
-pub fn file_icon_names(file_name: &str) -> Vec<&'static str> {
+pub(crate) fn file_icon_names(file_name: &str) -> Vec<&'static str> {
     let extension = file_name
         .rsplit_once('.')
         .map(|(_, extension)| extension.to_ascii_lowercase())

@@ -16,7 +16,7 @@ const ICON_PX: u32 = 46;
 
 /// One app cell as drawn.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DockCell {
+pub(crate) struct DockCell {
     /// Stable key sent back with clicks.
     pub key: String,
     /// Tooltip text.
@@ -29,7 +29,7 @@ pub struct DockCell {
 
 /// Everything the dock draws.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DockView {
+pub(crate) struct DockView {
     /// App cells in order.
     pub cells: Vec<DockCell>,
     /// Index of the first cell after the separator.
@@ -61,7 +61,7 @@ fn cell_html(index: usize, cell: &DockCell) -> String {
 }
 
 /// The dock document body for `view` laid out as `layout`.
-pub fn dock_html(view: &DockView, layout: &DockLayout) -> String {
+pub(super) fn dock_html(view: &DockView, layout: &DockLayout) -> String {
     let mut inner = format!(
         "<div class=dock-item id=dock-launcher data-action=launcher data-tooltip=\"Applications\"><span class=dock-launcher>{}</span></div>",
         icon_svg("grid", 24, "")
@@ -80,13 +80,13 @@ pub fn dock_html(view: &DockView, layout: &DockLayout) -> String {
 
 /// Corner radius of the dock or taskbar (also the compositor's clip radius): the configured
 /// one, but never more than half the height, which would turn the corners inside out.
-pub fn panel_radius(settings: &desilium_config_types::ShellSettings, height: u32) -> u32 {
+pub(crate) fn panel_radius(settings: &desilium_config_types::ShellSettings, height: u32) -> u32 {
     u32::from(settings.panel_radius).min(height / 2)
 }
 
 /// What the taskbar's right cluster shows besides the fixed tray icons.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Status {
+pub(crate) struct Status {
     /// `14:32`.
     pub time: String,
     /// `26 Oct`.
@@ -134,7 +134,7 @@ fn system_html(
 }
 
 /// Runtime rendering adds labels in taskbar mode while preserving the click/cycle model.
-pub fn configured_html(
+pub(super) fn configured_html(
     view: &DockView,
     layout: &DockLayout,
     settings: &desilium_config_types::ShellSettings,

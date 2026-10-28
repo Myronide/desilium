@@ -39,3 +39,6 @@ smithay-client-toolkit = { version = "0.19", optional = true, default-features =
 png = "0.17"
 calloop = "0.14"
 tempfile = "3"
+
+[lints]
+workspace = true

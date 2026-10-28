@@ -13,3 +13,13 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[workspace.lints.rust]
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+redundant_else = "warn"
+manual_let_else = "warn"

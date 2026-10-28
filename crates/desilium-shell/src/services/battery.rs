@@ -5,7 +5,7 @@ use std::{fs, path::Path};
 use crate::model::battery::{Battery, combine, parse_capacity, parse_status};
 
 /// Where the kernel exposes power supplies.
-pub const POWER_SUPPLY_DIR: &str = "/sys/class/power_supply";
+pub(crate) const POWER_SUPPLY_DIR: &str = "/sys/class/power_supply";
 const BATTERY_TYPE: &str = "Battery";
 
 fn read(dir: &Path, name: &str) -> Option<String> {
@@ -27,7 +27,7 @@ fn read_one(dir: &Path) -> Option<Battery> {
 }
 
 /// The machine's battery under `root`, `None` on desktops.
-pub fn read_battery(root: &Path) -> Option<Battery> {
+pub(crate) fn read_battery(root: &Path) -> Option<Battery> {
     let entries = fs::read_dir(root).ok()?;
     let mut dirs: Vec<_> = entries.filter_map(Result::ok).map(|e| e.path()).collect();
     dirs.sort();

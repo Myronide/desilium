@@ -12,13 +12,13 @@ use inotify::{Inotify, WatchMask};
 const BUFFER_BYTES: usize = 4096;
 
 /// Watches one directory for files being written, created, moved in or removed.
-pub struct DirWatch {
+pub(crate) struct DirWatch {
     inotify: Inotify,
 }
 
 impl DirWatch {
     /// Watches `dir`, creating it when missing (the shell writes `dock.toml` there anyway).
-    pub fn new(dir: &Path) -> io::Result<Self> {
+    pub(crate) fn new(dir: &Path) -> io::Result<Self> {
         fs::create_dir_all(dir)?;
         let inotify = Inotify::init()?;
         let mask = WatchMask::CLOSE_WRITE
@@ -32,7 +32,7 @@ impl DirWatch {
 
     /// Watches those of `dirs` that exist, without creating any; for system directories such as
     /// `/usr/share/applications`. Errors only when none could be watched.
-    pub fn existing(dirs: impl IntoIterator<Item = std::path::PathBuf>) -> io::Result<Self> {
+    pub(crate) fn existing(dirs: impl IntoIterator<Item = std::path::PathBuf>) -> io::Result<Self> {
         let inotify = Inotify::init()?;
         let mask = WatchMask::CLOSE_WRITE
             | WatchMask::MOVED_TO
@@ -55,12 +55,12 @@ impl DirWatch {
     }
 
     /// The descriptor to poll for readability.
-    pub fn fd(&self) -> BorrowedFd<'_> {
+    pub(crate) fn fd(&self) -> BorrowedFd<'_> {
         self.inotify.as_fd()
     }
 
     /// Names of the files that changed since the last call.
-    pub fn drain(&mut self) -> io::Result<Vec<OsString>> {
+    pub(crate) fn drain(&mut self) -> io::Result<Vec<OsString>> {
         let mut buffer = [0u8; BUFFER_BYTES];
         let mut names = Vec::new();
         loop {

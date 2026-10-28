@@ -18,8 +18,6 @@ use crate::{
 
 /// Edge of the pinned strip's icons.
 const PIN_ICON_PX: u32 = 56;
-/// Edge of a result row's icon.
-const ROW_ICON_PX: u32 = 32;
 
 struct ShellIcons<'a> {
     resolver: &'a mut IconResolver,
@@ -231,6 +229,3 @@ impl Shell {
         self.close_launcher();
     }
 }
-
-#[allow(dead_code)]
-const _ROW_ICON: u32 = ROW_ICON_PX;

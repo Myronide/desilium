@@ -2,11 +2,11 @@
 //!
 //! Nothing in here touches Wayland, the file system or the clock, so all of it is unit tested.
 
-pub mod battery;
-pub mod clock;
-pub mod desktop;
-pub mod dock;
-pub mod grid;
-pub mod launcher;
-pub mod pins;
-pub mod windows;
+pub(crate) mod battery;
+pub(crate) mod clock;
+pub(crate) mod desktop;
+pub(crate) mod dock;
+pub(crate) mod grid;
+pub(crate) mod launcher;
+pub(crate) mod pins;
+pub(crate) mod windows;

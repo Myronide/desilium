@@ -1,3 +1,5 @@
+// Test code: a failing unwrap or expect is the failure report.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Widget-sized renders with real tokens and icons: writes PNGs for eyeballing and checks pixels.
 //! Needs no display or GPU. Output goes to `$CARGO_TARGET_TMPDIR`; run with `--nocapture` for timings.
 

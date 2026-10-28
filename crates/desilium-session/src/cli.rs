@@ -7,7 +7,7 @@ use desilium_session::PlanRequest;
 
 /// How the binary should behave after parsing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Mode {
+pub(crate) enum Mode {
     /// Start and supervise the session.
     Run,
     /// Print the resolved plan and exit without starting anything.
@@ -20,7 +20,7 @@ pub enum Mode {
 
 /// Output format of `--dry-run`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DryRunFormat {
+pub(crate) enum DryRunFormat {
     /// Readable text.
     Text,
     /// One JSON document.
@@ -29,7 +29,7 @@ pub enum DryRunFormat {
 
 /// Everything the command line controls.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub struct CliArgs {
+pub(crate) struct CliArgs {
     /// Behaviour selected by the flags.
     pub mode: Option<Mode>,
     /// Component overrides and compositor arguments.
@@ -38,14 +38,14 @@ pub struct CliArgs {
 
 impl CliArgs {
     /// The selected mode; running the session is the default.
-    pub fn mode(&self) -> Mode {
+    pub(crate) fn mode(&self) -> Mode {
         self.mode.unwrap_or(Mode::Run)
     }
 }
 
 /// Usage errors on the command line.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-pub enum UsageError {
+pub(crate) enum UsageError {
     /// A flag that needs a value was the last argument.
     #[error("`{0}` requires a value")]
     MissingValue(&'static str),
@@ -55,7 +55,7 @@ pub enum UsageError {
 }
 
 /// Usage text printed for `--help` and after usage errors.
-pub const USAGE: &str = "usage: desilium-session [--dry-run[=text|json]] [--print-env] [--allow-any-client]\n\
+pub(crate) const USAGE: &str = "usage: desilium-session [--dry-run[=text|json]] [--print-env] [--allow-any-client]\n\
                          \x20                      [--compositor <kwin_wayland path>] [--shell <path>]\n\
                          \x20                      [--kwin-bridge <path>] [--notifications <path>]\n\
                          \x20                      [--] [kwin_wayland args...]";
@@ -65,7 +65,7 @@ const DRY_RUN_PREFIX: &str = "--dry-run=";
 /// Parses the arguments after the program name.
 ///
 /// The first argument that is not a session flag starts the compositor's own arguments.
-pub fn parse_args<I>(args: I) -> Result<CliArgs, UsageError>
+pub(crate) fn parse_args<I>(args: I) -> Result<CliArgs, UsageError>
 where
     I: IntoIterator<Item = OsString>,
 {

@@ -18,7 +18,7 @@ const ENTER_PX: u32 = 16;
 
 /// A pinned app in the bottom strip.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PinView {
+pub(crate) struct PinView {
     /// Label.
     pub name: String,
     /// Icon.
@@ -26,7 +26,7 @@ pub struct PinView {
 }
 
 /// Supplies row icons; the controller resolves them against the icon theme.
-pub trait RowIcons {
+pub(crate) trait RowIcons {
     /// Icon of an application row at `px` logical pixels.
     fn app_icon(&mut self, icon: &RowIcon, px: u32) -> IconSpec;
 }
@@ -43,7 +43,7 @@ fn kbd(text: &str) -> String {
 }
 
 /// Title with the highlighted byte ranges wrapped in `<b class=hl>`.
-pub fn title_html(row: &Row) -> String {
+pub(super) fn title_html(row: &Row) -> String {
     let mut out = String::new();
     let mut at = 0;
     for range in &row.highlights {
@@ -144,7 +144,11 @@ fn empty_message(model: &LauncherModel) -> &'static str {
 }
 
 /// The result list: calculator card, then rows grouped under section headings.
-pub fn results_html(model: &LauncherModel, pinned: &[String], icons: &mut dyn RowIcons) -> String {
+pub(super) fn results_html(
+    model: &LauncherModel,
+    pinned: &[String],
+    icons: &mut dyn RowIcons,
+) -> String {
     let results = model.results();
     let mut out = String::new();
     if let Some(card) = &results.calc {
@@ -169,7 +173,7 @@ pub fn results_html(model: &LauncherModel, pinned: &[String], icons: &mut dyn Ro
 }
 
 /// The category chips and the Tab hint.
-pub fn chips_html(active: Category) -> String {
+pub(super) fn chips_html(active: Category) -> String {
     let mut out = String::new();
     for category in Category::ALL {
         let icon = category
@@ -203,7 +207,7 @@ pub fn chips_html(active: Category) -> String {
 }
 
 /// The pinned strip contents.
-pub fn pins_html(pins: &[PinView]) -> String {
+pub(super) fn pins_html(pins: &[PinView]) -> String {
     let mut out = String::from("<div class=\"lbl t-caption\">Pinned</div>");
     for (slot, pin) in pins.iter().take(PINNED_SLOTS).enumerate() {
         let _ = write!(
@@ -218,7 +222,7 @@ pub fn pins_html(pins: &[PinView]) -> String {
 }
 
 /// The complete launcher document body.
-pub fn launcher_html(
+pub(super) fn launcher_html(
     model: &LauncherModel,
     pins: &[PinView],
     pinned: &[String],

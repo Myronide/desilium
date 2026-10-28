@@ -5,28 +5,28 @@ use std::{
     time::{Duration, Instant},
 };
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LinkKind {
+pub(crate) enum LinkKind {
     Ethernet,
     Wifi,
 }
 /// An active network connection reported by NetworkManager.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Link {
+pub(crate) struct Link {
     pub kind: LinkKind,
     pub name: String,
 }
 /// A Wi-Fi network in range.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct WifiNetwork {
+pub(crate) struct WifiNetwork {
     pub ssid: String,
     pub signal: u8,
     pub secured: bool,
     pub active: bool,
 }
 /// Most Wi-Fi networks offered in the quick settings.
-pub const MAX_WIFI_NETWORKS: usize = 5;
+pub(crate) const MAX_WIFI_NETWORKS: usize = 5;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct State {
+pub(crate) struct State {
     /// `None` when NetworkManager is not available.
     pub links: Option<Vec<Link>>,
     pub networks: Vec<WifiNetwork>,
@@ -40,7 +40,7 @@ pub struct State {
     pub notice: String,
 }
 #[derive(Debug, Clone)]
-pub enum Action {
+pub(crate) enum Action {
     Refresh,
     Volume(u8),
     Mute(bool),
@@ -51,9 +51,9 @@ pub enum Action {
     Brightness(u8),
     Profile(String),
 }
-pub struct Worker(mpsc::SyncSender<Action>);
+pub(crate) struct Worker(mpsc::SyncSender<Action>);
 impl Worker {
-    pub fn spawn(sender: calloop::channel::Sender<State>) -> Result<Self, String> {
+    pub(crate) fn spawn(sender: calloop::channel::Sender<State>) -> Result<Self, String> {
         let (commands, receiver) = mpsc::sync_channel(8);
         std::thread::Builder::new()
             .name("desilium-controls".into())
@@ -72,7 +72,7 @@ impl Worker {
             .map_err(|error| error.to_string())?;
         Ok(Self(commands))
     }
-    pub fn send(&self, action: Action) -> Result<(), String> {
+    pub(crate) fn send(&self, action: Action) -> Result<(), String> {
         self.0
             .try_send(action)
             .map_err(|_| "System controls are busy. Try again in a moment.".into())
@@ -220,7 +220,7 @@ fn split_terse(line: &str) -> Vec<String> {
     fields
 }
 /// Connected Ethernet and Wi-Fi devices from `nmcli -t -f TYPE,STATE,CONNECTION device`.
-pub fn parse_links(text: &str) -> Vec<Link> {
+pub(crate) fn parse_links(text: &str) -> Vec<Link> {
     text.lines()
         .filter_map(|line| {
             let fields = split_terse(line);
@@ -240,7 +240,7 @@ pub fn parse_links(text: &str) -> Vec<Link> {
         .collect()
 }
 /// Strongest-first networks from `nmcli -t -f IN-USE,SIGNAL,SECURITY,SSID device wifi list`.
-pub fn parse_networks(text: &str) -> Vec<WifiNetwork> {
+pub(crate) fn parse_networks(text: &str) -> Vec<WifiNetwork> {
     let mut networks: Vec<WifiNetwork> = Vec::new();
     for line in text.lines() {
         let fields = split_terse(line);
@@ -268,7 +268,7 @@ pub fn parse_networks(text: &str) -> Vec<WifiNetwork> {
     networks.truncate(MAX_WIFI_NETWORKS);
     networks
 }
-pub fn parse_volume(text: &str) -> Option<u8> {
+pub(crate) fn parse_volume(text: &str) -> Option<u8> {
     let value = text.split_whitespace().nth(1)?.parse::<f64>().ok()?;
     value
         .is_finite()

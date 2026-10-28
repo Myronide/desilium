@@ -1,3 +1,5 @@
+// Test code: a failing unwrap or expect is the failure report.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Supervisor integration tests with tiny `sh` components and millisecond-scale policies.
 //!
 //! Each test waits on the supervisor's own outcome instead of sleeping for a fixed time.

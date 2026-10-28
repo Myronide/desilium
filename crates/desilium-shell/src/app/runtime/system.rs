@@ -11,7 +11,7 @@ use crate::model::{
 };
 
 /// The current local time.
-pub fn local_now() -> LocalTime {
+pub(crate) fn local_now() -> LocalTime {
     let now = Local::now();
     let small = |value: u32| u8::try_from(value).unwrap_or(0);
     LocalTime {
@@ -28,7 +28,7 @@ pub fn local_now() -> LocalTime {
 /// Loads `dock.toml`; the first run derives the default from the catalog and saves it.
 ///
 /// A damaged file is left alone (the user may be mid-edit) and the default is used in memory.
-pub fn load_pins(dir: &Path, catalog: &Catalog) -> DockConfig {
+pub(crate) fn load_pins(dir: &Path, catalog: &Catalog) -> DockConfig {
     let path = dir.join(DOCK_FILE_NAME);
     match fs::read_to_string(&path) {
         Ok(text) => DockConfig::parse(&text).unwrap_or_else(|error| {
@@ -137,7 +137,7 @@ mod tests {
 }
 
 /// GUI pin edits are atomic and never replace a file before a complete write.
-pub(super) fn persist_pins(dir: &Path, config: &DockConfig) -> io::Result<()> {
+pub(in crate::app) fn persist_pins(dir: &Path, config: &DockConfig) -> io::Result<()> {
     use std::{io::Write, os::unix::fs::OpenOptionsExt};
     fs::create_dir_all(dir)?;
     let temporary = dir.join(format!("dock.{}.tmp", std::process::id()));
