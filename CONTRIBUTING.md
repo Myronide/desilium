@@ -6,6 +6,9 @@ style rules the code is held to.
 
 Before you start, read [`concept.md`](concept.md) (goals and principles) and
 [`docs/architecture.md`](docs/architecture.md) (crate and process boundaries).
+Desilium runs on KWin and ships no compositor; if your change touches KWin or KDE
+settings, protocols or shortcuts, also read
+[`docs/kwin-integration.md`](docs/kwin-integration.md).
 
 ## Workflow
 
@@ -38,11 +41,24 @@ almost everything CI would.
 To run a single crate's tests:
 
 ```sh
-cargo test -p desilium-wm
+cargo test -p desilium-kwin
 ```
 
-See [`docs/testing.md`](docs/testing.md) for the test layers, headless
-screenshots and the Docker safety rules.
+See [`docs/testing.md`](docs/testing.md) for the test layers, what is not covered
+(nothing runs against a live KWin automatically) and the Docker safety rules.
+
+### Changes that touch KWin
+
+- Keep KDE-specific knowledge (configuration keys, D-Bus names, protocol versions, action
+  names) in `crates/desilium-kwin` and `crates/desilium-shell/src/services/protocol/`.
+- A new setting that KWin should honour needs an entry in `crates/desilium-kwin/src/plan/`, a unit
+  test, and a row in the mapping table of `docs/kwin-integration.md`.
+- Anything taken from memory rather than checked against a running KWin goes into the
+  "Verification status" list of that document. When you check an item, record the KWin version
+  and change its status.
+- Tests must never run the real `kwriteconfig6` or change the developer's KDE configuration.
+- Run a nested session with `XDG_CONFIG_HOME` pointing to a throw-away directory, or in the
+  container (`scripts/docker-run.sh`), because the bridge writes KDE configuration files.
 
 ## Pureline style
 

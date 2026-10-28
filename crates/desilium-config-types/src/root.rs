@@ -8,12 +8,18 @@ use crate::settings::CompositorSettings;
 pub const CURRENT_VERSION: u32 = 1;
 /// Theme used when none is configured.
 pub const DEFAULT_THEME: &str = "desilium-dark";
+/// Theme id that follows the user's KDE colour scheme instead of a built-in theme.
+pub const KDE_THEME: &str = "kde";
 /// Wallpaper scaling used when none is configured.
 pub const DEFAULT_WALLPAPER_MODE: &str = "fill";
 /// Neutral animation speed multiplier.
 pub const DEFAULT_ANIMATION_SPEED: f32 = 1.0;
 /// Cursor size in logical pixels.
 pub const DEFAULT_CURSOR_SIZE: u32 = 24;
+/// Default corner radius of windows and large surfaces (the brand value of the theme).
+pub const DEFAULT_CORNER_RADIUS: u16 = 12;
+/// Default corner radius of buttons and inputs (the brand value of the theme).
+pub const DEFAULT_CONTROL_RADIUS: u16 = 8;
 
 /// The complete user configuration, persisted as TOML.
 ///
@@ -44,8 +50,10 @@ impl Default for DesiliumConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppearanceSettings {
-    /// Name of the theme to load.
+    /// Name of the theme to load: a built-in id, or [`KDE_THEME`] to follow KDE's colour scheme.
     pub theme: String,
+    /// Icon theme for application icons; `None` follows KDE's `[Icons] Theme`, then `hicolor`.
+    pub icon_theme: Option<String>,
     /// Hex accent color (`#RRGGBB` or `#RRGGBBAA`) overriding the theme's accent.
     pub accent: Option<String>,
     /// Path to the wallpaper image.
@@ -62,12 +70,20 @@ pub struct AppearanceSettings {
     pub cursor_theme: Option<String>,
     /// Cursor size in logical pixels.
     pub cursor_size: u32,
+    /// Corner radius of windows and large surfaces in logical pixels.
+    pub corner_radius: u16,
+    /// Corner radius of buttons, inputs and list rows in logical pixels.
+    pub control_radius: u16,
+    /// KDE colour scheme (the name of a `color-schemes/<name>.colors` file) used while `theme` is
+    /// [`KDE_THEME`]; `None` follows the scheme named in the user's `kdeglobals`.
+    pub kde_scheme: Option<String>,
 }
 
 impl Default for AppearanceSettings {
     fn default() -> Self {
         Self {
             theme: DEFAULT_THEME.to_owned(),
+            icon_theme: None,
             accent: None,
             wallpaper: None,
             wallpaper_mode: DEFAULT_WALLPAPER_MODE.to_owned(),
@@ -76,6 +92,9 @@ impl Default for AppearanceSettings {
             reduce_motion: false,
             cursor_theme: None,
             cursor_size: DEFAULT_CURSOR_SIZE,
+            corner_radius: DEFAULT_CORNER_RADIUS,
+            control_radius: DEFAULT_CONTROL_RADIUS,
+            kde_scheme: None,
         }
     }
 }
@@ -89,6 +108,15 @@ mod tests {
         let parsed: AppearanceSettings =
             toml::from_str("theme = \"desilium-light\"").expect("parse");
         assert!(!parsed.reduce_motion);
+    }
+
+    #[test]
+    fn old_files_without_an_icon_theme_follow_kde() {
+        let parsed: AppearanceSettings = toml::from_str("theme = \"kde\"").expect("parse");
+        assert_eq!(parsed.theme, KDE_THEME);
+        assert_eq!(parsed.icon_theme, None);
+        let named: AppearanceSettings = toml::from_str("icon_theme = \"Papirus\"").expect("parse");
+        assert_eq!(named.icon_theme.as_deref(), Some("Papirus"));
     }
 
     #[test]

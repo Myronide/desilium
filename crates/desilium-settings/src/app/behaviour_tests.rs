@@ -162,6 +162,34 @@ fn animation_speed_off_and_reduce_motion_map_to_the_config() {
 }
 
 #[test]
+fn mouse_settings_are_stored_in_the_compositor_table_and_stay_in_range() {
+    use desilium_config_types::AccelProfile;
+    let (_dir, mut app) = app_in();
+    let now = Instant::now();
+    for (setting, value) in [
+        ("compositor.mouse.pointer_speed", "-35"),
+        ("compositor.mouse.accel_profile", "flat"),
+        ("compositor.mouse.natural_scroll", "true"),
+        ("compositor.mouse.left_handed", "true"),
+        ("compositor.mouse.scroll_speed", "9999"),
+        ("compositor.mouse.double_click_ms", "10"),
+    ] {
+        app.handle_event(&action("set", Some(&format!("{setting}={value}"))), now);
+    }
+    let mouse = &app.store.get().compositor.mouse;
+    assert_eq!(mouse.pointer_speed, -35);
+    assert_eq!(mouse.accel_profile, AccelProfile::Flat);
+    assert!(mouse.natural_scroll && mouse.left_handed);
+    assert_eq!(mouse.scroll_speed, 400, "clamped to the slider's range");
+    assert_eq!(mouse.double_click_ms, 200);
+    app.handle_event(&action("reset-page", Some("mouse")), now);
+    assert_eq!(
+        app.store.get().compositor.mouse,
+        desilium_config_types::MouseSettings::default()
+    );
+}
+
+#[test]
 fn stepper_changes_by_one_and_stops_at_the_limits() {
     let (_dir, mut app) = app_in();
     let now = Instant::now();
@@ -175,6 +203,34 @@ fn stepper_changes_by_one_and_stops_at_the_limits() {
         app.handle_event(&action("step", Some("compositor.desktops=-1")), now);
     }
     assert_eq!(app.store.get().compositor.desktops, 1);
+}
+
+#[test]
+fn dragging_a_slider_previews_and_stores_the_value_on_release() {
+    use desilium_ui::DragPhase;
+    let (_dir, mut app) = app_in();
+    let now = Instant::now();
+    let before = app.store.get().shell.panel_radius;
+    let refresh = app.range_drag("shell.panel_radius", DragPhase::Start, 0.0, now);
+    assert_eq!(refresh.range, Some("shell.panel_radius"));
+    assert_eq!(app.model().range_preview, Some(("shell.panel_radius", 0.0)));
+    app.range_drag("shell.panel_radius", DragPhase::Move, 0.5, now);
+    assert_eq!(
+        app.store.get().shell.panel_radius,
+        before,
+        "nothing is stored while the button is down"
+    );
+    app.range_drag("shell.panel_radius", DragPhase::End, 1.7, now);
+    assert_eq!(app.model().range_preview, None);
+    assert_eq!(
+        app.store.get().shell.panel_radius,
+        36,
+        "past the end is the maximum"
+    );
+    app.range_drag("appearance.corner_radius", DragPhase::End, -1.0, now);
+    assert_eq!(app.store.get().appearance.corner_radius, 0);
+    let unknown = app.range_drag("nope", DragPhase::End, 0.5, now);
+    assert!(unknown.is_empty());
 }
 
 #[test]

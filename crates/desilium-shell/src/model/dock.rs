@@ -35,10 +35,8 @@ pub struct DockItem {
     pub desktop_id: Option<String>,
     /// Name shown in the tooltip.
     pub name: String,
-    /// Icon name or path.
+    /// Icon name or path: the desktop file's, or for a window without one the name KWin reports.
     pub icon: Option<String>,
-    /// Categories for the fallback glyph.
-    pub categories: Vec<String>,
     /// Whether the user pinned it.
     pub pinned: bool,
     /// Its windows in creation order.
@@ -112,7 +110,6 @@ fn item_from_app(app: AppInfo, pinned: bool) -> DockItem {
         desktop_id: Some(app.desktop_id),
         name: app.name,
         icon: app.icon,
-        categories: app.categories,
         pinned,
         windows: Vec::new(),
     }
@@ -128,8 +125,7 @@ fn item_for_unknown(window: &WindowInfo) -> DockItem {
         key: format!("app:{}", window.app_id),
         desktop_id: None,
         name,
-        icon: None,
-        categories: Vec::new(),
+        icon: Some(window.icon.clone()).filter(|icon| !icon.is_empty()),
         pinned: false,
         windows: Vec::new(),
     }
@@ -167,6 +163,35 @@ pub fn build(pinned: &[String], model: &WindowModel, lookup: &dyn AppLookup) -> 
     items
 }
 
+/// The pinned desktop ids after the app `moving` was dropped before slot `slot` of the dock.
+///
+/// `visible` are the pinned apps the dock shows, in order; `pinned` is the stored list, which may
+/// also hold apps that are not installed. Those are not shown and keep their order behind the
+/// shown ones. `slot` counts items of the dock, so it may point past the pinned ones (an
+/// unpinned running app dropped there is pinned at the end). A pinned app that is moved leaves
+/// its old place first, so `slot` after it counts one less.
+pub fn reordered_pins(
+    pinned: &[String],
+    visible: &[String],
+    moving: &str,
+    slot: usize,
+) -> Vec<String> {
+    let old = visible.iter().position(|id| id == moving);
+    let mut shown: Vec<String> = visible.iter().filter(|id| *id != moving).cloned().collect();
+    let at = match old {
+        Some(old) if old < slot => slot - 1,
+        _ => slot,
+    };
+    shown.insert(at.min(shown.len()), moving.to_owned());
+    shown.extend(
+        pinned
+            .iter()
+            .filter(|id| *id != moving && !visible.contains(id))
+            .cloned(),
+    );
+    shown
+}
+
 /// Index of the first running-but-unpinned item (where the separator goes).
 pub fn separator_index(items: &[DockItem]) -> Option<usize> {
     let first = items.iter().position(|item| !item.pinned)?;
@@ -176,6 +201,59 @@ pub fn separator_index(items: &[DockItem]) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn ids(list: &[&str]) -> Vec<String> {
+        list.iter().map(|id| (*id).to_owned()).collect()
+    }
+
+    #[test]
+    fn dropping_a_pinned_app_before_another_moves_it() {
+        let pins = ids(&["a", "b", "c", "d"]);
+        // Drag d before b (slot 1).
+        assert_eq!(
+            reordered_pins(&pins, &pins, "d", 1),
+            ids(&["a", "d", "b", "c"])
+        );
+        // Drag a behind c (slot 3, counted with a still in place).
+        assert_eq!(
+            reordered_pins(&pins, &pins, "a", 3),
+            ids(&["b", "c", "a", "d"])
+        );
+        // Dropped on its own slot or the one after: nothing changes.
+        assert_eq!(reordered_pins(&pins, &pins, "b", 1), pins);
+        assert_eq!(reordered_pins(&pins, &pins, "b", 2), pins);
+        // Behind the last one.
+        assert_eq!(
+            reordered_pins(&pins, &pins, "a", 4),
+            ids(&["b", "c", "d", "a"])
+        );
+    }
+
+    #[test]
+    fn a_running_app_dropped_among_the_pins_gets_pinned_there() {
+        let pins = ids(&["a", "b"]);
+        assert_eq!(reordered_pins(&pins, &pins, "z", 1), ids(&["a", "z", "b"]));
+        assert_eq!(
+            reordered_pins(&pins, &pins, "z", 7),
+            ids(&["a", "b", "z"]),
+            "a slot beyond the pinned apps pins it last"
+        );
+        assert_eq!(reordered_pins(&[], &[], "z", 0), ids(&["z"]));
+    }
+
+    #[test]
+    fn pinned_apps_that_are_not_installed_keep_their_place_behind_the_shown_ones() {
+        let pins = ids(&["a", "gone", "b"]);
+        let shown = ids(&["a", "b"]);
+        assert_eq!(
+            reordered_pins(&pins, &shown, "b", 0),
+            ids(&["b", "a", "gone"])
+        );
+        assert_eq!(
+            reordered_pins(&pins, &shown, "gone", 0),
+            ids(&["gone", "a", "b"])
+        );
+    }
 
     struct Fake(Vec<AppInfo>);
 

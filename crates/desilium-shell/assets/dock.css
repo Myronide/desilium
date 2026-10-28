@@ -11,6 +11,7 @@
 .dock-item .app-icon { border-radius: 13px; }
 .dock-item:hover .app-icon, .dock-item:hover .app-img { transform: translateY(-4px) scale(1.08); }
 .dock-item:hover .app-icon { box-shadow: 0 6px 12px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.3); }
+.dock-item.dragging { opacity: 0.4; }
 .dots { position: absolute; left: 0; right: 0; bottom: -4px; height: 4px; display: flex; justify-content: center; gap: 3px; }
 .dots i { display: block; width: 4px; height: 4px; border-radius: 2px; background: var(--text-2); }
 .dots i.on { width: 14px; background: var(--accent); }

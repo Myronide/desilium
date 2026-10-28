@@ -28,6 +28,8 @@ pub struct Refresh {
     pub focus_hex: bool,
     /// A text field became empty (`false`) or non-empty (`true`): toggles its placeholder.
     pub field: Option<(String, bool)>,
+    /// A slider is being dragged: move its thumb to the preview value in the model.
+    pub range: Option<&'static str>,
 }
 
 impl Refresh {
@@ -77,6 +79,7 @@ impl Refresh {
             focus_search: self.focus_search || other.focus_search,
             focus_hex: self.focus_hex || other.focus_hex,
             field: other.field.or(self.field),
+            range: other.range.or(self.range),
         }
     }
 
@@ -106,6 +109,14 @@ impl Refresh {
                         || app.model().page == crate::registry::Page::Desktop,
                 ),
             );
+        }
+        if let Some((def, (_, value))) = self
+            .range
+            .and_then(crate::registry::find)
+            .zip(ctx.model.range_preview)
+            && let Some(range) = crate::view::range_updates(def, value)
+        {
+            ui.apply(range)?;
         }
         ui.apply(updates)?;
         ui.set_class("#app", "compact", ctx.model.compact)?;

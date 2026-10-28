@@ -190,11 +190,11 @@ mod tests {
         SessionPlan {
             components: vec![PlannedComponent {
                 name: "compositor",
-                program: PathBuf::from("/opt/desilium/bin/desilium-compositor"),
+                program: PathBuf::from("/usr/bin/kwin_wayland"),
                 found_via: FoundVia::Sibling,
                 criticality: Criticality::Critical,
                 wayland: WaylandRole::Provider,
-                args: vec![OsString::from("--nested")],
+                args: vec![OsString::from("--virtual")],
             }],
             skipped: vec![crate::startup::plan::SkippedComponent {
                 name: "shell",
@@ -210,7 +210,7 @@ mod tests {
     fn text_plan_lists_order_skips_and_env_changes() {
         let text = render_text(&sample_plan());
         assert!(text.contains("1. compositor [critical, wayland provider]"));
-        assert!(text.contains("args: --nested"));
+        assert!(text.contains("args: --virtual"));
         assert!(text.contains("- shell: desilium-shell not installed"));
         assert!(text.contains("~ XDG_SESSION_TYPE=wayland (was x11)"));
         assert!(text.contains("= GDK_BACKEND=x11 (kept: set by the user)"));

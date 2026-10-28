@@ -13,12 +13,16 @@ pub struct WindowInfo {
     pub title: String,
     /// Wayland app id, possibly empty.
     pub app_id: String,
+    /// Icon name the compositor reports for the window (KWin's themed icon), possibly empty.
+    pub icon: String,
     /// Has keyboard focus.
     pub activated: bool,
     /// Hidden to the dock.
     pub minimized: bool,
-    /// Zero-based workspace.
+    /// Zero-based workspace (the first one when the window is on all of them).
     pub workspace: u32,
+    /// Shown on every workspace.
+    pub on_all_workspaces: bool,
     /// Global logical rectangle as `(x, y, width, height)`.
     pub rect: (i32, i32, i32, i32),
 }
@@ -30,11 +34,18 @@ impl WindowInfo {
             id,
             title: String::new(),
             app_id: String::new(),
+            icon: String::new(),
             activated: false,
             minimized: false,
             workspace: 0,
+            on_all_workspaces: false,
             rect: (0, 0, 0, 0),
         }
+    }
+
+    /// Whether the window is visible on `workspace`.
+    pub fn on_workspace(&self, workspace: u32) -> bool {
+        self.on_all_workspaces || self.workspace == workspace
     }
 }
 
@@ -97,6 +108,13 @@ impl WindowModel {
         self.windows.iter().find(|w| w.activated)
     }
 
+    /// The focused window if it is visible on `workspace`. KWin can keep reporting the window of
+    /// the workspace just left as active for a moment; the bar must not show it then.
+    pub fn active_on(&self, workspace: u32) -> Option<&WindowInfo> {
+        self.active()
+            .filter(|window| window.on_workspace(workspace))
+    }
+
     /// Position of `id` in the recency order (0 = most recent).
     pub fn recency(&self, id: WindowId) -> Option<usize> {
         self.recent.iter().position(|recent| *recent == id)
@@ -132,6 +150,21 @@ mod tests {
         assert_eq!(model.recency(WindowId(1)), None);
         assert_eq!(model.recency(WindowId(2)), Some(0));
         assert_eq!(model.active().map(|w| w.id), Some(WindowId(2)));
+    }
+
+    #[test]
+    fn the_bar_shows_only_a_focused_window_of_the_current_workspace() {
+        let mut elsewhere = window(1, true);
+        elsewhere.workspace = 1;
+        let mut everywhere = window(2, true);
+        everywhere.workspace = 1;
+        everywhere.on_all_workspaces = true;
+        let mut model = WindowModel::default();
+        model.replace(vec![elsewhere]);
+        assert!(model.active_on(0).is_none());
+        assert_eq!(model.active_on(1).map(|w| w.id), Some(WindowId(1)));
+        model.replace(vec![everywhere]);
+        assert_eq!(model.active_on(0).map(|w| w.id), Some(WindowId(2)));
     }
 
     #[test]

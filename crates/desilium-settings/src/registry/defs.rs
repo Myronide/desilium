@@ -1,7 +1,7 @@
 //! The settings table. Add a setting here and it shows up everywhere.
 
 use desilium_config_types::{
-    DesiliumConfig, FocusPolicy, KeyboardLayout, PanelEdge, PanelMode, Visibility,
+    AccelProfile, DesiliumConfig, FocusPolicy, KeyboardLayout, PanelEdge, PanelMode, Visibility,
 };
 
 use super::{Choice, Control, Page, SettingDef, Slider, Stepper, value::Value};
@@ -10,6 +10,7 @@ use crate::shortcuts;
 const THEMES: &[Choice] = &[
     Choice::with_icon("desilium-light", "Light", "sun"),
     Choice::with_icon("desilium-dark", "Dark", "moon"),
+    Choice::with_icon("kde", "KDE", "palette"),
 ];
 
 const FIT_MODES: &[Choice] = &[
@@ -46,6 +47,10 @@ const KEYBOARD_LAYOUTS: &[Choice] = &[
     Choice::new("de", "Deutsch (DE)"),
     Choice::new("us", "English (US)"),
 ];
+const ACCEL_PROFILES: &[Choice] = &[
+    Choice::new("adaptive", "Adaptive"),
+    Choice::new("flat", "Flat"),
+];
 const FOCUS_MODES: &[Choice] = &[
     Choice::new("click", "Click"),
     Choice::new("sloppy", "Pointer"),
@@ -61,7 +66,7 @@ const REPEAT_DELAY: Slider = Slider {
     unit: "ms",
 };
 
-const DESKTOPS: Stepper = Stepper { min: 1, max: 32 };
+const DESKTOPS: Stepper = Stepper::new(1, 32, "");
 
 fn text(value: &str) -> Value {
     Value::Text(value.to_owned())
@@ -106,6 +111,17 @@ fn to_u32(value: &Value) -> Option<u32> {
     }
 }
 
+fn to_i16(value: &Value) -> Option<i16> {
+    match value {
+        Value::Number(number) if number.is_finite() => Some(
+            number
+                .round()
+                .clamp(f64::from(i16::MIN), f64::from(i16::MAX)) as i16,
+        ),
+        _ => None,
+    }
+}
+
 fn get_animation_speed(config: &DesiliumConfig) -> Value {
     let appearance = &config.appearance;
     if !appearance.animations {
@@ -142,8 +158,17 @@ pub(super) static ALL: &[SettingDef] = &[
         page: Page::Appearance,
         section: "Style",
         title: "Color scheme",
-        description: "Light or dark windows, panels and menus",
-        keywords: &["dark mode", "light mode", "theme", "night", "brightness"],
+        description: "Light or dark windows, panels and menus. KDE follows your KDE colour scheme.",
+        keywords: &[
+            "dark mode",
+            "light mode",
+            "theme",
+            "night",
+            "brightness",
+            "kde",
+            "plasma",
+            "breeze",
+        ],
         control: Control::Segmented(THEMES),
         get: |c| text(&c.appearance.theme),
         set: |c, v| {
@@ -162,6 +187,26 @@ pub(super) static ALL: &[SettingDef] = &[
         control: Control::Accent,
         get: |c| optional_text(&c.appearance.accent),
         set: |c, v| c.appearance.accent = into_optional(v),
+    },
+    SettingDef {
+        id: "appearance.icon_theme",
+        page: Page::Appearance,
+        section: "Icons",
+        title: "Icon theme",
+        description: "Application icons in the dock, bar and launcher. Empty follows your KDE icon theme.",
+        keywords: &[
+            "icons",
+            "breeze",
+            "papirus",
+            "kde",
+            "adwaita",
+            "application icons",
+        ],
+        control: Control::Text {
+            placeholder: "Follow KDE or name a theme",
+        },
+        get: |c| optional_text(&c.appearance.icon_theme),
+        set: |c, v| c.appearance.icon_theme = into_optional(v),
     },
     SettingDef {
         id: "appearance.wallpaper",
@@ -245,6 +290,36 @@ pub(super) static ALL: &[SettingDef] = &[
         set: |c, v| {
             if let Some(size) = to_u32(v) {
                 c.appearance.cursor_size = size;
+            }
+        },
+    },
+    SettingDef {
+        id: "appearance.corner_radius",
+        page: Page::Appearance,
+        section: "Shape",
+        title: "Corner radius",
+        description: "Roundness of windows, cards and large surfaces",
+        keywords: &["border", "rounded", "corners", "radius", "round"],
+        control: Control::Stepper(Stepper::new(0, 32, "px")),
+        get: |c| Value::Number(f64::from(c.appearance.corner_radius)),
+        set: |c, v| {
+            if let Some(number) = to_u32(v).and_then(|number| u16::try_from(number).ok()) {
+                c.appearance.corner_radius = number;
+            }
+        },
+    },
+    SettingDef {
+        id: "appearance.control_radius",
+        page: Page::Appearance,
+        section: "Shape",
+        title: "Control radius",
+        description: "Roundness of buttons, inputs and list rows",
+        keywords: &["border", "rounded", "corners", "radius", "buttons"],
+        control: Control::Stepper(Stepper::new(0, 20, "px")),
+        get: |c| Value::Number(f64::from(c.appearance.control_radius)),
+        set: |c, v| {
+            if let Some(number) = to_u32(v).and_then(|number| u16::try_from(number).ok()) {
+                c.appearance.control_radius = number;
             }
         },
     },
@@ -337,7 +412,7 @@ pub(super) static ALL: &[SettingDef] = &[
         title: "Edge snap distance (px)",
         description: "Pointer distance from an edge that activates snapping; corner zones keep their own size",
         keywords: &["threshold", "snap", "sensitivity"],
-        control: Control::Stepper(Stepper { min: 4, max: 96 }),
+        control: Control::Stepper(Stepper::new(4, 96, "px")),
         get: |config| Value::Number(f64::from(config.compositor.snap_distance)),
         set: |config, value| {
             if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
@@ -367,11 +442,34 @@ pub(super) static ALL: &[SettingDef] = &[
         title: "Repeat rate (Hz)",
         description: "Characters per second while a key is held",
         keywords: &["keyboard", "input", "speed", "typing"],
-        control: Control::Stepper(Stepper { min: 1, max: 100 }),
+        control: Control::Stepper(Stepper::new(1, 100, "Hz")),
         get: |config| Value::Number(f64::from(config.compositor.keyboard_repeat_rate)),
         set: |config, value| {
             if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
                 config.compositor.keyboard_repeat_rate = number;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.desktop_icons",
+        page: Page::Desktop,
+        section: "Desktop",
+        title: "Show icons on the desktop",
+        description: "Shows the contents of your desktop folder, so you can keep launchers, folders and files on the desktop. Right-click the desktop to create folders and files",
+        keywords: &[
+            "icons",
+            "launcher",
+            "shortcut",
+            "folder",
+            "files",
+            "desktop folder",
+            "schreibtisch",
+        ],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.shell.desktop_icons),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.shell.desktop_icons = *enabled;
             }
         },
     },
@@ -391,12 +489,135 @@ pub(super) static ALL: &[SettingDef] = &[
         },
     },
     SettingDef {
+        id: "compositor.mouse.pointer_speed",
+        page: Page::Mouse,
+        section: "Pointer",
+        title: "Pointer speed",
+        description: "How far the pointer moves for a given movement of the mouse; 0 is normal",
+        keywords: &[
+            "mouse",
+            "cursor",
+            "sensitivity",
+            "dpi",
+            "acceleration",
+            "fast",
+            "slow",
+        ],
+        control: Control::Stepper(Stepper::new(-100, 100, "")),
+        get: |config| Value::Number(f64::from(config.compositor.mouse.pointer_speed)),
+        set: |config, value| {
+            if let Some(number) = to_i16(value) {
+                config.compositor.mouse.pointer_speed = number;
+            }
+        },
+    },
+    SettingDef {
+        id: "compositor.mouse.accel_profile",
+        page: Page::Mouse,
+        section: "Pointer",
+        title: "Acceleration",
+        description: "Adaptive: the pointer moves further the faster the hand moves. Flat: always the same ratio",
+        keywords: &[
+            "mouse",
+            "cursor",
+            "acceleration",
+            "flat",
+            "adaptive",
+            "profile",
+        ],
+        control: Control::Segmented(ACCEL_PROFILES),
+        get: |config| {
+            text(match config.compositor.mouse.accel_profile {
+                AccelProfile::Adaptive => "adaptive",
+                AccelProfile::Flat => "flat",
+            })
+        },
+        set: |config, value| {
+            if let Value::Text(text) = value {
+                config.compositor.mouse.accel_profile = match text.as_str() {
+                    "adaptive" => AccelProfile::Adaptive,
+                    "flat" => AccelProfile::Flat,
+                    _ => return,
+                };
+            }
+        },
+    },
+    SettingDef {
+        id: "compositor.mouse.left_handed",
+        page: Page::Mouse,
+        section: "Buttons",
+        title: "Left-handed mouse",
+        description: "Swap the primary and the secondary button",
+        keywords: &["mouse", "buttons", "left", "swap", "primary", "secondary"],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.compositor.mouse.left_handed),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.compositor.mouse.left_handed = *enabled;
+            }
+        },
+    },
+    SettingDef {
+        id: "compositor.mouse.double_click_ms",
+        page: Page::Mouse,
+        section: "Buttons",
+        title: "Double-click interval (ms)",
+        description: "Longest time between the two clicks of a double click",
+        keywords: &["mouse", "double click", "speed", "timing", "interval"],
+        control: Control::Stepper(Stepper::new(200, 1000, "ms")),
+        get: |config| Value::Number(f64::from(config.compositor.mouse.double_click_ms)),
+        set: |config, value| {
+            if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
+                config.compositor.mouse.double_click_ms = number;
+            }
+        },
+    },
+    SettingDef {
+        id: "compositor.mouse.natural_scroll",
+        page: Page::Mouse,
+        section: "Scrolling",
+        title: "Natural scrolling",
+        description: "Content follows the wheel as on a phone: scrolling up moves it up",
+        keywords: &[
+            "mouse",
+            "scroll",
+            "natural",
+            "reverse",
+            "wheel",
+            "direction",
+        ],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.compositor.mouse.natural_scroll),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.compositor.mouse.natural_scroll = *enabled;
+            }
+        },
+    },
+    SettingDef {
+        id: "compositor.mouse.scroll_speed",
+        page: Page::Mouse,
+        section: "Scrolling",
+        title: "Scroll speed (%)",
+        description: "How far one step of the wheel scrolls; 100 is normal",
+        keywords: &["mouse", "scroll", "wheel", "speed", "faster", "slower"],
+        control: Control::Stepper(Stepper::new(25, 400, "%")),
+        get: |config| Value::Number(f64::from(config.compositor.mouse.scroll_speed)),
+        set: |config, value| {
+            if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
+                config.compositor.mouse.scroll_speed = number;
+            }
+        },
+    },
+    SettingDef {
         id: "compositor.keyboard_layout",
         page: Page::Keyboard,
         section: "Layout",
         title: "Keyboard layout",
         description: "Key mapping for all applications; also switchable from the top bar",
-        keywords: &["language", "german", "english", "qwertz", "qwerty", "input", "de", "us"],
+        keywords: &[
+            "language", "german", "english", "qwertz", "qwerty", "input", "de", "us",
+        ],
         control: Control::Segmented(KEYBOARD_LAYOUTS),
         get: |config| text(config.compositor.keyboard_layout.xkb_name()),
         set: |config, value| {
@@ -449,7 +670,15 @@ pub(super) static ALL: &[SettingDef] = &[
         section: "Visibility",
         title: "Dock / taskbar behavior",
         description: "Always visible, hidden until the pointer touches the edge, or hidden while a window overlaps it",
-        keywords: &["dock", "taskbar", "panel", "autohide", "hide", "dodge", "intellihide"],
+        keywords: &[
+            "dock",
+            "taskbar",
+            "panel",
+            "autohide",
+            "hide",
+            "dodge",
+            "intellihide",
+        ],
         control: Control::Segmented(VISIBILITY_MODES),
         get: |config| text(visibility_name(config.shell.panel_visibility)),
         set: |config, value| {
@@ -457,6 +686,21 @@ pub(super) static ALL: &[SettingDef] = &[
                 && let Some(mode) = parse_visibility(name)
             {
                 config.shell.panel_visibility = mode;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.panel_reserve",
+        page: Page::Panel,
+        section: "Visibility",
+        title: "Keep windows clear of the dock / taskbar",
+        description: "Maximized and snapped windows stop at an always visible dock or taskbar instead of lying under it",
+        keywords: &["dock", "taskbar", "panel", "reserve", "overlap", "maximize"],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.shell.panel_reserve),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.shell.panel_reserve = *enabled;
             }
         },
     },
@@ -481,7 +725,14 @@ pub(super) static ALL: &[SettingDef] = &[
         section: "Visibility",
         title: "Top bar behavior",
         description: "Always visible, hidden until the pointer touches the edge, or hidden while a window overlaps it",
-        keywords: &["top bar", "panel", "autohide", "hide", "dodge", "intellihide"],
+        keywords: &[
+            "top bar",
+            "panel",
+            "autohide",
+            "hide",
+            "dodge",
+            "intellihide",
+        ],
         control: Control::Segmented(VISIBILITY_MODES),
         get: |config| text(visibility_name(config.shell.bar_visibility)),
         set: |config, value| {
@@ -489,6 +740,96 @@ pub(super) static ALL: &[SettingDef] = &[
                 && let Some(mode) = parse_visibility(name)
             {
                 config.shell.bar_visibility = mode;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.bar_height",
+        page: Page::Panel,
+        section: "Top bar",
+        title: "Top bar height (px)",
+        description: "Height of the top bar",
+        keywords: &["top bar", "panel", "size", "appearance"],
+        control: Control::Stepper(Stepper::new(24, 56, "px")),
+        get: |config| Value::Number(f64::from(config.shell.bar_height)),
+        set: |config, value| {
+            if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
+                config.shell.bar_height = number;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.bar_show_app",
+        page: Page::Panel,
+        section: "Top bar",
+        title: "Show focused application",
+        description: "Name and icon of the focused application in the top bar",
+        keywords: &["top bar", "panel", "application", "customize"],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.shell.bar_show_app),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.shell.bar_show_app = *enabled;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.bar_show_title",
+        page: Page::Panel,
+        section: "Top bar",
+        title: "Show window title",
+        description: "Title of the focused window in the top bar",
+        keywords: &["top bar", "panel", "window", "customize"],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.shell.bar_show_title),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.shell.bar_show_title = *enabled;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.bar_show_date",
+        page: Page::Panel,
+        section: "Top bar",
+        title: "Show date",
+        description: "Date next to the time in the top bar",
+        keywords: &["top bar", "panel", "clock", "calendar", "customize"],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.shell.bar_show_date),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.shell.bar_show_date = *enabled;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.bar_show_layout",
+        page: Page::Panel,
+        section: "Top bar",
+        title: "Show keyboard layout",
+        description: "Keyboard layout button in the top bar",
+        keywords: &["top bar", "panel", "keyboard", "language", "customize"],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.shell.bar_show_layout),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.shell.bar_show_layout = *enabled;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.bar_show_power",
+        page: Page::Panel,
+        section: "Top bar",
+        title: "Show power button",
+        description: "Power button in the top bar",
+        keywords: &["top bar", "panel", "shutdown", "restart", "customize"],
+        control: Control::Switch,
+        get: |config| Value::Bool(config.shell.bar_show_power),
+        set: |config, value| {
+            if let Value::Bool(enabled) = value {
+                config.shell.bar_show_power = *enabled;
             }
         },
     },
@@ -547,7 +888,7 @@ pub(super) static ALL: &[SettingDef] = &[
         title: "Icon size (px)",
         description: "Application icon size and panel height",
         keywords: &["dock", "taskbar", "size", "appearance"],
-        control: Control::Stepper(Stepper { min: 32, max: 72 }),
+        control: Control::Stepper(Stepper::new(32, 72, "px")),
         get: |config| Value::Number(f64::from(config.shell.icon_size)),
         set: |config, value| {
             if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
@@ -562,7 +903,7 @@ pub(super) static ALL: &[SettingDef] = &[
         title: "Item spacing (px)",
         description: "Space between application buttons",
         keywords: &["dock", "taskbar", "size", "appearance"],
-        control: Control::Stepper(Stepper { min: 0, max: 24 }),
+        control: Control::Stepper(Stepper::new(0, 24, "px")),
         get: |config| Value::Number(f64::from(config.shell.spacing)),
         set: |config, value| {
             if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
@@ -577,7 +918,7 @@ pub(super) static ALL: &[SettingDef] = &[
         title: "Edge margin (px)",
         description: "Distance between the panel and the screen edge",
         keywords: &["dock", "taskbar", "size", "appearance"],
-        control: Control::Stepper(Stepper { min: 0, max: 40 }),
+        control: Control::Stepper(Stepper::new(0, 40, "px")),
         get: |config| Value::Number(f64::from(config.shell.margin)),
         set: |config, value| {
             if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
@@ -592,11 +933,48 @@ pub(super) static ALL: &[SettingDef] = &[
         title: "Panel opacity (%)",
         description: "Opacity of the panel background",
         keywords: &["dock", "taskbar", "size", "appearance"],
-        control: Control::Stepper(Stepper { min: 40, max: 100 }),
+        control: Control::Stepper(Stepper::new(40, 100, "%")),
         get: |config| Value::Number(f64::from(config.shell.opacity)),
         set: |config, value| {
             if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
                 config.shell.opacity = number;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.panel_radius",
+        page: Page::Panel,
+        section: "Appearance",
+        title: "Panel corner radius (px)",
+        description: "Roundness of the dock or taskbar",
+        keywords: &["dock", "taskbar", "border", "rounded", "corners", "radius"],
+        control: Control::Stepper(Stepper::new(0, 36, "px")),
+        get: |config| Value::Number(f64::from(config.shell.panel_radius)),
+        set: |config, value| {
+            if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
+                config.shell.panel_radius = number;
+            }
+        },
+    },
+    SettingDef {
+        id: "shell.popup_radius",
+        page: Page::Panel,
+        section: "Appearance",
+        title: "Popup corner radius (px)",
+        description: "Roundness of the launcher and quick settings",
+        keywords: &[
+            "launcher",
+            "quick settings",
+            "border",
+            "rounded",
+            "corners",
+            "radius",
+        ],
+        control: Control::Stepper(Stepper::new(0, 36, "px")),
+        get: |config| Value::Number(f64::from(config.shell.popup_radius)),
+        set: |config, value| {
+            if let Some(number) = to_u32(value).and_then(|number| u16::try_from(number).ok()) {
+                config.shell.popup_radius = number;
             }
         },
     },

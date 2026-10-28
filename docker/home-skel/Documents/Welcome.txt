@@ -1,0 +1,25 @@
+Welcome to the Desilium development home
+=========================================
+
+This is a throw-away development user space for trying out Desilium. It is a
+Docker volume, not a folder of your real machine, and it survives between runs
+of scripts/docker-run.sh until you delete it (scripts/docker-run.sh --reset-home).
+
+Layout
+------
+  Applications/   Desilium's place for application bundles and launchers
+                  (like /Applications on macOS). Empty at first.
+  Desktop/        Launchers for Doria (files) and Desilium Settings. They are
+                  executable on purpose: Desilium only starts launchers that
+                  have the executable bit set.
+  Documents/      This file.
+  Downloads/      Where downloads end up.
+  Music/ Videos/  Media.
+  Pictures/       Pictures; Pictures/Wallpapers has the bundled wallpapers.
+  Public/         Files to share.
+  Templates/      Templates for "New file".
+  .config/        user-dirs.dirs and, once the session ran, the KWin and
+                  Desilium configuration written by the bridge.
+
+Everything outside this home is read-only (or discarded when the container
+stops), except /tmp, which is a scratch tmpfs.

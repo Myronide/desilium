@@ -114,14 +114,18 @@ fn metrics(out: &mut Decls, theme: &Theme) {
     out.set("space-12", px(space.xxl));
     out.set("space-16", px(space.xxxl));
 
-    out.set("radius-xs", "4px");
-    out.set("radius-sm", "6px");
-    out.set("radius-control", px(theme.window.control_radius));
-    out.set("radius-md", "10px");
-    out.set("radius-lg", "12px");
-    out.set("radius-window", px(theme.window.corner_radius));
-    out.set("radius-xl", "16px");
-    out.set("radius-2xl", "20px");
+    // The scale follows the two configurable radii; at the brand values (control 8, window 12)
+    // it is 4, 6, 8, 10, 12, 16 and 20 px.
+    let control = theme.window.control_radius;
+    let window = theme.window.corner_radius;
+    out.set("radius-xs", px(control * 0.5));
+    out.set("radius-sm", px(control * 0.75));
+    out.set("radius-control", px(control));
+    out.set("radius-md", px(control * 1.25));
+    out.set("radius-lg", px(window));
+    out.set("radius-window", px(window));
+    out.set("radius-xl", px(window * 4.0 / 3.0));
+    out.set("radius-2xl", px(window * 5.0 / 3.0));
     out.set("radius-pill", "999px");
 
     out.set("titlebar-h", px(theme.window.title_bar_height));

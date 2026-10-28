@@ -36,7 +36,7 @@ use smithay_client_toolkit::{
 
 use super::{
     config::HostEvent,
-    input_map::{cursor_shape, to_button, to_modifiers, wheel_delta},
+    input_map::{content_scroll, cursor_shape, to_button, to_modifiers, wheel_delta},
     keys,
     state::{Entry, FRACTIONAL_DENOMINATOR, InputState, State},
 };
@@ -220,7 +220,9 @@ fn apply_pointer_event(entry: &mut Entry, input: &mut InputState, event: &Pointe
             vertical,
             ..
         } => {
-            entry.ui.wheel(x, y, wheel_delta(horizontal, vertical));
+            entry
+                .ui
+                .wheel(x, y, content_scroll(wheel_delta(horizontal, vertical)));
         }
     }
 }

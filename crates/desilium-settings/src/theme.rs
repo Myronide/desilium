@@ -1,6 +1,6 @@
 //! The theme the settings window itself wears: the same resolution the compositor applies.
 
-use desilium_config_types::AppearanceSettings;
+use desilium_config_types::{AppearanceSettings, KDE_THEME};
 use desilium_theme::{Color, Mode, Theme};
 
 const LIGHT_THEME_ID: &str = "desilium-light";
@@ -16,6 +16,20 @@ pub fn mode_of(theme_id: &str) -> Mode {
 
 /// Built-in theme for the configured id; a valid accent derives the whole palette from it.
 pub fn resolve_theme(appearance: &AppearanceSettings) -> Theme {
+    let mut theme = resolve_base(appearance);
+    theme.window.corner_radius = f32::from(appearance.corner_radius);
+    theme.window.control_radius = f32::from(appearance.control_radius);
+    theme
+}
+
+fn resolve_base(appearance: &AppearanceSettings) -> Theme {
+    if appearance.theme == KDE_THEME {
+        return desilium_theme::kde::load_theme_for(appearance.kde_scheme.as_deref())
+            .unwrap_or_else(|error| {
+                tracing::warn!(%error, "the KDE colour scheme is unusable, using the dark theme");
+                Theme::dark()
+            });
+    }
     let mode = mode_of(&appearance.theme);
     let accent = appearance
         .accent
@@ -51,6 +65,16 @@ mod tests {
             Mode::Light
         );
         assert_eq!(resolve_theme(&with("mystery", None)).mode, Mode::Dark);
+    }
+
+    #[test]
+    fn a_picked_colour_scheme_that_is_not_installed_falls_back_to_dark() {
+        let picked = AppearanceSettings {
+            theme: KDE_THEME.to_owned(),
+            kde_scheme: Some("no-such-scheme-for-this-test".to_owned()),
+            ..AppearanceSettings::default()
+        };
+        assert_eq!(resolve_theme(&picked), Theme::dark());
     }
 
     #[test]

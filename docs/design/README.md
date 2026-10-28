@@ -54,8 +54,9 @@ Alternatives considered:
 - **Quick settings** (408 px, anchored under the tray): 2-column toggle tiles with a split affordance (tap = toggle, chevron = details), thick sliders, power profile segmented control, media tile.
 - **Notifications:** toasts top right (392 px, max 3 visible), notification center under the clock (480 px) with grouped cards, stack peeks, DND switch and a calendar summary.
 - **Lock screen:** 176 px / weight 200 clock, date, notification count without content, avatar and password pill.
-- **Switcher:** centered glass strip of window thumbnails, selected card gets the accent ring, a caption shows the full title.
-- **Overview:** workspace strip on top (active one ringed), window grid of the active workspace below, type-to-search.
+- **Switcher:** centered glass strip of window thumbnails, selected card gets the accent ring, a caption shows the full title. *Mockup only: Alt+Tab is KWin's own window switcher now.*
+- **Overview:** workspace strip on top (active one ringed), window grid of the active workspace below, type-to-search. *Mockup only: not implemented; KWin has its own overview effect.*
+- **Window chrome** in the mockups is the design target for a Desilium decoration. Real windows use KWin's decoration in the Desilium colours.
 
 ## 3. Component inventory
 
@@ -149,7 +150,7 @@ The shell should generate a `:root { --... }` block from the active `Theme` at r
 
 ### What to avoid (Blitz)
 
-- `backdrop-filter`, `filter: blur()`, `mix-blend-mode`, `clip-path` shapes, `background-clip: text`: not reliable. Frosted glass is faked: `--glass-bg` (80-92% opaque) + `--glass-sheen` gradient + 1 px hairline + top inner highlight. If a real blur is added later, it must be a compositor-side effect behind the shell surface, with the CSS surface staying translucent.
+- `backdrop-filter`, `filter: blur()`, `mix-blend-mode`, `clip-path` shapes, `background-clip: text`: not reliable. Frosted glass is faked: `--glass-bg` (80-92% opaque) + `--glass-sheen` gradient + 1 px hairline + top inner highlight. Real blur is a compositor-side effect behind the shell surface, with the CSS surface staying translucent. KWin provides it: the shell requests it per surface through `org_kde_kwin_blur_manager` (see `docs/kwin-integration.md`; not yet run against a live KWin).
 - The wallpaper grain is an inline SVG `feTurbulence`; in production bake grain into the wallpaper PNG.
 - Don't rely on CSS animations in the mockups; the motion spec above is implemented by the shell's animation driver with the same token values (ms and cubic-bezier).
 - Avoid `position: sticky`, CSS `transform` on large trees (cost), `calc()` nested with `var()` in hot paths, and `:has()`. Prefer explicit state classes (`.hover`, `.sel`, `.on`) which is how the mockups show states.

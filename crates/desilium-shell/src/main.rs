@@ -6,6 +6,7 @@
 mod app;
 mod bar;
 mod cli;
+mod desktop;
 mod dock;
 mod error;
 mod launcher;
@@ -18,6 +19,7 @@ mod snapshot_tests;
 mod tooltip;
 mod view;
 mod visibility;
+mod wallpaper;
 
 use std::process::ExitCode;
 

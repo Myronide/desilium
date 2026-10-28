@@ -7,20 +7,22 @@
 pkgname=desilium
 pkgver=0.1.0
 pkgrel=1
-pkgdesc="Premium, GPU-accelerated Wayland desktop environment (Smithay compositor, shell and session)"
+pkgdesc="Premium Wayland desktop environment on KWin (shell, settings, file manager and session)"
 arch=('x86_64')
 url="https://example.invalid/desilium"  # project URL: set before publishing
 license=('MIT')
 depends=(
   'wayland'
   'libxkbcommon'
-  'mesa'            # libgbm, libEGL, libGLESv2
-  'libinput'
-  'systemd-libs'    # libudev for device enumeration
-  'seatd'           # libseat for seat access without logind
-  'libdrm'
   'fontconfig'
   'glib2'
+  'dbus'
+  'kwin'            # the compositor and window manager: kwin_wayland
+  'kglobalacceld'   # global shortcuts, D-Bus activated by KWin and the bridge
+  'kconfig'         # kwriteconfig6, used by desilium-kwin
+  'breeze-icons'    # KDE's default icon theme; applications' icons are resolved through it
+  'xorg-xwayland'   # X11 applications, started by KWin
+  'xdg-desktop-portal-kde'  # screen casting, remote desktop and screenshots on KWin
   'kitty'
   'inter-font'      # default UI typeface
 )
@@ -33,6 +35,7 @@ optdepends=(
   'brightnessctl: screen brightness controls'
   'power-profiles-daemon: energy profiles'
   'xdg-desktop-portal-gtk: file chooser and settings portal backend used by packaging/xdg-desktop-portal'
+  'breeze: window decorations and style that KWin and Qt applications use by default'
 )
 makedepends=(
   'cargo'           # rust toolchain; rust-toolchain.toml selects the channel
@@ -51,7 +54,7 @@ build() {
   export RUSTUP_TOOLCHAIN=stable
   export CARGO_TARGET_DIR=target
   cargo build --release --locked \
-    -p desilium-compositor \
+    -p desilium-kwin \
     -p desilium-session \
     -p desilium-shell \
     -p desilium-settings \

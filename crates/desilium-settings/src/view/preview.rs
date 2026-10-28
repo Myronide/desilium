@@ -2,14 +2,24 @@
 
 use super::{Ctx, esc, file_url, icon, toast_html};
 use crate::{
+    i18n::{keys, tr},
     model::Model,
     palette::preset_for,
     registry::{self, Page, Value},
 };
 use desilium_theme::Mode;
 
-const PHILOSOPHY: &str = "These values are stored for you and can be exported or reset at any time. \
-     <span class=t-2>You never need to edit a file.</span>";
+/// The reassurance under the page: a plain sentence, then a dimmer one.
+fn philosophy() -> String {
+    format!(
+        "{} <span class=t-2>{}</span>",
+        esc(&tr(
+            "ui.preview.stored",
+            "These values are stored for you and can be exported or reset at any time."
+        )),
+        esc(&tr("ui.preview.no_files", "You never need to edit a file."))
+    )
+}
 
 pub(super) fn column(ctx: &Ctx<'_>) -> String {
     let toast = format!(
@@ -25,24 +35,28 @@ pub(super) fn column(ctx: &Ctx<'_>) -> String {
         toast
     };
     format!(
-        "{first}<div class='card pv'><h3>What this page controls</h3>{}</div>\
-         <div class=philo>{}<span>{PHILOSOPHY}</span></div>",
+        "{first}<div class='card pv'><h3>{}</h3>{}</div>\
+         <div class=philo>{}<span>{}</span></div>",
+        esc(&tr("ui.preview.controls_title", "What this page controls")),
         controls_box(ctx),
-        icon("info", 20)
+        icon("info", 20),
+        philosophy()
     )
 }
 
 fn scheme_chip(ctx: &Ctx<'_>) -> String {
-    let (glyph, mode) = match ctx.theme.mode {
-        Mode::Dark => ("moon", "Dark"),
-        Mode::Light => ("sun", "Light"),
+    let (glyph, theme_id, english) = match ctx.theme.mode {
+        Mode::Dark => ("moon", "desilium-dark", "Dark"),
+        Mode::Light => ("sun", "desilium-light", "Light"),
     };
+    let mode = tr(&keys::choice("appearance.theme", theme_id), english);
     let hex = ctx.theme.palette.accent.to_hex().to_ascii_uppercase();
-    let accent = preset_for(&hex).map_or(hex.as_str(), |preset| preset.name);
+    let accent = preset_for(&hex).map_or_else(|| hex.clone(), |preset| preset.label());
     format!(
-        "<span class='chip accent'>{}{mode} \u{b7} {}</span>",
+        "<span class='chip accent'>{}{} \u{b7} {}</span>",
         icon(glyph, 16),
-        esc(accent)
+        esc(&mode),
+        esc(&accent)
     )
 }
 
@@ -64,12 +78,13 @@ fn preview_body(ctx: &Ctx<'_>) -> String {
         .map(|app| format!("<i style='background:linear-gradient(150deg,var(--app-{app}))'></i>"))
         .collect::<String>();
     format!(
-        "<div class=row><h3 class=grow>Preview</h3>{}</div>\
+        "<div class=row><h3 class=grow>{}</h3>{}</div>\
          <div class=mini>{}\
          <div class=mb><i style='left:8px;width:30px'></i><i style='left:50%;margin-left:-14px;width:28px'></i><i style='right:8px;width:40px'></i></div>\
          <div class=mw2><div class=mt></div></div>\
          <div class=mw><div class=mt></div><div class='ln a'></div><div class=ln style='width:140px'></div><div class=ln style='width:110px'></div><div class=ln style='width:150px'></div></div>\
          <div class=md>{apps}</div></div>",
+        esc(&tr("ui.preview.title", "Preview")),
         scheme_chip(ctx),
         wallpaper_image(ctx.model)
     )
@@ -102,8 +117,11 @@ fn shown_value(ctx: &Ctx<'_>, def: &registry::SettingDef) -> String {
             ctx.theme.palette.accent.to_hex().to_ascii_uppercase()
         }
         (Value::Number(number), _) if def.id == "appearance.animation_speed" && *number <= 0.0 => {
-            "off".to_owned()
+            tr("ui.value.off", "off")
         }
+        (Value::Bool(true), _) => tr("ui.value.on", "on"),
+        (Value::Bool(false), _) => tr("ui.value.off", "off"),
+        (Value::Unset, _) => tr("ui.value.default", "default"),
         _ => value.display(),
     }
 }

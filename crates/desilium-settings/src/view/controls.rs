@@ -4,8 +4,9 @@ use std::fmt::Write;
 
 use super::{Ctx, esc, field_id, file_url, icon, page::modified_link};
 use crate::{
+    i18n::{tr, tr_args},
     palette::{ACCENT_PRESETS, preset_for},
-    registry::{Choice, Control, SettingDef, Slider, Stepper, Value, format_number},
+    registry::{Choice, Control, OFF_LABEL, SettingDef, Slider, Stepper, Value, format_number},
     wallpapers::display_name,
 };
 
@@ -17,8 +18,8 @@ fn label(ctx: &Ctx<'_>, def: &SettingDef) -> String {
         == 1;
     format!(
         "<div class=lab><b>{}</b><span>{}</span>{}</div>",
-        esc(def.title),
-        esc(def.description),
+        esc(&def.title_text()),
+        esc(&def.description_text()),
         modified_link(ctx, def, single)
     )
 }
@@ -57,7 +58,7 @@ fn slider_label(ctx: &Ctx<'_>, def: &SettingDef) -> String {
     let caption = slider_caption(&slider, &(def.get)(ctx.config), &def.default_value());
     format!(
         "<div class=lab><b>{}</b><span>{}</span>{}</div>",
-        esc(def.title),
+        esc(&def.title_text()),
         esc(&caption),
         modified_link(ctx, def, true)
     )
@@ -66,7 +67,7 @@ fn slider_label(ctx: &Ctx<'_>, def: &SettingDef) -> String {
 /// "Off", "1.5x", "32 px": the value of one stop.
 fn stop_caption(slider: &Slider, stop: f64) -> String {
     if stop <= 0.0 {
-        return "Off".to_owned();
+        return off_text();
     }
     let gap = if slider.unit == "px" { " " } else { "" };
     format!("{}{gap}{}", format_number(stop), slider.unit)
@@ -84,9 +85,18 @@ fn slider_caption(slider: &Slider, value: &Value, default: &Value) -> String {
         .map(|stop| stop_caption(slider, *stop))
         .unwrap_or_default();
     if value == default {
-        return format!("{label} \u{b7} Default");
+        return tr_args(
+            "ui.slider.is_default",
+            "{value} \u{b7} Default",
+            &[("value", &label)],
+        );
     }
     label
+}
+
+/// The lowest slider stop.
+fn off_text() -> String {
+    tr("ui.common.off", OFF_LABEL)
 }
 
 pub(super) fn control(ctx: &Ctx<'_>, def: &'static SettingDef) -> String {
@@ -95,10 +105,10 @@ pub(super) fn control(ctx: &Ctx<'_>, def: &'static SettingDef) -> String {
         Control::Segmented(choices) => segmented(def, choices, &value),
         Control::Select(choices) => select(ctx, def, choices, &value),
         Control::Switch => switch(def, &value),
-        Control::Slider(slider) => slider_html(def, &slider, &value),
-        Control::Stepper(stepper) => stepper_html(def, &stepper, &value),
+        Control::Slider(slider) => slider_html(ctx, def, &slider, &value),
+        Control::Stepper(stepper) => stepper_html(ctx, def, &stepper, &value),
         Control::CursorTheme => cursor_theme(ctx, def, &value),
-        Control::Text { placeholder } => text_input(def, placeholder, &value),
+        Control::Text { .. } => text_input(def, &value),
         Control::Accent | Control::Wallpaper | Control::Shortcuts | Control::About => String::new(),
     }
 }
@@ -117,7 +127,7 @@ fn segmented(def: &SettingDef, choices: &[Choice], value: &Value) -> String {
             "<span class='{}' data-action=set data-arg='{}'>{glyph}{}</span>",
             if on { "on" } else { "" },
             arg(def, choice.value),
-            esc(choice.label)
+            esc(&choice.label_text(def.id))
         );
     }
     out.push_str("</div>");
@@ -128,7 +138,7 @@ fn select(ctx: &Ctx<'_>, def: &SettingDef, choices: &[Choice], value: &Value) ->
     let current = choices
         .iter()
         .find(|choice| matches!(value, Value::Text(text) if text == choice.value))
-        .map_or("", |choice| choice.label);
+        .map_or_else(String::new, |choice| choice.label_text(def.id));
     let open = ctx.model.open_select == Some(def.id);
     let menu = if open {
         options_menu(def, choices, value)
@@ -138,7 +148,7 @@ fn select(ctx: &Ctx<'_>, def: &SettingDef, choices: &[Choice], value: &Value) ->
     format!(
         "<div class=btn data-action=select-toggle data-arg={}>{}{}</div>{menu}",
         def.id,
-        esc(current),
+        esc(&current),
         icon("chevron-down", 16)
     )
 }
@@ -154,7 +164,7 @@ fn options_menu(def: &SettingDef, choices: &[Choice], value: &Value) -> String {
             if on { " on" } else { "" },
             arg(def, choice.value),
             mark,
-            esc(choice.label)
+            esc(&choice.label_text(def.id))
         );
     }
     out.push_str("</div>");
@@ -162,7 +172,8 @@ fn options_menu(def: &SettingDef, choices: &[Choice], value: &Value) -> String {
 }
 
 fn cursor_theme(ctx: &Ctx<'_>, def: &SettingDef, value: &Value) -> String {
-    let mut choices = vec![("", "System default".to_owned())];
+    let system_default = tr("ui.cursor.system_default", "System default");
+    let mut choices = vec![("", system_default.clone())];
     choices.extend(
         ctx.model
             .cursor_themes
@@ -171,7 +182,7 @@ fn cursor_theme(ctx: &Ctx<'_>, def: &SettingDef, value: &Value) -> String {
     );
     let current = match value {
         Value::Text(name) => name.clone(),
-        _ => "System default".to_owned(),
+        _ => system_default,
     };
     let open = ctx.model.open_select == Some(def.id);
     let menu = if open {
@@ -220,31 +231,75 @@ fn switch(def: &SettingDef, value: &Value) -> String {
     )
 }
 
-fn stepper_html(def: &SettingDef, stepper: &Stepper, value: &Value) -> String {
-    let Value::Number(number) = value else {
+/// Text of a range's value: the number and its unit.
+fn range_text(stepper: &Stepper, number: f64) -> String {
+    let gap = if stepper.unit.is_empty() || stepper.unit == "%" {
+        ""
+    } else {
+        " "
+    };
+    format!("{}{gap}{}", format_number(number), stepper.unit)
+}
+
+/// A number edited with a slider: drag the thumb, or click the track to jump. The value is
+/// shown next to it. While dragging, the preview value is shown and nothing is stored yet.
+fn stepper_html(ctx: &Ctx<'_>, def: &SettingDef, stepper: &Stepper, value: &Value) -> String {
+    let Value::Number(stored) = value else {
         return String::new();
     };
-    let at_min = *number <= stepper.min as f64;
-    let at_max = *number >= stepper.max as f64;
-    let button = |sign: &str, delta: &str, disabled: bool| {
-        if disabled {
-            format!("<span class='btn dis'>{sign}</span>")
-        } else {
-            format!(
-                "<span class=btn data-action=step data-arg='{}={delta}'>{sign}</span>",
-                def.id
-            )
-        }
+    let number = match ctx.model.range_preview {
+        Some((id, preview)) if id == def.id => preview,
+        _ => *stored,
     };
+    let percent = stepper.position(number) * 100.0;
+    let mut hits = String::new();
+    for step in stepper.min..=stepper.max {
+        let _ = write!(
+            hits,
+            "<i data-action=set data-arg='{}'></i>",
+            arg(def, &step.to_string())
+        );
+    }
+    let fid = field_id(def.id);
     format!(
-        "<div class=stepper>{}<span class=val>{}</span>{}</div>",
-        button("\u{2212}", "-1", at_min),
-        format_number(*number),
-        button("+", "1", at_max)
+        "<div class=range><div class=trk id='trk-{fid}' data-drag=range data-arg='{id}'>\
+         <div class=bar></div><div class=fill id='fill-{fid}' style='width:{percent:.3}%'></div>\
+         <div class=thumb id='thumb-{fid}' style='left:{percent:.3}%'></div>\
+         <div class=rhits>{hits}</div></div>\
+         <span class=val id='val-{fid}'>{text}</span></div>",
+        id = def.id,
+        text = esc(&range_text(stepper, number))
     )
 }
 
-fn text_input(def: &SettingDef, placeholder: &str, value: &Value) -> String {
+/// Document updates that move a range's thumb and value while it is dragged.
+pub fn range_updates(def: &SettingDef, number: f64) -> Option<desilium_ui::Updates> {
+    let fid = field_id(def.id);
+    let updates = desilium_ui::Updates::new();
+    let (percent, text) = match def.control {
+        Control::Stepper(stepper) => (stepper.position(number), Some(range_text(&stepper, number))),
+        Control::Slider(slider) => (slider.fraction(slider.index_of(number)), None),
+        _ => return None,
+    };
+    let percent = percent * 100.0;
+    let updates = updates
+        .attr(
+            &format!("#fill-{fid}"),
+            "style",
+            &format!("width:{percent:.3}%"),
+        )
+        .attr(
+            &format!("#thumb-{fid}"),
+            "style",
+            &format!("left:{percent:.3}%"),
+        );
+    Some(match text {
+        Some(text) => updates.text(&format!("#val-{fid}"), &text),
+        None => updates,
+    })
+}
+
+fn text_input(def: &SettingDef, value: &Value) -> String {
     let current = match value {
         Value::Text(text) => text.as_str(),
         _ => "",
@@ -252,20 +307,25 @@ fn text_input(def: &SettingDef, placeholder: &str, value: &Value) -> String {
     format!(
         "<div class='input fld{}' id='fld-{fid}' style='width:260px'><span class=phd>{}</span>\
          <input id='in-{fid}' data-key='{id}' data-submit='text:{id}' value='{}' autocomplete=off>\
-         <span class=kbd>Enter</span></div>",
+         <span class=kbd>{}</span></div>",
         if current.is_empty() { "" } else { " filled" },
-        esc(placeholder),
+        esc(&def.placeholder_text().unwrap_or_default()),
         esc(current),
+        esc(&crate::shortcuts::key_label("Return")),
         id = def.id,
         fid = field_id(def.id)
     )
 }
 
-fn slider_html(def: &SettingDef, slider: &Slider, value: &Value) -> String {
-    let Value::Number(number) = value else {
+fn slider_html(ctx: &Ctx<'_>, def: &SettingDef, slider: &Slider, value: &Value) -> String {
+    let Value::Number(stored) = value else {
         return String::new();
     };
-    let current = slider.index_of(*number);
+    let number = match ctx.model.range_preview {
+        Some((id, preview)) if id == def.id => preview,
+        _ => *stored,
+    };
+    let current = slider.index_of(number);
     let count = slider.stops.len();
     let percent = slider.fraction(current) * 100.0;
     let step = 100.0 / count.saturating_sub(1).max(1) as f64;
@@ -283,19 +343,27 @@ fn slider_html(def: &SettingDef, slider: &Slider, value: &Value) -> String {
         if text.is_empty() {
             continue;
         }
+        let shown = if *text == OFF_LABEL {
+            off_text()
+        } else {
+            (*text).to_owned()
+        };
         let _ = write!(
             ticks,
             "<span class='{}' style='left:{:.3}%'>{}</span>",
             if index == current { "on" } else { "" },
             slider.fraction(index) * 100.0,
-            esc(text)
+            esc(&shown)
         );
     }
     format!(
-        "<div class=slide><div class=trk><div class=bar></div><div class=fill style='width:{percent:.3}%'></div>\
-         <div class=thumb style='left:{percent:.3}%'></div>\
+        "<div class=slide><div class=trk id='trk-{fid}' data-drag=range data-arg='{id}'><div class=bar></div>\
+         <div class=fill id='fill-{fid}' style='width:{percent:.3}%'></div>\
+         <div class=thumb id='thumb-{fid}' style='left:{percent:.3}%'></div>\
          <div class=hits style='left:-{half:.3}%;width:{total:.3}%'>{hits}</div></div>\
          <div class=tickrow>{ticks}</div></div>",
+        fid = field_id(def.id),
+        id = def.id,
         half = step / 2.0,
         total = 100.0 + step
     )
@@ -325,7 +393,7 @@ pub(super) fn accent(ctx: &Ctx<'_>, def: &'static SettingDef) -> String {
             "<span class='sw{}' style='background:{hex};color:{hex}' data-action=set data-arg='{}' data-tooltip='{}'>{check}</span>",
             if on { " on" } else { "" },
             arg(def, preset.hex),
-            esc(preset.name),
+            esc(&preset.label()),
             hex = preset.hex,
         );
     }
@@ -348,28 +416,39 @@ fn custom_accent(ctx: &Ctx<'_>, value: &Value, theme_accent: &str) -> String {
         },
     };
     let shown = match value {
-        Value::Text(hex) if preset_for(hex).is_none() => format!("Custom colour {}", esc(hex)),
-        Value::Text(hex) => format!(
-            "{} (preset)",
-            esc(preset_for(hex).map_or(hex.as_str(), |p| p.name))
+        Value::Text(hex) => match preset_for(hex) {
+            None => tr_args("ui.accent.custom", "Custom colour {hex}", &[("hex", hex)]),
+            Some(preset) => tr_args(
+                "ui.accent.preset",
+                "{name} (preset)",
+                &[("name", &preset.label())],
+            ),
+        },
+        _ => tr_args(
+            "ui.accent.theme_own",
+            "Using the theme's own accent {hex}",
+            &[("hex", theme_accent)],
         ),
-        _ => format!("Using the theme's own accent {theme_accent}"),
     };
     let clear = if matches!(value, Value::Text(_)) {
-        "<span class='btn sm ghost' data-action=clear data-arg=appearance.accent>Use theme accent</span>"
+        format!(
+            "<span class='btn sm ghost' data-action=clear data-arg=appearance.accent>{}</span>",
+            esc(&tr("ui.accent.use_theme", "Use theme accent"))
+        )
     } else {
-        ""
+        String::new()
     };
     let error = error
         .map(|text| format!("<span class=err>{}</span>", esc(&text)))
         .unwrap_or_default();
     format!(
         "<div class=hexrow><div class='input fld{}' id=fld-accent-hex><span class=phd>#7B61FF</span><input id=hex data-key=accent-hex data-submit=accent-apply value='{}' autocomplete=off></div>\
-         <span class='btn sm' data-action=accent-apply>{}Apply</span>{clear}<span class=hint>{}</span>{error}</div>",
+         <span class='btn sm' data-action=accent-apply>{}{}</span>{clear}<span class=hint>{}</span>{error}</div>",
         if draft.is_empty() { "" } else { " filled" },
         esc(&draft),
         icon("palette", 16),
-        shown
+        esc(&tr("ui.accent.apply", "Apply")),
+        esc(&shown)
     )
 }
 
@@ -402,10 +481,11 @@ fn check_badge() -> String {
 
 fn theme_tile(def: &SettingDef, on: bool) -> String {
     format!(
-        "<div class='wp{}' data-action=clear data-arg={}><div class='th theme'>{}</div>Theme default</div>",
+        "<div class='wp{}' data-action=clear data-arg={}><div class='th theme'>{}</div>{}</div>",
         if on { " on" } else { "" },
         def.id,
-        if on { check_badge() } else { String::new() }
+        if on { check_badge() } else { String::new() },
+        esc(&tr("ui.wallpaper.theme_default", "Theme default"))
     )
 }
 
@@ -434,11 +514,17 @@ fn tile(
 /// Where to put more wallpapers (the picker has no file dialog yet).
 fn add_hint(none_found: bool) -> String {
     let text = if none_found {
-        "No wallpapers found. Put images into ~/.local/share/desilium/wallpapers and they show up here."
+        tr(
+            "ui.wallpaper.none_found",
+            "No wallpapers found. Put images into ~/.local/share/desilium/wallpapers and they show up here.",
+        )
     } else {
-        "To add more, put images into ~/.local/share/desilium/wallpapers."
+        tr(
+            "ui.wallpaper.add_more",
+            "To add more, put images into ~/.local/share/desilium/wallpapers.",
+        )
     };
-    format!("<div class=note>{}</div>", esc(text))
+    format!("<div class=note>{}</div>", esc(&text))
 }
 
 /// A wallpaper path in the config that no longer exists in the installed list.
@@ -454,10 +540,12 @@ fn missing_note(current: Option<&str>, ctx: &Ctx<'_>) -> String {
     if known {
         return String::new();
     }
-    format!(
-        "<div class=note>Current wallpaper: {} (not in the installed collection)</div>",
-        esc(&display_name(std::path::Path::new(path)))
-    )
+    let note = tr_args(
+        "ui.wallpaper.missing",
+        "Current wallpaper: {name} (not in the installed collection)",
+        &[("name", &display_name(std::path::Path::new(path)))],
+    );
+    format!("<div class=note>{}</div>", esc(&note))
 }
 
 #[cfg(test)]

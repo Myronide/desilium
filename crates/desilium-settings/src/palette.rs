@@ -1,5 +1,7 @@
 //! Accent presets offered as swatches.
 
+use crate::i18n::{keys, tr};
+
 /// A named accent colour.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Preset {
@@ -7,6 +9,14 @@ pub struct Preset {
     pub name: &'static str,
     /// `#RRGGBB`, uppercase.
     pub hex: &'static str,
+}
+
+impl Preset {
+    /// The name in the current language (`choice.appearance.accent.<name>`).
+    pub fn label(&self) -> String {
+        let value = self.name.to_ascii_lowercase();
+        tr(&keys::choice("appearance.accent", &value), self.name)
+    }
 }
 
 /// The swatch row, brand violet first. Matches the design mockup.

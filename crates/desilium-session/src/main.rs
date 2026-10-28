@@ -35,10 +35,22 @@ fn main() -> ExitCode {
     match run() {
         Ok(code) => code,
         Err(error) => {
-            tracing::error!(error = %error, "session failed");
+            tracing::error!(error = %error_chain(&error), "session failed");
             ExitCode::FAILURE
         }
     }
+}
+
+/// The error and every cause below it, joined with `: `, so an OS error is not lost.
+fn error_chain(error: &dyn std::error::Error) -> String {
+    let mut text = error.to_string();
+    let mut cause = error.source();
+    while let Some(inner) = cause {
+        text.push_str(": ");
+        text.push_str(&inner.to_string());
+        cause = inner.source();
+    }
+    text
 }
 
 fn init_tracing() {
@@ -143,6 +155,20 @@ fn exit_code(outcome: &SessionOutcome) -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spawn_errors_show_the_operating_system_cause() {
+        let error = MainError::from(SessionError::Spawn {
+            name: "compositor".to_owned(),
+            source: io::Error::from_raw_os_error(1),
+        });
+        let text = error_chain(&error);
+        assert!(
+            text.starts_with("failed to start component `compositor`: "),
+            "{text}"
+        );
+        assert!(text.contains("not permitted"), "{text}");
+    }
 
     #[test]
     fn exit_codes_follow_the_outcome() {

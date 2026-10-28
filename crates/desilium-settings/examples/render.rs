@@ -1,12 +1,16 @@
 //! Renders the settings UI to a PNG without a display, against a throwaway config:
 //! `render --out shot.png [--page appearance] [--search text] [--theme dark|light]
-//!  [--accent #RRGGBB] [--wallpaper NAME] [--size 1240x800] [--scale 1] [--do ACTION[:ARG]]...`
+//!  [--accent #RRGGBB] [--wallpaper NAME] [--size 1240x800] [--scale 1] [--lang en|de]
+//!  [--do ACTION[:ARG]]...`
+//!
+//! Without `--lang` the language follows the environment, like the app.
 
 use std::{path::PathBuf, process::ExitCode, time::Instant};
 
 use desilium_config::ConfigStore;
 use desilium_settings::{
     app::{App, AppOptions},
+    i18n::{Locale, set_locale},
     registry::Page,
     runtime::cli::split_action,
     surface::build_surface,
@@ -44,6 +48,14 @@ fn run() -> Result<(), String> {
             "--accent" => accent = Some(value()?),
             "--wallpaper" => wallpaper = Some(value()?),
             "--do" => actions.push(value()?),
+            "--lang" => {
+                let lang = match value()?.as_str() {
+                    "en" => Locale::English,
+                    "de" => Locale::German,
+                    _ => return Err("--lang is en or de".to_owned()),
+                };
+                set_locale(Some(lang));
+            }
             "--scale" => scale = value()?.parse().map_err(|_| "bad scale")?,
             "--size" => {
                 let text = value()?;

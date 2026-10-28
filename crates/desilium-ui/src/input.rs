@@ -202,6 +202,35 @@ pub struct UiAction {
     pub rect: Rect,
 }
 
+/// Which stage of a drag a [`UiDrag`] reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DragPhase {
+    /// The pointer moved past the click threshold with the button held.
+    Start,
+    /// The pointer moved again.
+    Move,
+    /// The button was released (or the pointer left the surface).
+    End,
+}
+
+/// A drag that began on an element with `data-drag="name"`.
+///
+/// A press that stays within the click threshold is an ordinary click and never reports a drag;
+/// once the threshold is passed the release is not a click any more.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UiDrag {
+    /// Which stage this is.
+    pub phase: DragPhase,
+    /// Value of `data-drag` of the element the button went down on.
+    pub name: String,
+    /// `data-arg` of that element, if present.
+    pub arg: Option<String>,
+    /// Where the button went down, in logical pixels of the surface.
+    pub origin: (f64, f64),
+    /// Where the pointer is now.
+    pub pos: (f64, f64),
+}
+
 /// What the pointer currently hovers, for tooltips.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HoverTarget {
@@ -220,6 +249,8 @@ pub struct HoverTarget {
 pub enum UiEvent {
     /// A click on `data-action`, `data-middle-action` or `data-secondary-action`.
     Action(UiAction),
+    /// A drag from an element carrying `data-drag`.
+    Drag(UiDrag),
     /// The value of a text input changed (typing, deleting, paste).
     TextChanged {
         /// `id` of the input, if it has one.

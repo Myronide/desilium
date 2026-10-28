@@ -42,14 +42,7 @@ jobs:
             pkg-config \
             libglib2.0-dev \
             libwayland-dev \
-            libxkbcommon-dev \
-            libegl-dev \
-            libgles-dev \
-            libgbm-dev \
-            libdrm-dev \
-            libinput-dev \
-            libudev-dev \
-            libseat-dev
+            libxkbcommon-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -69,17 +62,10 @@ jobs:
             pkg-config \
             libglib2.0-dev \
             libwayland-dev \
-            libxkbcommon-dev \
-            libegl-dev \
-            libgles-dev \
-            libgbm-dev \
-            libdrm-dev \
-            libinput-dev \
-            libudev-dev \
-            libseat-dev
+            libxkbcommon-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      # GPU-dependent tests detect the missing render node and skip themselves.
+      # No test needs KWin: the KDE side (kwriteconfig6, D-Bus) is covered with stand-ins.
       - name: Run tests
         run: cargo test --workspace
 
@@ -88,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build compositor image
+      - name: Build session image (KWin runtime)
         env:
           DOCKER_BUILDKIT: "1"
         run: docker build -f docker/Dockerfile -t desilium-ci .

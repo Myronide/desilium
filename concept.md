@@ -9,6 +9,7 @@
 **Type:** Linux Desktop Environment  
 **Primary Language:** Rust  
 **Display Protocol:** Wayland  
+**Compositor and Window Manager:** KWin (`kwin_wayland` from KDE Plasma 6)  
 **Primary Distribution:** Myronide OS  
 **Platform Support:** Distribution-independent Linux  
 
@@ -18,8 +19,11 @@ The project aims to combine the usability of traditional desktop operating syste
 
 Desilium is developed independently of Myronide OS and must remain compatible with other Linux distributions.
 
+Desilium builds on KWin and ships no compositor of its own. It is a shell and an application suite (panels, launcher, settings, file manager, notifications) written in Rust, plus one small component, the KWin bridge, that projects the Desilium configuration onto KWin. Earlier revisions of this project contained a Smithay-based compositor; that code was removed when the project moved to KWin (see section 1.1).
+
 ### Core Principles
 
+- Builds on KWin, ships no compositor of its own
 - Native performance
 - Modern and consistent design
 - Zero-configuration user experience
@@ -32,6 +36,31 @@ Desilium is developed independently of Myronide OS and must remain compatible wi
 - Distribution independence
 - Accessibility
 - Security by design
+
+### 1.1 Why KWin
+
+Desilium used to contain its own Wayland compositor. Writing and maintaining a compositor is a large project of its own, and it was the part of Desilium that was furthest from what makes the desktop distinctive: the shell, the settings and the configuration model. The decision is to use KWin for the compositor and window-management layer and to spend the effort on the layers above it.
+
+**What this gains**
+
+- A mature DRM/KMS backend, so a login manager can start a real session on bare hardware.
+- Multi-monitor handling, output configuration and HiDPI scaling.
+- XWayland, started and supervised by KWin.
+- Screencast and remote-desktop support through the KDE portal backend.
+- Input handling (libinput, keyboard layouts, global shortcuts through KGlobalAccel).
+- Window management, snapping, virtual desktops and effects that other people test on many machines.
+
+**What this costs, and how the cost is limited**
+
+| Cost | Mitigation |
+|---|---|
+| A Qt/KDE runtime dependency (`kwin`, `kglobalacceld`, `kconfig`, KDE portal backend) | The dependency is the compositor package and a handful of daemons, not a KDE desktop. Everything above it stays Rust and Blitz. Packages list it explicitly. |
+| No custom compositor effects and no Desilium-drawn window decorations | Decorations, snapping behaviour and effects are KWin's. Desilium sets colours, cursor, animation speed and behaviour through KWin's configuration. A Desilium decoration theme or a KDecoration3 plugin is a possible later item, not a current feature. |
+| Animations and decorations are limited to what KWin offers | The configuration (animations on or off, speed, reduced motion) is mapped onto KWin's own switches. Per-window transitions of the old compositor are gone. |
+| Coupling to KWin and Plasma versions, and to KDE's unstable plasma protocols | Version ranges of the protocols are bound explicitly. Anything the shell cannot get from KWin degrades to "feature missing" and never stops the session. The mapping lives in one crate (`desilium-kwin`) so a version change is a local fix. |
+| The all-Rust compositor story is gone | Desilium itself stays Rust. The compositor is a replaceable, separately maintained component, which the architecture already treated as a boundary. |
+
+Which of the KDE-side facts Desilium relies on have actually been checked against a running KWin is recorded in [`docs/kwin-integration.md`](docs/kwin-integration.md) under "Verification status".
 
 ---
 
@@ -53,14 +82,15 @@ Desilium is developed independently of Myronide OS and must remain compatible wi
 | Component | Technology |
 |---|---|
 | Display Protocol | Wayland |
-| Compositor Framework | Smithay |
-| Compositor Rendering | Smithay Renderer |
-| Window Management | Custom Rust implementation |
-| Desktop Protocols | Wayland Protocols / XDG |
-| X11 Compatibility | XWayland |
-| Input Management | libinput |
-| Display Management | DRM/KMS |
-| Session Management | systemd-logind |
+| Compositor | KWin (`kwin_wayland`, KDE Plasma 6) |
+| Window Management | KWin |
+| Desktop Protocols | Wayland Protocols / XDG, plus KDE's plasma protocols for the shell (see below) |
+| KDE Protocols | `org_kde_plasma_window_management`, `org_kde_plasma_virtual_desktop_management`, `org_kde_kwin_blur_manager` (client side, `wayland-protocols-plasma`) |
+| X11 Compatibility | XWayland, started by KWin |
+| Input and Display Management | KWin (libinput, DRM/KMS) |
+| Global Shortcuts | KGlobalAccel (`kglobalacceld`) over D-Bus |
+| KWin Configuration (projection target) | KConfig files written with `kwriteconfig6`, KWin's D-Bus interface |
+| Session Management | `desilium-session` supervisor, systemd-logind for seat and session |
 
 ### User Interface & Rendering
 
@@ -69,10 +99,10 @@ Desilium is developed independently of Myronide OS and must remain compatible wi
 | Native UI Engine | Blitz |
 | Reactive UI Layer | Dioxus Native (experimental) |
 | GPU Rendering | Vello / wgpu |
-| Animation System | Custom Rust implementation |
+| Window Animations and Decorations | KWin (configured, not implemented, by Desilium) |
 | Accessibility | AccessKit |
 | Icons & Assets | SVG / Vector Assets |
-| Theme Engine | Custom Desilium implementation |
+| Theme Engine | Custom Desilium implementation; also exported as a KDE colour scheme so Qt/KDE applications match |
 
 Blitz is responsible for native HTML/CSS rendering. Its internal dependencies, such as Stylo and Taffy, do not need to be maintained as separate architectural components.
 
@@ -92,7 +122,7 @@ Dioxus Native is experimental and must be evaluated before becoming a mandatory 
 | Power Management | UPower |
 | Power Profiles | power-profiles-daemon |
 | Notifications | Custom notification service |
-| Desktop Portals | xdg-desktop-portal integration |
+| Desktop Portals | xdg-desktop-portal integration; screencast and remote desktop through the KDE portal backend (`xdg-desktop-portal-kde`) |
 | Secrets & Credentials | Secret Service API integration |
 
 System integrations should reuse established Linux services rather than unnecessarily reimplementing their functionality.
@@ -213,7 +243,7 @@ Configuration Service
         |
         +----> Change Notifications
                      |
-                     +----> Compositor
+                     +----> KWin bridge (projects the settings onto KWin and KDE)
                      +----> Desktop Shell
                      +----> Theme Engine
                      +----> System Services
@@ -245,8 +275,9 @@ Desilium consists of independently maintainable components.
 
 | Component | Responsibility |
 |---|---|
-| desilium-compositor | Wayland compositor and window management |
-| desilium-shell | Desktop interface and panels |
+| KWin (external, `kwin_wayland`) | Wayland compositor and window management; not part of this repository |
+| desilium-kwin | KWin bridge: applies the Desilium configuration to KWin and KDE, registers global shortcuts, places windows |
+| desilium-shell | Desktop interface, panels and wallpaper |
 | desilium-ui | UI rendering abstraction |
 | desilium-settings | Graphical system configuration |
 | desilium-files (Doria) | Native file manager, drives, pinned places and network locations |
@@ -264,8 +295,12 @@ The exact crate and process boundaries should be determined according to reliabi
 
 ### Architecture Rules
 
-- The compositor must remain operational independently of the desktop shell.
+- KWin must remain operational independently of the desktop shell and of the bridge. If the shell or the bridge dies, KWin keeps running and the session continues.
 - A shell crash must not terminate the desktop session.
+- A KWin crash ends the session: a Wayland compositor cannot be restarted without losing every client connection.
+- Desilium code talks to KWin only through documented interfaces (Wayland protocols, D-Bus, KConfig files), never by patching or linking KWin.
+- Everything KWin-specific lives in the bridge crate or in the shell's protocol client, so a KWin change has a small blast radius.
+- Missing KWin services (a refused protocol, no `kglobalacceld`) degrade features and are reported; they never stop the desktop from starting.
 - Individual components must be independently restartable where practical.
 - System services must communicate through stable interfaces.
 - Rendering and business logic must remain separated.
@@ -284,10 +319,10 @@ Desilium should provide a polished desktop experience with familiar interaction 
 
 - Modern design language
 - Consistent spacing and typography
-- Smooth transitions
+- Smooth transitions (window animations are KWin's, with speed and on/off taken from the Desilium settings)
 - Hardware-accelerated effects
-- Optional transparency and blur
-- Consistent window decorations
+- Optional transparency and blur (blur behind the shell's own surfaces is requested from KWin)
+- Window decorations from KWin, coloured by the Desilium theme
 - Adaptive scaling
 - Light and dark themes
 - Configurable accent colors
@@ -361,6 +396,8 @@ Performance targets should be established after an initial functional prototype.
 ### Security
 
 - Respect Wayland security boundaries.
+- Privileged compositor interfaces are restricted by KWin. The window list and the virtual desktop protocols are only granted to executables named in a `.desktop` file that lists them in `X-KDE-Wayland-Interfaces`; the shell's desktop file does this. This replaces the name-based trust list of the former private compositor protocol.
+- Disabling KWin's permission checks (`desilium-session --allow-any-client`) is a development switch and never a default.
 - Use established authentication mechanisms.
 - Avoid privileged UI processes.
 - Separate privileged operations from unprivileged interfaces.
@@ -388,15 +425,18 @@ The system must remain usable even when noncritical desktop components fail.
 
 ## 9. Development Strategy
 
-### Phase 1 — Foundation
+### Phase 1 — Foundation: KWin integration
 
 - Initialize Cargo workspace.
 - Define architecture and interfaces.
-- Integrate Smithay.
-- Establish a minimal Wayland compositor.
-- Build a basic window management system.
-- Create a nested development environment.
+- Run KWin as the compositor under the `desilium-session` supervisor.
+- Project the typed configuration onto KWin and KDE (KConfig keys, D-Bus, global shortcuts) in the KWin bridge.
+- Connect the shell to KWin's window, virtual desktop and blur protocols.
+- Draw the wallpaper in the shell, since KWin has none.
+- Create a nested development environment (`kwin_wayland` inside an existing Wayland session).
 - Establish automated testing and logging.
+
+Status: implemented in code and covered by unit tests. Nothing of it has been run against a live KWin or `kglobalacceld` yet; the KDE-side key names, D-Bus signatures and action names are from memory and are listed in [`docs/kwin-integration.md`](docs/kwin-integration.md) as unverified. The phase counts as done when that list has been checked on a machine with KWin 6.
 
 ### Phase 2 — UI Foundation
 
@@ -406,6 +446,7 @@ The system must remain usable even when noncritical desktop components fail.
 - Implement the application launcher.
 - Establish the theme system.
 - Validate input handling and rendering performance.
+- Validate blur and the layer-shell surfaces of the shell on KWin.
 
 ### Phase 3 — Configuration Platform
 
@@ -419,23 +460,21 @@ The system must remain usable even when noncritical desktop components fail.
 
 ### Phase 4 — Desktop Features
 
-- Multi-monitor management
-- Window snapping
-- Virtual desktops
+- Multi-monitor: output handling comes from KWin; Desilium adds per-output shell surfaces (the wallpaper already has one per output) and the settings for them
+- Window snapping and virtual desktops: provided by KWin, configured from the Desilium settings
 - Notifications
 - System tray
 - Quick settings
 - Audio controls
 - Network controls
 - Power management
-- Lock screen
+- Lock screen: not provided by the current session (KWin is started with `--no-lockscreen`); decide between KDE's screen locker and a Desilium lock screen
 
 ### Phase 5 — Integration
 
-- XWayland compatibility
-- Desktop portals
-- Screen sharing
-- Screen capture
+- XWayland compatibility: provided by KWin; verify with real X11 applications
+- Desktop portals: use the KDE portal backend for screencast and remote desktop, keep Desilium's own backend for what is Desilium-specific
+- Screen sharing and screen capture: through those portals and KWin
 - Clipboard integration
 - Drag and drop
 - Accessibility
@@ -468,8 +507,8 @@ The projects must remain architecturally independent.
 Responsible for:
 
 - Desktop interface
-- Window management
-- Desktop effects
+- Window-management settings and shortcuts (KWin does the window management)
+- Desktop effects as far as KWin offers them
 - User interaction
 - Desktop customization
 - Session experience
@@ -488,7 +527,7 @@ Responsible for:
 
 Desilium must not contain hardcoded assumptions that require Myronide.
 
-Myronide may ship Desilium as its default desktop environment.
+Myronide may ship Desilium as its default desktop environment. Because Desilium depends on KWin, Myronide ships KWin and the KDE services the bridge talks to (`kglobalacceld`, `kconfig`, the KDE portal backend) as part of that package set, and decides which KWin version it supports.
 
 ---
 
@@ -506,6 +545,7 @@ A Desilium feature is not considered complete unless:
 - It supports safe recovery where necessary.
 - It has appropriate automated tests.
 - Its performance has been evaluated.
+- If it depends on KWin or KDE behaviour, that behaviour has been checked against a running KWin, and the KWin version is recorded.
 
 ### Non-Negotiable Principle
 

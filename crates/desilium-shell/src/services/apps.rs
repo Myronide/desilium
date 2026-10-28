@@ -103,6 +103,20 @@ impl Starter {
         self.run(&command)
     }
 
+    /// Starts the application an entry describes, which need not be in the catalog (a launcher
+    /// on the desktop).
+    pub fn launch_entry(&self, entry: &DesktopEntry) -> Result<(), StartError> {
+        let command =
+            launch::for_entry(entry, None, &Documents::default(), self.terminal.as_ref())?;
+        self.run(&command)
+    }
+
+    /// Opens a file or folder with the user's default application (`xdg-open`).
+    pub fn open_path(&self, path: &std::path::Path) -> Result<(), StartError> {
+        let command = LaunchCommand::new("xdg-open", vec![path.to_string_lossy().into_owned()]);
+        self.run(&command)
+    }
+
     /// Runs `line` through `sh -c` inside the terminal.
     pub fn run_shell(&self, line: &str) -> Result<(), StartError> {
         let terminal = self.terminal.as_ref().ok_or(StartError::NoTerminal)?;

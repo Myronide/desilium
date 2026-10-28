@@ -44,7 +44,6 @@ fn app_row(
         icon: RowIcon::App {
             desktop_id: id.to_owned(),
             icon: entry.icon.clone(),
-            categories: entry.categories.clone(),
         },
     })
 }

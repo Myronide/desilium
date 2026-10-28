@@ -1,0 +1,16 @@
+#desk { position: absolute; left: 0; top: 0; right: 0; bottom: 0; cursor: default; }
+.dicon { position: absolute; padding: 4px; border-radius: 10px; border: 1px solid transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.dicon:hover { background: rgba(255,255,255,0.12); }
+.dicon.sel { background: var(--accent-soft); border-color: var(--accent); }
+.dicon.untrusted .dthumb { opacity: 0.6; }
+.dicon.carried { opacity: 0.85; }
+.dthumb { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; flex: none; }
+.dname { margin-top: 4px; max-height: 32px; overflow: hidden; font-size: 12px; line-height: 16px; text-align: center; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.85); }
+.drename { width: 88px; height: 22px; margin-top: 4px; padding: 0 4px; font-size: 12px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--accent); }
+.dtarget { position: absolute; border-radius: 10px; border: 2px dashed var(--accent); background: var(--accent-soft); }
+.dband { position: absolute; border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 3px; }
+.dmenu { position: absolute; width: 210px; padding: 6px; border-radius: 14px; display: flex; flex-direction: column; gap: 2px; background: var(--glass-sheen), var(--glass-bg-strong); border: 1px solid var(--glass-border); box-shadow: 0 8px 28px rgba(0,0,0,0.4); }
+.dmenu button { height: 34px; padding: 0 12px; border-radius: 9px; background: none; color: var(--text); font-size: 13px; text-align: left; }
+.dmenu button:hover { background: var(--surface-3); }
+.dnotice { position: absolute; left: 0; right: 0; bottom: 150px; display: flex; justify-content: center; }
+.dnotice span { padding: 8px 16px; border-radius: 16px; font-size: 13px; color: var(--text); background: var(--glass-bg-strong); border: 1px solid var(--glass-border); }

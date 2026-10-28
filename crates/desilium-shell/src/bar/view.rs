@@ -8,7 +8,10 @@ use crate::{
         clock::ClockText,
         windows::Workspaces,
     },
-    view::esc,
+    view::{
+        esc,
+        icon::{IconSpec, icon_html},
+    },
 };
 
 /// Height of the bar in logical pixels (also its exclusive zone).
@@ -20,8 +23,8 @@ const ICON_PX: u32 = 16;
 pub struct ActiveApp {
     /// Application name.
     pub name: String,
-    /// Line glyph from the sprite.
-    pub glyph: String,
+    /// The application's own icon.
+    pub icon: IconSpec,
     /// Window title (empty when there is none).
     pub title: String,
 }
@@ -70,9 +73,9 @@ pub fn left_html(view: &BarView) -> String {
         )
     };
     format!(
-        "{}<div class=\"tb-btn static\">{}<span class=t-semi>{}</span></div>{title}",
+        "{}<div class=\"tb-btn bar-app static\">{}<span class=t-semi>{}</span></div>{title}",
         workspaces_html(view.workspaces),
-        icon(&view.app.glyph),
+        icon_html(&view.app.icon, "", ICON_PX),
         esc(&view.app.name),
     )
 }
@@ -97,9 +100,9 @@ fn battery_html(battery: Battery) -> String {
 pub fn right_html(view: &BarView) -> String {
     let battery = view.battery.map(battery_html).unwrap_or_default();
     format!(
-        "<div class=\"tb-btn dim\" data-action=layout data-tooltip=\"Keyboard layout (click to switch)\">{layout}</div>\
+        "<div class=\"tb-btn dim bar-layout\" data-action=layout data-tooltip=\"Keyboard layout (click to switch)\">{layout}</div>\
          <div class=tb-group data-action=quick-settings data-tooltip=\"Quick settings\">{wifi}{volume}{battery}{chevron}</div>\
-         <div class=\"tb-btn dim\" data-action=power data-tooltip=\"Power\">{power}</div>",
+         <div class=\"tb-btn dim bar-power\" data-action=power data-tooltip=\"Power\">{power}</div>",
         layout = esc(&view.layout),
         wifi = icon("wifi"),
         volume = icon("volume"),
@@ -141,7 +144,7 @@ mod tests {
             },
             app: ActiveApp {
                 name: "Code".into(),
-                glyph: "code".into(),
+                icon: IconSpec::Glyph("code"),
                 title: "main.rs <desilium>".into(),
             },
             clock: ClockText {

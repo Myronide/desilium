@@ -1,7 +1,7 @@
 //! Behaviour tests that need no display or GPU.
 
 use super::*;
-use crate::input::{Key, KeyEvent, PointerButton};
+use crate::input::{DragPhase, Key, KeyEvent, PointerButton, UiEvent};
 
 fn surface(html: &str, css: &str, w: u32, h: u32) -> UiSurface {
     UiSurface::new(html, &[css], SurfaceOptions::new(w, h)).unwrap()
@@ -455,6 +455,151 @@ fn middle_click_fires_only_the_middle_action() {
     s.pointer_down(20.0, 20.0, PointerButton::Primary);
     s.pointer_up(20.0, 20.0, PointerButton::Primary);
     assert_eq!(s.take_actions()[0].action, "open");
+}
+
+fn drags(ui: &mut UiSurface) -> Vec<crate::UiDrag> {
+    ui.take_events()
+        .into_iter()
+        .filter_map(|event| match event {
+            UiEvent::Drag(drag) => Some(drag),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_drag_goes_on_when_the_pressed_element_is_replaced_and_no_event_needs_a_layout_first() {
+    let mut ui = surface(
+        "<div id=root><div class=box data-drag=icon data-arg=7></div></div>",
+        BOX_CSS,
+        64,
+        48,
+    );
+    ui.pointer_move(20.0, 20.0);
+    ui.pointer_down(20.0, 20.0, PointerButton::Primary);
+    ui.pointer_move(30.0, 25.0);
+    // The host redraws between two events, as the shell does after every move of a drag; no
+    // render happens before the next event.
+    ui.replace_children("#root", "<div class=box data-drag=icon data-arg=7></div>")
+        .unwrap();
+    ui.pointer_move(40.0, 30.0);
+    ui.replace_children("#root", "<div class=box data-drag=icon data-arg=7></div>")
+        .unwrap();
+    ui.pointer_up(40.0, 30.0, PointerButton::Primary);
+    ui.replace_children("#root", "").unwrap();
+    ui.wheel(40.0, 30.0, crate::WheelDelta::Pixels { x: 0.0, y: 5.0 });
+    let events = drags(&mut ui);
+    assert!(
+        events
+            .iter()
+            .all(|drag| drag.name == "icon" && drag.arg.as_deref() == Some("7")),
+        "{events:?}"
+    );
+    assert_eq!(
+        events.first().map(|drag| drag.phase),
+        Some(DragPhase::Start)
+    );
+    assert_eq!(events.last().map(|drag| drag.phase), Some(DragPhase::End));
+}
+
+#[test]
+fn a_press_that_hardly_moves_is_a_click_and_no_drag() {
+    let mut ui = surface(
+        "<div class=box data-action=open data-drag=icon data-arg=7></div>",
+        BOX_CSS,
+        64,
+        48,
+    );
+    ui.pointer_move(20.0, 20.0);
+    ui.pointer_down(20.0, 20.0, PointerButton::Primary);
+    ui.pointer_move(22.0, 21.0);
+    ui.pointer_up(22.0, 21.0, PointerButton::Primary);
+    let events = ui.take_events();
+    assert!(
+        matches!(events.as_slice(), [UiEvent::Action(action)] if action.action == "open"),
+        "{events:?}"
+    );
+}
+
+#[test]
+fn moving_past_the_threshold_drags_and_swallows_the_click() {
+    let mut ui = surface(
+        "<div class=box data-action=open data-drag=icon data-arg=7></div>",
+        BOX_CSS,
+        64,
+        48,
+    );
+    ui.pointer_move(20.0, 20.0);
+    ui.pointer_down(20.0, 20.0, PointerButton::Primary);
+    ui.pointer_move(23.0, 20.0);
+    assert!(drags(&mut ui).is_empty(), "still inside the threshold");
+    ui.pointer_move(40.0, 30.0);
+    ui.pointer_move(45.0, 35.0);
+    ui.pointer_up(45.0, 35.0, PointerButton::Primary);
+    let all = ui.take_events();
+    let phases: Vec<_> = all
+        .iter()
+        .filter_map(|event| match event {
+            UiEvent::Drag(drag) => Some(drag.phase),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        phases,
+        [DragPhase::Start, DragPhase::Move, DragPhase::End],
+        "{all:?}"
+    );
+    assert!(
+        !all.iter().any(|event| matches!(event, UiEvent::Action(_))),
+        "a drag is not a click"
+    );
+    let UiEvent::Drag(start) = &all[0] else {
+        panic!("first event is the start");
+    };
+    assert_eq!(
+        (start.name.as_str(), start.arg.as_deref()),
+        ("icon", Some("7"))
+    );
+    assert_eq!(start.origin, (20.0, 20.0));
+    assert_eq!(start.pos, (40.0, 30.0));
+}
+
+#[test]
+fn only_elements_with_data_drag_start_drags_and_the_next_press_starts_clean() {
+    let mut ui = surface("<div class=box data-action=open></div>", BOX_CSS, 64, 48);
+    ui.pointer_move(20.0, 20.0);
+    ui.pointer_down(20.0, 20.0, PointerButton::Primary);
+    ui.pointer_move(50.0, 40.0);
+    ui.pointer_up(50.0, 40.0, PointerButton::Primary);
+    assert!(drags(&mut ui).is_empty());
+
+    let mut ui = surface("<div class=box data-drag=icon></div>", BOX_CSS, 64, 48);
+    ui.pointer_move(20.0, 20.0);
+    ui.pointer_down(20.0, 20.0, PointerButton::Primary);
+    ui.pointer_move(50.0, 40.0);
+    ui.pointer_up(50.0, 40.0, PointerButton::Primary);
+    let phases: Vec<_> = drags(&mut ui).iter().map(|drag| drag.phase).collect();
+    assert_eq!(
+        phases,
+        [DragPhase::Start, DragPhase::End],
+        "one jump past the threshold starts the drag, the release ends it"
+    );
+    ui.pointer_move(30.0, 20.0);
+    assert!(
+        drags(&mut ui).is_empty(),
+        "moving after the drop is not a drag"
+    );
+}
+
+#[test]
+fn leaving_the_surface_ends_a_drag() {
+    let mut ui = surface("<div class=box data-drag=icon></div>", BOX_CSS, 64, 48);
+    ui.pointer_move(20.0, 20.0);
+    ui.pointer_down(20.0, 20.0, PointerButton::Primary);
+    ui.pointer_move(40.0, 20.0);
+    ui.pointer_leave();
+    let phases: Vec<_> = drags(&mut ui).iter().map(|drag| drag.phase).collect();
+    assert_eq!(phases, [DragPhase::Start, DragPhase::End]);
 }
 
 #[test]

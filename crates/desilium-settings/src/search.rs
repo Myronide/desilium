@@ -50,21 +50,27 @@ fn score(def: &SettingDef, words: &[&str], query: &str) -> Option<u32> {
     for word in words {
         total += word_score(def, word)?;
     }
-    if def.title.to_lowercase().starts_with(query) {
+    if def.title_text().to_lowercase().starts_with(query) {
         total += BONUS_TITLE_STARTS_WITH_QUERY;
     }
     Some(total)
 }
 
 /// Best score of one query word over all fields; `None` when it matches nothing.
+///
+/// Fields are searched in the language on screen, so a German user finds "Akzentfarbe".
 fn word_score(def: &SettingDef, word: &str) -> Option<u32> {
-    let title = def.title.to_lowercase();
+    let title = def.title_text().to_lowercase();
     let candidates = [
         field_score(&title, word, SCORE_TITLE_WORD_PREFIX, SCORE_TITLE_CONTAINS),
         keyword_score(def, word),
         contains_score(def.id, word, SCORE_KEY_PATH),
-        contains_score(&def.section.to_lowercase(), word, SCORE_SECTION),
-        contains_score(&def.description.to_lowercase(), word, SCORE_DESCRIPTION),
+        contains_score(&def.section_text().to_lowercase(), word, SCORE_SECTION),
+        contains_score(
+            &def.description_text().to_lowercase(),
+            word,
+            SCORE_DESCRIPTION,
+        ),
         contains_score(&def.page.title().to_lowercase(), word, SCORE_PAGE),
     ];
     candidates.into_iter().flatten().max()
@@ -85,7 +91,7 @@ fn contains_score(text: &str, word: &str, score: u32) -> Option<u32> {
 }
 
 fn keyword_score(def: &SettingDef, word: &str) -> Option<u32> {
-    def.keywords
+    def.search_keywords()
         .iter()
         .filter_map(|keyword| {
             field_score(

@@ -13,14 +13,16 @@ use std::{
 use calloop::{EventLoop, Interest, Mode, PostAction, channel, generic::Generic};
 use desilium_config::{ConfigStore, Recovery};
 use desilium_ui::{
-    HoverTarget, Rect, UiAction, UiError, UiEvent, UiSurface, Updates,
+    HoverTarget, Rect, UiAction, UiDrag, UiError, UiEvent, UiSurface, Updates,
     wayland::{WindowConfig, WindowEvent, WindowId, XdgWindowHost},
 };
 
 use crate::{
     app::{App, AppOptions},
+    i18n::{tr, tr_args},
     model::{Level, is_compact},
     refresh::Refresh,
+    store::{Done as StoreDone, StoreWorker},
     surface::build_surface,
     wallpapers::{ThumbResult, ThumbWorker},
 };
@@ -65,6 +67,7 @@ struct Shell {
     app: App,
     window: WindowId,
     thumbs: Vec<ThumbResult>,
+    store_results: Vec<StoreDone>,
     watcher: Option<ConfigWatcher>,
     reload_at: Option<Instant>,
     quit: bool,
@@ -93,6 +96,8 @@ pub fn run(cli: Cli) -> Result<(), RunError> {
     let worker = ThumbWorker::spawn(options.cache_dir.clone(), move |result| {
         let _ = thumb_tx.send(result);
     });
+    let (store_tx, store_rx) = channel::channel::<StoreDone>();
+    let store_dirs = options.store_dirs.clone();
     let mut app = App::new(store, options, Some(worker));
     announce_recovery(&mut app, &opened.recovery);
     let now = Instant::now();
@@ -103,9 +108,14 @@ pub fn run(cli: Cli) -> Result<(), RunError> {
     if cli.no_window {
         return Ok(());
     }
+    // The theme store's helper threads (network and unpacking never run on this thread).
+    app.set_store_worker(StoreWorker::spawn(store_dirs, move |done| {
+        let _ = store_tx.send(done);
+    }));
     let mut host = XdgWindowHost::connect().map_err(friendly_connect_error)?;
     let ui = build_surface(&mut app, cli.size, 1.0, now)?;
-    let mut window_config = WindowConfig::new(WINDOW_TITLE, APP_ID, cli.size);
+    let window_title = tr("ui.window.title", WINDOW_TITLE);
+    let mut window_config = WindowConfig::new(&window_title, APP_ID, cli.size);
     window_config.min_size = Some(MIN_SIZE);
     let window = host.add_window(window_config, ui)?;
 
@@ -117,6 +127,7 @@ pub fn run(cli: Cli) -> Result<(), RunError> {
         app,
         window,
         thumbs: Vec::new(),
+        store_results: Vec::new(),
         watcher: start_watcher(&config_dir),
         reload_at: None,
         quit: false,
@@ -129,6 +140,13 @@ pub fn run(cli: Cli) -> Result<(), RunError> {
         .insert_source(thumb_rx, |event, _, shell: &mut Shell| {
             if let channel::Event::Msg(result) = event {
                 shell.thumbs.push(result);
+            }
+        })
+        .map_err(|error| RunError::Loop(error.to_string()))?;
+    handle
+        .insert_source(store_rx, |event, _, shell: &mut Shell| {
+            if let channel::Event::Msg(done) = event {
+                shell.store_results.push(done);
             }
         })
         .map_err(|error| RunError::Loop(error.to_string()))?;
@@ -180,7 +198,11 @@ fn announce_recovery(app: &mut App, recovery: &[Recovery]) {
         .join(" ");
     app.show_notice(
         Level::Info,
-        format!("Your settings file needed repairs: {text}"),
+        tr_args(
+            "ui.notice.repairs",
+            "Your settings file needed repairs: {text}",
+            &[("text", &text)],
+        ),
     );
 }
 
@@ -244,6 +266,9 @@ impl Shell {
         for result in std::mem::take(&mut self.thumbs) {
             refresh = refresh.merge(self.app.on_thumb(result));
         }
+        for done in std::mem::take(&mut self.store_results) {
+            refresh = refresh.merge(self.app.on_store(done, now));
+        }
         if self.reload_at.is_some_and(|at| at <= now) {
             self.reload_at = None;
             refresh = refresh.merge(self.app.reload_external(now));
@@ -256,6 +281,10 @@ impl Shell {
 
     fn on_window_event(&mut self, event: WindowEvent, now: Instant) -> Refresh {
         match event {
+            WindowEvent::Ui {
+                event: UiEvent::Drag(drag),
+                ..
+            } if drag.name == "range" => self.range_drag(&drag, now),
             WindowEvent::Ui { event, .. } => self.app.handle_event(&event, now),
             WindowEvent::Hover { target, .. } => {
                 self.show_tooltip(target);
@@ -274,6 +303,23 @@ impl Shell {
             }
             WindowEvent::Resized { size, .. } => self.on_resize(size.0),
         }
+    }
+
+    /// A slider drag: the pointer's place along the slider's track decides the value.
+    fn range_drag(&mut self, drag: &UiDrag, now: Instant) -> Refresh {
+        let Some(id) = drag.arg.as_deref() else {
+            return Refresh::default();
+        };
+        let selector = format!("#trk-{}", crate::view::field_id(id));
+        let track = self
+            .host
+            .surface_mut(self.window)
+            .and_then(|ui| ui.element_rect(&selector).ok());
+        let Some(track) = track.filter(|track| track.width > 0.0) else {
+            return Refresh::default();
+        };
+        let fraction = (drag.pos.0 - track.x) / track.width;
+        self.app.range_drag(id, drag.phase, fraction, now)
     }
 
     fn on_resize(&mut self, width: u32) -> Refresh {
@@ -300,10 +346,8 @@ impl Shell {
         }
         if refresh.nav {
             let page = self.app.model().page.title();
-            if let Err(error) = self
-                .host
-                .set_title(self.window, &format!("{page} - {WINDOW_TITLE}"))
-            {
+            let title = format!("{page} - {}", tr("ui.window.title", WINDOW_TITLE));
+            if let Err(error) = self.host.set_title(self.window, &title) {
                 tracing::warn!(%error, "could not set the window title");
             }
         }

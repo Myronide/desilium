@@ -42,8 +42,8 @@ pub mod wayland;
 pub use error::UiError;
 pub use icons::{app_icon_html, has_icon, icon_names, icon_svg, inline_sprite_uses};
 pub use input::{
-    CursorHint, HoverTarget, Key, KeyEvent, Modifiers, PixelRect, PointerButton, Rect, RenderStats,
-    UiAction, UiEvent, WheelDelta,
+    CursorHint, DragPhase, HoverTarget, Key, KeyEvent, Modifiers, PixelRect, PointerButton, Rect,
+    RenderStats, UiAction, UiDrag, UiEvent, WheelDelta,
 };
 pub use surface::{SurfaceOptions, UiSurface, Updates, bgra_premultiplied_to_rgba};
 pub use theme::{blitz_fixups_css, tokens_css};

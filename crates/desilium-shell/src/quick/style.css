@@ -1,44 +1,54 @@
-.panel{height:100%;padding:16px;border-radius:20px;background:var(--glass-sheen),var(--glass-bg-strong);border:1px solid var(--glass-border);box-shadow:inset 0 1px 0 var(--glass-highlight);color:var(--text);display:flex;flex-direction:column;gap:10px;overflow-y:auto}
-.heading{display:flex;align-items:center;justify-content:space-between}
-.heading h2{font-size:17px;font-weight:600}
-.heading small{font-size:11px;color:var(--text-2)}
-.heading-actions{display:flex;gap:6px}
-.heading-actions button{width:30px;height:30px;padding:0;font-size:15px;text-align:center}
-h3{font-size:10px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em}
+.panel{height:100%;padding:18px;border-radius:28px;background:var(--glass-sheen),var(--glass-bg-strong);border:1px solid var(--glass-border);box-shadow:inset 0 1px 0 var(--glass-highlight);color:var(--text);display:flex;flex-direction:column;gap:14px;overflow-y:auto}
 button{padding:7px 10px;border-radius:10px;background:var(--surface-3);cursor:pointer;font-size:12px}
 button:hover{background:var(--surface-4)}
-.net{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:var(--surface-2)}
-.net strong{display:block;font-size:12px;font-weight:600}
-.net small{display:block;font-size:11px;color:var(--text-2);margin-top:1px}
-.net .dot{width:9px;height:9px;border-radius:5px;background:var(--text-2);opacity:.5}
-.net.up .dot{background:var(--accent);opacity:1}
-.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.tile{min-height:48px;text-align:left;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:8px 12px;border-radius:12px}
-.tile strong{font-size:12px;font-weight:600}
-.tile small{font-size:10px;color:var(--text-2)}
+
+/* Top row: round icon buttons, the battery on the right. */
+.top{display:flex;align-items:center;gap:10px;height:40px;flex:none}
+.top .grow{flex:1}
+.round{width:40px;height:40px;padding:0;border-radius:20px;display:flex;align-items:center;justify-content:center;flex:none;background:var(--surface-3)}
+.batt{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--text-2)}
+
+/* Sliders: an icon, a track with a round knob. The segments on top are invisible and take the clicks. */
+.slider{display:flex;align-items:center;gap:12px;height:40px;flex:none}
+.slider .round{background:none}
+.slider .round:hover{background:var(--surface-3)}
+.lead{width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex:none;color:var(--text-2)}
+.track{position:relative;flex:1;height:24px;display:flex;align-items:center}
+.fill{height:8px;border-radius:4px 0 0 4px;background:var(--accent)}
+.rest{height:8px;border-radius:0 4px 4px 0;background:var(--surface-4)}
+.knob{width:24px;height:24px;border-radius:12px;flex:none;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.hits{position:absolute;left:0;top:0;right:0;bottom:0;display:flex}
+.hits .seg{flex:1;padding:0;border-radius:0;background:none}
+.hits .seg:hover{background:none}
+
+/* Pill tiles: icon and one word. Lit (accent) means on. */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:none}
+.tile{height:52px;padding:0 16px;border-radius:26px;display:flex;align-items:center;gap:10px;background:var(--surface-3);font-size:14px;font-weight:600;text-align:left;overflow:hidden}
+.tile span{flex:1;white-space:nowrap;overflow:hidden}
 .tile.on{background:var(--accent);color:var(--text-on-accent,#fff)}
-.tile.on small{color:var(--text-on-accent,#fff);opacity:.8}
-.unavailable{opacity:.5;background:var(--surface-2)}
-.sliders{display:flex;flex-direction:column;gap:9px}
-.slider-head{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px}
-.slider-head strong{flex:1;font-weight:600}
-.slider-head span{color:var(--text-2)}
-.slider-head button{padding:2px 9px;font-size:11px}
-.level{display:flex;gap:2px;height:16px}
-.seg{flex:1;padding:0;border-radius:4px;background:var(--surface-3)}
-.seg.on{background:var(--accent)}
+.tile.on:hover{background:var(--accent)}
+.tile.unavailable{opacity:.45}
+.split{padding:0;gap:0}
+.split .main{flex:1;height:52px;padding:0 0 0 16px;border-radius:0;display:flex;align-items:center;gap:10px;background:none;font-size:14px;font-weight:600;text-align:left}
+.split .main:hover{background:none}
+.split .more{width:56px;height:52px;padding:0;border-radius:0;display:flex;align-items:center;justify-content:center;flex:none;background:rgba(255,255,255,.14)}
+.split .more:hover{background:rgba(255,255,255,.24)}
+
+/* Wi-Fi networks, unfolded from the Wi-Fi tile. */
 .aps{display:flex;flex-direction:column;gap:3px}
-.ap{display:flex;justify-content:space-between;align-items:center;text-align:left;padding:6px 12px;background:var(--surface-2)}
-.ap small{font-size:10px;color:var(--text-2)}
+.ap{height:37px;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:0 16px;border-radius:19px;font-size:13px;background:var(--surface-2)}
+.ap small{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-2)}
 .ap.active{background:var(--accent);color:var(--text-on-accent,#fff)}
 .ap.active small{color:var(--text-on-accent,#fff)}
+
+.notice{font-size:11px;line-height:1.5;color:var(--text-2);overflow-y:auto;max-height:44px}
+
+/* The app menu (right click on a dock icon) shares the panel. */
+.heading{display:flex;align-items:center;justify-content:space-between}
+.heading h2{font-size:17px;font-weight:600}
+h3{font-size:10px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em}
 .profile{display:flex;gap:6px;margin-top:5px}
 .profile button{flex:1;font-size:11px;text-align:center}
-.profile button.chosen{background:var(--accent);color:var(--text-on-accent,#fff)}
 .setting{display:flex;align-items:center;gap:7px;font-size:11px}
 .setting strong{flex:1;font-weight:500}
-.setting span{color:var(--text-2)}
 .hint{font-size:11px;color:var(--text-2)}
-.notice{font-size:11px;line-height:1.5;color:var(--text-2);overflow-y:auto;max-height:44px}
-.panel-footer{display:flex;gap:6px;margin-top:auto;border-top:1px solid var(--border);padding-top:10px}
-.panel-footer button{flex:1;font-size:11px;text-align:center}

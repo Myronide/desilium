@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use crate::i18n::tr;
+
 /// Longest free-text value accepted (terminal command line, cursor theme name).
 const MAX_TEXT_CHARS: usize = 200;
 const HEX_SHORT_DIGITS: usize = 3;
@@ -60,8 +62,9 @@ pub fn format_number(number: f64) -> String {
 pub struct InvalidValue(pub String);
 
 impl InvalidValue {
-    pub(super) fn new(message: &str) -> Self {
-        Self(message.to_owned())
+    /// The message for catalog `key` in the current language; `english` is the source text.
+    pub(super) fn translated(key: &str, english: &str) -> Self {
+        Self(tr(key, english))
     }
 }
 
@@ -76,7 +79,8 @@ pub fn normalize_hex(input: &str) -> Result<String, InvalidValue> {
         HEX_SHORT_DIGITS | HEX_RGB_DIGITS | HEX_RGBA_DIGITS
     );
     if !all_hex || !valid_len {
-        return Err(InvalidValue::new(
+        return Err(InvalidValue::translated(
+            "ui.error.hex_colour",
             "Enter a colour like #7B61FF (3, 6 or 8 hex digits).",
         ));
     }
@@ -95,12 +99,16 @@ pub fn normalize_text(input: &str) -> Result<Value, InvalidValue> {
         return Ok(Value::Unset);
     }
     if trimmed.chars().any(char::is_control) {
-        return Err(InvalidValue::new(
+        return Err(InvalidValue::translated(
+            "ui.error.control_characters",
             "This value cannot contain control characters.",
         ));
     }
     if trimmed.chars().count() > MAX_TEXT_CHARS {
-        return Err(InvalidValue::new("This value is too long."));
+        return Err(InvalidValue::translated(
+            "ui.error.too_long",
+            "This value is too long.",
+        ));
     }
     Ok(Value::Text(trimmed.to_owned()))
 }
@@ -112,7 +120,7 @@ pub fn parse_number(input: &str) -> Result<f64, InvalidValue> {
         .parse::<f64>()
         .ok()
         .filter(|number| number.is_finite())
-        .ok_or_else(|| InvalidValue::new("Enter a number."))
+        .ok_or_else(|| InvalidValue::translated("ui.error.enter_number", "Enter a number."))
 }
 
 #[cfg(test)]

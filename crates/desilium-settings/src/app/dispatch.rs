@@ -2,11 +2,12 @@
 
 use std::time::Instant;
 
-use desilium_ui::UiEvent;
+use desilium_ui::{DragPhase, UiEvent};
 
 use super::{App, Retry};
 use crate::{
     changes::{self, ChangeOutcome, Recovery},
+    i18n::{tr, tr_args},
     model::{AccentEditor, HIGHLIGHT_LIFETIME, Level, TOAST_LIFETIME, Toast},
     refresh::Refresh,
     registry::{self, Page, SettingDef, Value, parse_number},
@@ -27,6 +28,9 @@ impl App {
             }
             UiEvent::TextChanged { key, value, .. } => self.handle_text(key.as_deref(), value),
             UiEvent::Submit { action, value } => self.handle_submit(action, value, now),
+            // Slider drags need the track's rectangle, which only the window host can measure; it
+            // calls `range_drag` itself.
+            UiEvent::Drag(_) => Refresh::default(),
         }
     }
 
@@ -62,6 +66,7 @@ impl App {
             "rebind" | "rebind-cancel" | "rebind-swap" | "shortcut-reset" => {
                 self.rebind_action(name, arg, now)
             }
+            _ if name.starts_with("store-") => self.store_action(name, arg, now),
             _ => Refresh::default(),
         }
     }
@@ -87,6 +92,10 @@ impl App {
                 });
                 field
             }
+            "store-search" => {
+                self.model.store.draft = value.to_owned();
+                field
+            }
             _ => field,
         }
     }
@@ -97,6 +106,10 @@ impl App {
                 Some(hit) => self.goto(hit.def.id, now),
                 None => Refresh::default(),
             };
+        }
+        if action == "store-search" {
+            self.model.store.draft = value.to_owned();
+            return self.store_search();
         }
         if action == "accent-apply" {
             self.model.accent_editor = Some(AccentEditor {
@@ -119,6 +132,9 @@ impl App {
         self.model.query.clear();
         self.model.accent_editor = None;
         self.model.rebind = None;
+        if page == Page::Themes {
+            self.store_enter();
+        }
         Refresh {
             clear_search: true,
             ..Refresh::page()
@@ -146,6 +162,39 @@ impl App {
             return Refresh::default();
         };
         self.apply_by_id(id, value, now)
+    }
+
+    /// A slider of setting `id` is being dragged: `fraction` is where the pointer is along its
+    /// track (below 0 or above 1 outside it). The thumb follows the pointer; the value is stored
+    /// once, when the button is released.
+    pub fn range_drag(
+        &mut self,
+        id: &str,
+        phase: DragPhase,
+        fraction: f64,
+        now: Instant,
+    ) -> Refresh {
+        let Some(def) = registry::find(id) else {
+            return Refresh::default();
+        };
+        let target = match def.control {
+            registry::Control::Stepper(range) => range.value_at(fraction),
+            registry::Control::Slider(slider) => slider.stop_at(fraction),
+            _ => return Refresh::default(),
+        };
+        match phase {
+            DragPhase::Start | DragPhase::Move => {
+                self.model.range_preview = Some((def.id, target));
+                Refresh {
+                    range: Some(def.id),
+                    ..Refresh::default()
+                }
+            }
+            DragPhase::End => {
+                self.model.range_preview = None;
+                self.apply_by_id(def.id, Value::Number(target), now)
+            }
+        }
     }
 
     fn step(&mut self, arg: &str, now: Instant) -> Refresh {
@@ -198,7 +247,12 @@ impl App {
                 .map(|repair| repair.message.clone())
                 .collect::<Vec<_>>()
                 .join(" ");
-            self.notice(Level::Info, format!("Adjusted for you: {text}"), None);
+            let notice = tr_args(
+                "ui.notice.adjusted",
+                "Adjusted for you: {text}",
+                &[("text", &text)],
+            );
+            self.notice(Level::Info, notice, None);
         }
         Refresh::main().merge(self.sync())
     }
@@ -208,8 +262,8 @@ impl App {
         let label = defs
             .first()
             .filter(|_| defs.len() == 1)
-            .map_or(label, |def| def.title);
-        self.reset_defs(&defs, label, now)
+            .map_or_else(|| label.to_owned(), |def| def.title_text());
+        self.reset_defs(&defs, &label, now)
     }
 
     fn reset_section(&mut self, arg: &str, now: Instant) -> Refresh {
@@ -223,7 +277,7 @@ impl App {
             .into_iter()
             .find(|s| s.title == title);
         match section {
-            Some(section) => self.reset_defs(&section.settings, title, now),
+            Some(section) => self.reset_defs(&section.settings, &section.title_text(), now),
             None => Refresh::default(),
         }
     }
@@ -233,7 +287,7 @@ impl App {
             return Refresh::default();
         };
         let defs: Vec<&SettingDef> = registry::for_page(page).collect();
-        self.reset_defs(&defs, page.title(), now)
+        self.reset_defs(&defs, &page.title(), now)
     }
 
     fn reset_defs(&mut self, defs: &[&SettingDef], label: &str, now: Instant) -> Refresh {
@@ -256,7 +310,7 @@ impl App {
         match changes::undo(&mut self.store, &target) {
             Ok(()) => {
                 self.model.toast = Some(Toast {
-                    message: "Change undone".to_owned(),
+                    message: tr("ui.change.undone", "Change undone"),
                     undo: None,
                     expires: now + TOAST_LIFETIME,
                 });
@@ -338,7 +392,10 @@ impl App {
             None => Refresh::default(),
             Some(ReloadOutcome::Applied { recovery }) => {
                 self.model.toast = Some(Toast {
-                    message: "Settings were updated outside this window".to_owned(),
+                    message: tr(
+                        "ui.notice.updated_outside",
+                        "Settings were updated outside this window",
+                    ),
                     undo: None,
                     expires: now + TOAST_LIFETIME,
                 });
@@ -349,25 +406,25 @@ impl App {
                         .map(ToString::to_string)
                         .collect::<Vec<_>>()
                         .join(" ");
-                    self.notice(
-                        Level::Info,
-                        format!("Some values were adjusted: {text}"),
-                        None,
+                    let notice = tr_args(
+                        "ui.notice.some_adjusted",
+                        "Some values were adjusted: {text}",
+                        &[("text", &text)],
                     );
+                    self.notice(Level::Info, notice, None);
                 }
                 self.model.rebind = None;
                 self.model.accent_editor = None;
                 Refresh::main().merge(self.sync())
             }
             Some(ReloadOutcome::Rejected { reason }) => {
-                self.notice(
-                    Level::Error,
-                    format!(
-                        "The settings file was changed but cannot be used ({reason}). \
-                         Your last good settings stay active."
-                    ),
-                    Some(Recovery::Dismiss),
+                let notice = tr_args(
+                    "ui.notice.rejected",
+                    "The settings file was changed but cannot be used ({reason}). \
+                     Your last good settings stay active.",
+                    &[("reason", &reason.to_string())],
                 );
+                self.notice(Level::Error, notice, Some(Recovery::Dismiss));
                 Refresh::main()
             }
         }

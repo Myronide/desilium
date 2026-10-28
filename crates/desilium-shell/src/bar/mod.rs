@@ -23,7 +23,8 @@ const PLACEHOLDER_WIDTH: u32 = 1920;
 pub struct Bar {
     id: SurfaceId,
     shown: BarView,
-    placed: (Presence, bool),
+    /// Presence, reserved zone and full height as last applied.
+    placed: (Presence, bool, u32),
 }
 
 impl Bar {
@@ -39,7 +40,7 @@ impl Bar {
         Ok(Self {
             id,
             shown: view,
-            placed: (Presence::Shown, true),
+            placed: (Presence::Shown, true, BAR_HEIGHT),
         })
     }
 
@@ -49,17 +50,19 @@ impl Bar {
     }
 
     /// Moves the bar between full, edge strip and off; `reserve` keeps windows out from under it.
+    /// `full` is the bar's height when shown.
     pub fn place(
         &mut self,
         host: &mut LayerHost,
         presence: Presence,
         reserve: bool,
+        full: u32,
     ) -> Result<(), UiError> {
-        if self.placed == (presence, reserve) {
+        if self.placed == (presence, reserve, full) {
             return Ok(());
         }
-        self.placed = (presence, reserve);
-        let height = presence.height(BAR_HEIGHT);
+        self.placed = (presence, reserve, full);
+        let height = presence.height(full);
         let width = host
             .surface(self.id)
             .map_or(PLACEHOLDER_WIDTH, |ui| ui.size().0);
@@ -70,7 +73,7 @@ impl Bar {
             config.size = (0, height);
             config.margins.top = if presence == Presence::Off { -1 } else { 0 };
             config.exclusive_zone = if reserve {
-                i32::try_from(BAR_HEIGHT).unwrap_or(i32::MAX)
+                i32::try_from(full).unwrap_or(i32::MAX)
             } else {
                 0
             };
@@ -83,8 +86,18 @@ impl Bar {
         settings: &desilium_config_types::ShellSettings,
     ) {
         host.update(self.id, |ui| {
+            let _ = ui.set_attr(
+                ".bar",
+                "style",
+                &format!("height:{}px", settings.bar_height),
+            );
             for (selector, visible) in [
                 (".ws-dots", settings.show_workspaces),
+                (".bar-app", settings.bar_show_app),
+                (".title", settings.bar_show_title),
+                ("#date", settings.bar_show_date),
+                (".bar-layout", settings.bar_show_layout),
+                (".bar-power", settings.bar_show_power),
                 ("#clock", settings.show_clock),
                 (".bat", settings.show_battery),
                 (".tb-group", settings.quick_settings),

@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::desktop::ini::{self, Group};
 use crate::env::Environment;
@@ -44,16 +44,28 @@ pub(crate) struct IconDirectory {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ThemeIndex {
     pub(crate) name: String,
-    pub(crate) dir: PathBuf,
+    /// Every base directory that has a directory of this theme's name, in search order. The
+    /// index comes from the first one that has an `index.theme`, but icons are searched in all
+    /// of them: `~/.local/share/icons/hicolor` and the Flatpak exports add icons to the system's
+    /// `hicolor`.
+    pub(crate) bases: Vec<PathBuf>,
     pub(crate) directories: Vec<IconDirectory>,
     inherits: Vec<String>,
 }
 
 impl ThemeIndex {
+    /// The places `dir` can be found in: one per base directory.
+    pub(crate) fn paths<'a>(
+        &'a self,
+        dir: &'a IconDirectory,
+    ) -> impl Iterator<Item = PathBuf> + 'a {
+        self.bases.iter().map(|base| base.join(&dir.path))
+    }
+
     /// Directories whose modification times decide whether this theme must be reloaded.
     pub(crate) fn watch_paths(&self) -> Vec<PathBuf> {
-        let mut paths = vec![self.dir.clone()];
-        paths.extend(self.directories.iter().map(|dir| self.dir.join(&dir.path)));
+        let mut paths = self.bases.clone();
+        paths.extend(self.directories.iter().flat_map(|dir| self.paths(dir)));
         paths
     }
 }
@@ -88,10 +100,14 @@ fn load_theme(env: &Environment, name: &str) -> Option<ThemeIndex> {
     if name.is_empty() || name.contains(['/', '\0']) || name == ".." {
         return None;
     }
-    let roots = env.icon_roots();
-    let dir = roots
+    let bases: Vec<PathBuf> = env
+        .icon_roots()
         .iter()
         .map(|root| root.join(name))
+        .filter(|candidate| candidate.is_dir())
+        .collect();
+    let dir = bases
+        .iter()
         .find(|candidate| candidate.join("index.theme").is_file())?;
     let text = match std::fs::read_to_string(dir.join("index.theme")) {
         Ok(text) => text,
@@ -100,24 +116,25 @@ fn load_theme(env: &Environment, name: &str) -> Option<ThemeIndex> {
             return None;
         }
     };
-    let file = match ini::parse(&text) {
+    let file = match ini::parse_with(&text, ini::THEME_LIMITS) {
         Ok(file) => file,
         Err(err) => {
-            debug!(theme = name, %err, "invalid icon theme index");
+            warn!(theme = name, %err, "invalid icon theme index, the theme is not used");
             return None;
         }
     };
     let header = file.group(ICON_THEME_GROUP)?;
-    let directories = header
-        .raw("Directories")
-        .map(ini::split_csv)
-        .unwrap_or_default()
+    // Themes with HiDPI directories list them separately in `ScaledDirectories`.
+    let listed = ["Directories", "ScaledDirectories"]
         .iter()
-        .filter_map(|path| file.group(path).and_then(directory_from))
+        .filter_map(|key| header.raw(key))
+        .flat_map(ini::split_csv);
+    let directories = listed
+        .filter_map(|path| file.group(&path).and_then(directory_from))
         .collect();
     Some(ThemeIndex {
         name: name.to_owned(),
-        dir,
+        bases,
         directories,
         inherits: header
             .raw("Inherits")

@@ -12,10 +12,8 @@ impl Shell {
         self.launcher.close(&mut self.host);
         self.quick_focused = false;
         self.quick.menu = None;
-        let battery = self.battery.map_or_else(
-            || "Desktop controls".into(),
-            |battery| format!("Battery {}%", battery.percent),
-        );
+        self.quick.dark = self.theme.mode == desilium_theme::Mode::Dark;
+        let battery = self.battery_text();
         let output = self.output_size().unwrap_or((1280, 800));
         let origin = if from_taskbar
             && self.store.get().shell.edge == desilium_config_types::PanelEdge::Bottom
@@ -41,28 +39,40 @@ impl Shell {
 
     /// Backdrop blur and rounded clipping behind the popup, the same as the launcher's glass.
     pub(super) fn apply_popup_effects(&mut self) {
-        if let (Some(proto), Some(surface)) = (
-            &self.proto,
-            self.quick.id().and_then(|id| self.host.wl_surface(id)),
-        ) {
-            proto.set_surface_effects(
-                &surface,
-                super::views::LAUNCHER_BLUR,
-                [super::views::LAUNCHER_RADIUS; 4],
-            );
+        if let Some(id) = self.quick.id() {
+            let radius = self.popup_radius();
+            self.set_effects(id, super::views::LAUNCHER_BLUR, [radius; 4]);
         }
     }
+    /// `87%`, or nothing on a machine without a battery.
+    fn battery_text(&self) -> String {
+        self.battery
+            .map_or_else(String::new, |battery| format!("{}%", battery.percent))
+    }
+
     pub(super) fn quick_updated(&mut self, state: State) {
         self.quick.state = state;
-        let battery = self.battery.map_or_else(
-            || "Desktop controls".into(),
-            |battery| format!("Battery {}%", battery.percent),
-        );
+        self.quick.dark = self.theme.mode == desilium_theme::Mode::Dark;
+        self.fit_quick_settings();
+        let battery = self.battery_text();
         if let Err(error) = self
             .quick
             .redraw(&mut self.host, &self.store.get().shell, &battery)
         {
             tracing::warn!(%error,"quick settings could not update");
+        }
+    }
+
+    /// Gives the open panel the height its content needs now (services answer after it opened).
+    fn fit_quick_settings(&mut self) {
+        if !self.quick.is_open() || self.quick.menu.is_some() {
+            return;
+        }
+        let output = self.output_size().unwrap_or((1280, 800));
+        let insets = self.popup_insets();
+        match self.quick.reposition(&mut self.host, output, insets) {
+            Ok(()) => self.apply_popup_effects(),
+            Err(error) => tracing::warn!(%error, "quick settings could not be resized"),
         }
     }
     fn quick_send(&mut self, action: Action) {
@@ -123,6 +133,12 @@ impl Shell {
                 return;
             }
             "refresh" => Action::Refresh,
+            "networks" => {
+                self.quick.networks_open = !self.quick.networks_open;
+                let state = self.quick.state.clone();
+                self.quick_updated(state);
+                return;
+            }
             _ => return,
         };
         self.quick_send(command);
@@ -150,6 +166,16 @@ impl Shell {
         }
     }
     pub(super) fn open_settings(&mut self, panel: bool) {
+        let page = panel.then_some("panel");
+        if let Err(error) = self.spawn_settings(page) {
+            let mut state = self.quick.state.clone();
+            state.notice = format!("Settings could not open: {error}");
+            self.quick_updated(state);
+        }
+    }
+
+    /// Starts the settings application, on `page` when one is given.
+    pub(super) fn spawn_settings(&self, page: Option<&str>) -> std::io::Result<()> {
         let path = std::env::current_exe()
             .ok()
             .map(|path| path.with_file_name("desilium-settings"))
@@ -157,20 +183,13 @@ impl Shell {
         let mut command =
             std::process::Command::new(path.unwrap_or_else(|| "desilium-settings".into()));
         command.arg("--config-dir").arg(&self.config_dir);
-        if panel {
-            command.args(["--page", "panel"]);
+        if let Some(page) = page {
+            command.args(["--page", page]);
         }
-        match command.spawn() {
-            Ok(mut child) => {
-                std::thread::spawn(move || {
-                    let _ = child.wait();
-                });
-            }
-            Err(error) => {
-                let mut state = self.quick.state.clone();
-                state.notice = format!("Settings could not open: {error}");
-                self.quick_updated(state);
-            }
-        }
+        let mut child = command.spawn()?;
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
+        Ok(())
     }
 }

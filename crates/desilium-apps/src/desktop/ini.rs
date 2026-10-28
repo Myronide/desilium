@@ -81,9 +81,36 @@ pub enum IniError {
     TooManyGroups,
 }
 
+/// How much a file may contain before it is rejected as a whole.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Limits {
+    /// Largest file in bytes.
+    pub max_bytes: usize,
+    /// Most groups.
+    pub max_groups: usize,
+}
+
+/// Desktop entries: small files with a handful of groups.
+pub const DESKTOP_LIMITS: Limits = Limits {
+    max_bytes: MAX_FILE_BYTES,
+    max_groups: MAX_GROUPS,
+};
+
+/// Icon theme indexes: one group per icon directory. hicolor already has more than 256, and
+/// large themes list several hundred, so these limits are far above any real theme.
+pub const THEME_LIMITS: Limits = Limits {
+    max_bytes: 2 * 1024 * 1024,
+    max_groups: 4096,
+};
+
 /// Parses the text of a desktop-style file. Blank lines and `#` comments are skipped.
 pub fn parse(text: &str) -> Result<IniFile, IniError> {
-    if text.len() > MAX_FILE_BYTES {
+    parse_with(text, DESKTOP_LIMITS)
+}
+
+/// Like [`parse`], with the limits of `limits`.
+pub fn parse_with(text: &str, limits: Limits) -> Result<IniFile, IniError> {
+    if text.len() > limits.max_bytes {
         return Err(IniError::TooLarge);
     }
     let mut file = IniFile::default();
@@ -101,7 +128,7 @@ pub fn parse(text: &str) -> Result<IniFile, IniError> {
                 .strip_suffix(']')
                 .filter(|name| !name.is_empty() && !name.contains(['[', ']']))
                 .ok_or(IniError::Malformed(line_no))?;
-            if file.groups.len() >= MAX_GROUPS {
+            if file.groups.len() >= limits.max_groups {
                 return Err(IniError::TooManyGroups);
             }
             file.groups.push(Group {
@@ -242,6 +269,25 @@ mod tests {
         assert_eq!(parse(&long_line), Err(IniError::Malformed(2)));
         let many: String = (0..=MAX_GROUPS).map(|i| format!("[G{i}]\n")).collect();
         assert_eq!(parse(&many), Err(IniError::TooManyGroups));
+    }
+
+    #[test]
+    fn icon_theme_indexes_may_have_many_more_groups_than_desktop_entries() {
+        // The real hicolor index lists a group per size and context, well over 256.
+        let theme: String = (0..=MAX_GROUPS + 100)
+            .map(|i| format!("[{i}x{i}/apps]\nSize={i}\n"))
+            .collect();
+        assert_eq!(parse(&theme), Err(IniError::TooManyGroups));
+        let parsed = parse_with(&theme, THEME_LIMITS).expect("theme limits are generous");
+        assert_eq!(parsed.groups.len(), MAX_GROUPS + 101);
+        let beyond: String = (0..=THEME_LIMITS.max_groups)
+            .map(|i| format!("[G{i}]\n"))
+            .collect();
+        assert_eq!(
+            parse_with(&beyond, THEME_LIMITS),
+            Err(IniError::TooManyGroups),
+            "there is still a cap"
+        );
     }
 
     #[test]

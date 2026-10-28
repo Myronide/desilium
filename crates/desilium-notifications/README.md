@@ -56,7 +56,9 @@ cargo run -p desilium-notifications            # uses the session bus
 RUST_LOG=debug cargo run -p desilium-notifications
 ```
 
-The daemon needs the `org.freedesktop.Notifications` name, so stop any other notification daemon first (mako, dunst, swaync, the desktop shell's own daemon). Otherwise the name is taken and the daemon exits with an error.
+In a Desilium session `desilium-session` starts and supervises this daemon (restarted with backoff) after KWin is ready; it does not depend on KWin otherwise, only on the session bus. Desilium's KWin-based session does not start Plasma's own notification service, so nothing else owns the name there. If you run it on another desktop, for example during development on a Plasma host, that desktop's daemon owns `org.freedesktop.Notifications` already.
+
+The daemon needs the `org.freedesktop.Notifications` name, so stop any other notification daemon first (mako, dunst, swaync, Plasma's notification service, the desktop shell's own daemon). Otherwise the name is taken and the daemon exits with an error.
 
 ### Manual testing
 

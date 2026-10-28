@@ -130,12 +130,10 @@ pub enum Activation {
 pub enum RowIcon {
     /// An application icon.
     App {
-        /// Desktop file id (for the fallback tile).
+        /// Desktop file id (its stem is tried as an icon name when the entry names none).
         desktop_id: String,
         /// Icon name or path.
         icon: Option<String>,
-        /// Categories (for the fallback tile).
-        categories: Vec<String>,
     },
     /// Terminal command tile.
     Command,

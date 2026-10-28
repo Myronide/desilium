@@ -45,7 +45,7 @@ ACTION=install
 
 BINARIES=(
     desilium-session
-    desilium-compositor
+    desilium-kwin
     desilium-shell
     desilium-settings
     desilium-notifications
@@ -104,6 +104,7 @@ plan_entries() {
     done
     add_entry 0644 "$SCRIPT_DIR/wayland-sessions/desilium.desktop" "$share/wayland-sessions/desilium.desktop"
     add_entry 0644 "$SCRIPT_DIR/xdg-desktop-portal/desilium-portals.conf" "$share/xdg-desktop-portal/desilium-portals.conf"
+    add_entry 0644 "$SCRIPT_DIR/applications/org.desilium.Shell.desktop" "$share/applications/org.desilium.Shell.desktop"
     add_entry 0644 "$SCRIPT_DIR/applications/desilium-settings.desktop" "$share/applications/desilium-settings.desktop"
     add_entry 0644 "$SCRIPT_DIR/applications/org.desilium.Doria.desktop" "$share/applications/org.desilium.Doria.desktop"
 
@@ -133,7 +134,7 @@ check_sources() {
             printf 'install.sh: %d source(s) missing; a real install would stop here (build first)\n' "$missing" >&2
             return 0
         fi
-        die "$missing source file(s) missing; run: cargo build --release --locked -p desilium-compositor -p desilium-session -p desilium-shell -p desilium-settings -p desilium-notifications"
+        die "$missing source file(s) missing; run: cargo build --release --locked -p desilium-session -p desilium-kwin -p desilium-shell -p desilium-settings -p desilium-notifications -p desilium-files"
     fi
 }
 

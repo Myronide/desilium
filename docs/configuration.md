@@ -13,7 +13,7 @@ and how developers use the API. The rules come from `concept.md` sections 3 and 
 - **Zero-config.** Without any file, Desilium runs with built-in defaults. Startup
   never writes a file. The first file appears only when a setting is actually changed.
 - **Never blocks startup.** A broken, missing or future-version file never prevents
-  the compositor from starting. Problems are repaired, quarantined or reported.
+  the desktop from starting. Problems are repaired, quarantined or reported.
 - **Validated before applied.** Every value passes validation, and invalid values are
   replaced by safe ones. A failed change is never applied.
 - **Reversible.** Each replaced version is kept as a backup and can be restored.
@@ -39,11 +39,18 @@ never creates anything.
 `config.toml` is the serialized `DesiliumConfig` from `desilium-config-types`:
 
 - `version`: schema version. Older files are migrated on open.
-- `[compositor]`: keyboard `shortcuts` (action, key and modifiers) and the `terminal`
-  to launch. An unset terminal means auto-detect.
-- `[appearance]`: `theme` (`desilium-dark` or `desilium-light`), an optional `accent`
-  as `#RRGGBB` or `#RRGGBBAA`, `wallpaper` and `wallpaper_mode`, `animations`,
-  `animation_speed`, `cursor_theme` and `cursor_size`.
+- `[compositor]`: window and input behaviour that is applied to KWin: keyboard `shortcuts`
+  (action, key and modifiers), the `terminal` to launch (unset means auto-detect), `desktops`,
+  `focus`, `raise_on_focus`, `snap_enabled`, `snap_distance`, `keyboard_repeat_delay`,
+  `keyboard_repeat_rate` and `keyboard_layout`. The table keeps its name although Desilium no
+  longer has a compositor of its own; renaming it would need a schema migration.
+- `[appearance]`: `theme` (`desilium-dark`, `desilium-light`, or `kde` to follow the user's KDE
+  colour scheme), an optional `accent` as `#RRGGBB` or `#RRGGBBAA` (ignored with `kde`), an
+  optional `icon_theme` (a theme directory name; unset follows KDE's `[Icons] Theme`, then
+  `breeze`), `wallpaper` and `wallpaper_mode`, `animations`, `animation_speed`, `reduce_motion`,
+  `cursor_theme` and `cursor_size`.
+- `[shell]`: panel, dock, session-restore and desktop preferences, used by the shell, among them
+  `desktop_icons` (default `true`), which shows the desktop folder's contents as icons.
 
 Every key has a documented default. Missing keys take their defaults, so a file may
 contain only the settings that differ from them.
@@ -68,82 +75,89 @@ replaced is backed up first, so a rollback can be undone.
 
 ## External edits
 
-Editing `config.toml` by hand, or by another program, is detected by the compositor
-without polling. It watches the directory with inotify. Events for `config.toml`
-(create, modify, move and delete) start a 100 ms debounce, so an editor that writes
-several times causes one reload.
+Editing `config.toml` by hand, or by another program, is detected without polling by the
+programs that consume the configuration: the shell and the KWin bridge each watch the directory
+with inotify. Events for `config.toml` (create, modify, move and delete) start a debounce (150 ms
+in the bridge), so an editor that writes several times causes one reload.
 
-- A valid file is applied and the compositor redraws.
+- A valid file is applied: the shell redraws, the bridge writes the difference into KWin's
+  configuration (see [`kwin-integration.md`](kwin-integration.md)).
 - An invalid file is rejected with a warning. The last good configuration stays active.
   A rejected file is reported once and is not re-reported until it changes again.
-- If the directory does not exist yet, its nearest existing ancestor is watched until
-  it appears.
-- If inotify cannot be set up, the compositor continues with the configuration it
-  loaded at startup, and a warning is logged.
-
-When the compositor itself commits a change, it recognizes the file it wrote and does
-not reload it.
+- If inotify cannot be set up, the program continues with the configuration it loaded at startup,
+  and a warning is logged.
 
 ## Command-line flags
 
-| Flag | Meaning |
-| --- | --- |
-| `--config-dir <path>` | Use this directory for the store instead of the default. Works with `--headless`. |
-| `--no-config` | Use built-in defaults only. Performs no file I/O. Cannot be combined with `--config-dir`. |
-| `--theme dark\|light` | Override the theme id for this run, for screenshots and tests. It wins over the file. The accent and every other setting still come from the configuration. |
-| `--shell <path>` | Start this desktop shell binary (its file name must be `desilium-shell` to be trusted) instead of the one found next to the compositor or on `PATH`. |
-| `--no-shell` | Start no desktop shell. Cannot be combined with `--shell`. `desilium-session` passes it, because the session supervises the shell itself. |
+There is no compositor with its own flags any more. The two Desilium programs that read the store
+share these:
 
-Without `--no-shell` the compositor starts the shell (bar, dock, launcher) at startup, also
-next to `--command` clients, and starts it again when it exits. Restarts back off (0.5 s, 1 s, ...);
-five quick failures in a row stop them, after which `Alt+Space` still tries to start a shell.
+| Flag | Programs | Meaning |
+| --- | --- | --- |
+| `--config-dir <path>` | `desilium-shell`, `desilium-kwin` | Use this directory for the store instead of the default. |
+| `--theme dark\|light` | `desilium-shell`, `desilium-kwin` | Override the theme id for this run, for screenshots and tests. It wins over the file. The accent and every other setting still come from the configuration. |
+| `--once` | `desilium-kwin` | Apply the configuration to KWin once and exit. |
+| `--print-plan` | `desilium-kwin` | Print the KWin settings the configuration maps to and exit. Touches nothing. |
 
-`--headless` implies `--no-config` unless `--config-dir` is given explicitly. Screenshot
-and CI runs therefore never read or write a user's real configuration.
+The former `--no-config`, `--headless`, `--shell` and `--no-shell` flags of the compositor no longer
+exist; the shell is started by `desilium-session`, which also passes the compositor arguments
+(see [`session.md`](session.md)).
 
 Logging goes through `RUST_LOG`, as usual. Recovery messages appear at `WARN`.
 
 ## How configuration takes effect
 
-All effects go through `DesiliumState::apply_config(&DesiliumConfig)` in
-`crates/desilium-compositor/src/state/settings.rs`. Startup, the watcher and
-`update_config` all end there.
+Nothing in Desilium renders windows, so the configuration takes effect in two places.
 
-- `compositor` settings rebuild the keyboard shortcut table and the terminal setting.
-- `appearance` resolves to a `Theme`:
-  1. The theme id is looked up in `BUILTIN_THEMES`. `--theme` replaces it when given.
-  2. A valid `accent` derives the palette with `Theme::derive_from_accent`.
-  3. `Theme::validate` repairs anything out of range and reports it.
-- The effective appearance is available from `DesiliumState::appearance()`. Animations,
-  cursor and wallpaper subsystems read it when they render, so they need no separate
-  notification.
+**In KWin, through the bridge.** `compositor` settings and the animation, cursor and theme parts of
+`appearance` are projected onto KWin and KDE by `desilium-kwin`: KConfig keys written with
+`kwriteconfig6`, the virtual desktop count over D-Bus, global shortcuts through KGlobalAccel. The
+complete mapping is in [`kwin-integration.md`](kwin-integration.md#4-configuration-to-kwin-mapping).
+`desilium-kwin --print-plan` prints it for the current configuration.
 
-Theme resolution is a pure function (`resolve_appearance`) with unit tests. It does
-no I/O.
+**In the shell and the applications,** which read the store themselves: the theme, accent,
+wallpaper, panel and dock preferences.
+
+`appearance` resolves to a `Theme` in both cases:
+
+0. The id `kde` loads the user's KDE colour scheme (`desilium_theme::kde`), ignores the accent and
+   falls back to the dark built-in when KDE has no usable scheme. `--theme` still overrides it.
+1. Otherwise the theme id is looked up in `BUILTIN_THEMES`. `--theme` replaces it when given.
+2. A valid `accent` derives the palette with `Theme::derive_from_accent`.
+3. `Theme::validate` repairs anything out of range and reports it.
+
+Theme resolution is a pure function (`resolve_appearance`, in `desilium-kwin` for the bridge) with
+unit tests. It does no I/O. The bridge additionally exports the theme as a KDE colour scheme so that
+Qt and KDE applications match, except with `theme = "kde"`, where KDE's colours are the source and
+nothing is exported.
 
 ## Developer API
 
 ```rust
-// Edit, validate, save and apply in one step. Used by the settings app and IPC.
-let report = state.update_config(|cfg| {
-    cfg.appearance.animation_speed = 1.5;
-})?;
-// report.changed, report.repairs and report.backup describe what happened.
+// Edit, validate, save and notify in one step. Used by the settings app.
+let mut store = ConfigStore::open(ConfigStore::default_dir()).store;
+let mut transaction = store.transaction();
+transaction.edit(|cfg| cfg.appearance.animation_speed = 1.5);
+let report = transaction.commit()?;
+// report describes what changed, which values were repaired and which backup was written.
 ```
 
-- `update_config` runs a store transaction. Without a store (`--no-config`, `--headless`
-  without `--config-dir`) it validates in memory and changes nothing on disk.
-- `apply_config` is the only place where a configuration takes effect. Call it directly
-  only for configuration that did not come from the store.
+- A transaction edits a copy; `commit` validates, backs up the previous file, writes atomically and
+  notifies subscribers. Dropping it discards the changes.
+- Programs that apply the configuration (the shell, the bridge) do it when they see the file
+  change; the settings app does not call into them.
 - Do not store runtime state in the configuration. Put it in its own file or service.
 - Do not add new settings without a default, a validation rule and a settings control.
+- A new setting that KWin should honour needs an entry in `crates/desilium-kwin/src/plan/` and a
+  row in `kwin-integration.md`.
 
 The store itself lives in `crates/desilium-config` and is documented in its crate docs.
 
 ## Limits (current)
 
-- The settings application and its IPC are not implemented. Until then, configuration
-  is changed by editing the file or through `update_config` in code.
 - The terminal setting applies to the next launch, not to running clients.
-- Animations, cursor and wallpaper values are exposed. Their renderers read them as
-  those subsystems are integrated.
+- Settings that map onto KWin only take effect once the bridge runs and KWin accepts the keys. The
+  key names are unverified (see [`kwin-integration.md`](kwin-integration.md#11-verification-status)).
+- Output layout, resolution and scaling are KWin's and are not part of the Desilium configuration
+  yet.
+- A shortcut removed from the configuration is not unbound in KWin; its default binding remains.

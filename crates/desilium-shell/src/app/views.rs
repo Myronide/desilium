@@ -13,12 +13,11 @@ use crate::{
         battery::Battery,
         clock::ClockText,
         dock::{self, AppLookup},
-        icons::tile_for,
         pins::DockConfig,
         windows::{WindowModel, Workspaces},
     },
     services::apps::CatalogLookup,
-    view::icon::resolve_icon,
+    view::icon::{IconSpec, candidate_names, resolve_icon},
 };
 
 /// Backdrop blur behind the bar.
@@ -27,10 +26,10 @@ pub const BAR_BLUR: u32 = 20;
 pub const DOCK_BLUR: u32 = 24;
 /// Backdrop blur behind the launcher.
 pub const LAUNCHER_BLUR: u32 = 32;
-/// Launcher corner radius.
-pub const LAUNCHER_RADIUS: u32 = 20;
 /// Edge of the dock's app icons in logical pixels.
 const DOCK_ICON_PX: u32 = 48;
+/// Edge of the application icon in the bar.
+const BAR_ICON_PX: u32 = 16;
 /// Bar text when no window has focus.
 const DESKTOP_NAME: &str = "Desktop";
 const DESKTOP_GLYPH: &str = "monitor";
@@ -41,30 +40,49 @@ pub struct InitialViews {
     pub dock: DockView,
 }
 
-fn active_app(model: &WindowModel, lookup: &dyn AppLookup) -> ActiveApp {
-    let Some(window) = model.active() else {
+fn active_app(
+    model: &WindowModel,
+    workspace: u32,
+    lookup: &dyn AppLookup,
+    resolver: &mut IconResolver,
+) -> ActiveApp {
+    let Some(window) = model.active_on(workspace) else {
         return ActiveApp {
             name: DESKTOP_NAME.to_owned(),
-            glyph: DESKTOP_GLYPH.to_owned(),
+            icon: IconSpec::Glyph(DESKTOP_GLYPH),
             title: String::new(),
         };
     };
-    let app = lookup.by_app_id(&window.app_id);
-    let (name, glyph) = match app {
+    let (name, icon) = match lookup.by_app_id(&window.app_id) {
         Some(app) => (
             app.name.clone(),
-            tile_for(&app.desktop_id, &app.categories).glyph,
+            resolve_icon(
+                resolver,
+                &candidate_names(app.icon.as_deref(), &app.desktop_id),
+                BAR_ICON_PX,
+                1,
+            ),
         ),
         None => (
             display_name(&window.app_id, &window.title),
-            tile_for(&window.app_id, &[]).glyph,
+            resolve_icon(resolver, &window_icon_names(window), BAR_ICON_PX, 1),
         ),
     };
     ActiveApp {
         name,
-        glyph: glyph.to_owned(),
+        icon,
         title: window.title.clone(),
     }
+}
+
+/// Icon names for a window whose application has no desktop file: KWin's, then its app id's.
+pub(super) fn window_icon_names(window: &crate::model::windows::WindowInfo) -> Vec<String> {
+    candidate_names(
+        Some(&window.icon)
+            .filter(|icon| !icon.is_empty())
+            .map(String::as_str),
+        &window.app_id,
+    )
 }
 
 fn display_name(app_id: &str, title: &str) -> String {
@@ -83,10 +101,11 @@ pub fn bar_view(
     clock: &ClockText,
     battery: Option<Battery>,
     layout: KeyboardLayout,
+    resolver: &mut IconResolver,
 ) -> BarView {
     BarView {
         workspaces,
-        app: active_app(model, lookup),
+        app: active_app(model, workspaces.active, lookup, resolver),
         clock: clock.clone(),
         battery,
         layout: layout.label().to_owned(),
@@ -109,9 +128,12 @@ pub fn dock_view(
             name: item.name.clone(),
             icon: resolve_icon(
                 resolver,
-                item.desktop_id.as_deref().unwrap_or(&item.key),
-                item.icon.as_deref(),
-                &item.categories,
+                &candidate_names(
+                    item.icon.as_deref(),
+                    item.desktop_id
+                        .as_deref()
+                        .unwrap_or_else(|| item.key.trim_start_matches("app:")),
+                ),
                 DOCK_ICON_PX,
                 scale,
             ),
@@ -143,6 +165,7 @@ pub fn initial_views(
             clock,
             battery,
             KeyboardLayout::default(),
+            resolver,
         ),
         dock: dock_view(pins, &model, catalog, resolver, 1).0,
     }
@@ -167,6 +190,7 @@ impl Shell {
             &self.clock,
             self.battery,
             self.store.get().compositor.keyboard_layout,
+            &mut self.icons,
         );
         self.bar.show(&mut self.host, view);
         self.bar.configure(&mut self.host, &self.store.get().shell);
@@ -218,6 +242,7 @@ impl Shell {
         }
         self.update_panels();
         self.sync_minimize_rects();
+        self.apply_effects();
     }
 
     /// Re-renders icons when the output scale changed after the first frame.

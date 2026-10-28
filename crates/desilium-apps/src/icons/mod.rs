@@ -191,6 +191,79 @@ mod tests {
     }
 
     #[test]
+    fn a_theme_with_hundreds_of_directories_still_loads() {
+        // The real hicolor index has more than 256 groups; it used to be rejected as a whole,
+        // which made every application icon in hicolor invisible.
+        let dir = TempDir::new("icons-big-index");
+        let mut index = String::from("[Icon Theme]\nName=Big\nDirectories=");
+        let sizes: Vec<u32> = (1..=300).collect();
+        let listed: Vec<String> = sizes
+            .iter()
+            .map(|size| format!("{size}x{size}/apps"))
+            .collect();
+        index.push_str(&listed.join(","));
+        index.push('\n');
+        for size in &sizes {
+            index.push_str(&format!("[{size}x{size}/apps]\nSize={size}\nType=Fixed\n"));
+        }
+        dir.write("icons/hicolor/index.theme", &index);
+        dir.write("icons/hicolor/48x48/apps/foot.png", "x");
+        dir.write("icons/hicolor/300x300/apps/big.png", "x");
+        let env = env_with_data_dirs(&[dir.path()]);
+        let mut resolver = IconResolver::new("hicolor", &env);
+        assert!(matches!(
+            resolver.lookup("foot", 48, 1),
+            IconSource::Raster(_, 48)
+        ));
+        assert!(
+            matches!(resolver.lookup("big", 300, 1), IconSource::Raster(_, 300)),
+            "directories beyond the old limit of 256 groups are listed too"
+        );
+    }
+
+    #[test]
+    fn icons_are_found_in_every_base_directory_of_a_theme() {
+        // `~/.local/share/icons/hicolor` and Flatpak's exports add icons to the system hicolor;
+        // only one of the directories carries the index.
+        let system = TempDir::new("icons-system");
+        let user = TempDir::new("icons-user");
+        system.write(
+            "icons/hicolor/index.theme",
+            "[Icon Theme]\nName=Hicolor\nDirectories=48x48/apps\n[48x48/apps]\nSize=48\n",
+        );
+        system.write("icons/hicolor/48x48/apps/system-app.png", "x");
+        let local = user.write("icons/hicolor/48x48/apps/user-app.png", "x");
+        let env = env_with_data_dirs(&[user.path(), system.path()]);
+        let mut resolver = IconResolver::new("hicolor", &env);
+        assert!(matches!(
+            resolver.lookup("system-app", 48, 1),
+            IconSource::Raster(_, 48)
+        ));
+        assert_eq!(
+            resolver.lookup("user-app", 48, 1),
+            IconSource::Raster(local, 48),
+            "an icon in a base directory without index.theme is not ignored"
+        );
+    }
+
+    #[test]
+    fn scaled_directories_are_listed_as_well() {
+        let dir = TempDir::new("icons-scaled");
+        dir.write(
+            "icons/hicolor/index.theme",
+            "[Icon Theme]\nName=H\nDirectories=48x48/apps\nScaledDirectories=48x48@2/apps\n\
+             [48x48/apps]\nSize=48\n[48x48@2/apps]\nSize=48\nScale=2\n",
+        );
+        let file = dir.write("icons/hicolor/48x48@2/apps/hidpi.png", "x");
+        let env = env_with_data_dirs(&[dir.path()]);
+        let mut resolver = IconResolver::new("hicolor", &env);
+        assert_eq!(
+            resolver.lookup("hidpi", 48, 2),
+            IconSource::Raster(file, 48)
+        );
+    }
+
+    #[test]
     fn invalid_names_never_touch_the_filesystem() {
         let (_dir, env) = fixture();
         let mut resolver = IconResolver::new("demo", &env);

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Desilium Shell
+Comment=Desktop shell: bar, dock and launcher
+Exec=desilium-shell
+NoDisplay=true
+Terminal=false
+# KWin only offers these Wayland interfaces to executables named by a desktop file that lists them.
+# The window list and the virtual desktops are what the shell needs from KWin. The executable is
+# matched through its Exec line, so desilium-shell must be installed in a directory on PATH.
+X-KDE-Wayland-Interfaces=org_kde_plasma_window_management,org_kde_plasma_virtual_desktop_management

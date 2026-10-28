@@ -7,8 +7,9 @@ use desilium_config::{ConfigError, ConfigStore, Repair};
 use desilium_config_types::{DesiliumConfig, Shortcut};
 
 use crate::{
+    i18n::{tr, tr_args},
     palette,
-    registry::{Control, InvalidValue, SettingDef, Value, format_number},
+    registry::{Control, InvalidValue, OFF_LABEL, SettingDef, Value, format_number},
 };
 
 /// How to get back to the state before a change.
@@ -90,7 +91,24 @@ pub fn reset_settings(
         let default = def.default_value();
         tx.edit(|config| (def.set)(config, &default));
     }
-    finish(tx.commit()?, before, format!("{label} reset to defaults"))
+    let summary = tr_args(
+        "ui.change.reset_all",
+        "{what} reset to defaults",
+        &[("what", label)],
+    );
+    finish(tx.commit()?, before, summary)
+}
+
+/// Edits the appearance settings in one transaction (one Undo for several fields).
+pub fn edit_appearance(
+    store: &mut ConfigStore,
+    summary: String,
+    edit: impl FnOnce(&mut desilium_config_types::AppearanceSettings),
+) -> Result<ChangeOutcome, ChangeError> {
+    let before = store.get().clone();
+    let mut tx = store.transaction();
+    tx.edit(|config| edit(&mut config.appearance));
+    finish(tx.commit()?, before, summary)
 }
 
 /// Edits the shortcut list in one transaction (one Undo per re-binding).
@@ -139,7 +157,11 @@ pub fn undo(store: &mut ConfigStore, target: &UndoTarget) -> Result<(), ConfigEr
 pub fn friendly(error: &ChangeError) -> Failure {
     match error {
         ChangeError::Invalid(invalid) => Failure {
-            message: format!("{invalid} Nothing was changed."),
+            message: tr_args(
+                "ui.error.nothing_changed",
+                "{reason} Nothing was changed.",
+                &[("reason", &invalid.to_string())],
+            ),
             recovery: Recovery::Dismiss,
         },
         ChangeError::Store(store) => friendly_store(store),
@@ -150,24 +172,36 @@ pub fn friendly(error: &ChangeError) -> Failure {
 pub fn friendly_store(error: &ConfigError) -> Failure {
     match error {
         ConfigError::ChangedOnDisk => Failure {
-            message: "The settings file was changed by another program. Your change was not saved."
-                .to_owned(),
+            message: tr(
+                "ui.error.changed_on_disk",
+                "The settings file was changed by another program. Your change was not saved.",
+            ),
             recovery: Recovery::Reload,
         },
         ConfigError::Io { path, source } => Failure {
-            message: format!(
-                "Desilium could not write {} ({source}). Your change was not saved.",
-                path.display()
+            message: tr_args(
+                "ui.error.write_failed",
+                "Desilium could not write {path} ({reason}). Your change was not saved.",
+                &[
+                    ("path", &path.display().to_string()),
+                    ("reason", &source.to_string()),
+                ],
             ),
             recovery: Recovery::Retry,
         },
         ConfigError::BackupNotFound(_) | ConfigError::InvalidBackup { .. } => Failure {
-            message: "The earlier version is no longer available, so this cannot be undone."
-                .to_owned(),
+            message: tr(
+                "ui.error.backup_gone",
+                "The earlier version is no longer available, so this cannot be undone.",
+            ),
             recovery: Recovery::Dismiss,
         },
         other => Failure {
-            message: format!("Your change was not saved: {other}."),
+            message: tr_args(
+                "ui.error.not_saved",
+                "Your change was not saved: {reason}.",
+                &[("reason", &other.to_string())],
+            ),
             recovery: Recovery::Retry,
         },
     }
@@ -175,40 +209,56 @@ pub fn friendly_store(error: &ConfigError) -> Failure {
 
 /// "Accent set to Violet", "Color scheme set to Dark", "Cursor size set to 32 px".
 pub fn summarize(def: &SettingDef, value: &Value) -> String {
-    let what = def.title;
+    let what = def.title_text();
+    let set_to = |shown: &str| {
+        tr_args(
+            "ui.change.set_to",
+            "{what} set to {value}",
+            &[("what", &what), ("value", shown)],
+        )
+    };
     match (&def.control, value) {
-        (_, Value::Unset) => format!("{what} reset to default"),
+        (_, Value::Unset) => tr_args(
+            "ui.change.reset_one",
+            "{what} reset to default",
+            &[("what", &what)],
+        ),
         (Control::Accent, Value::Text(hex)) => {
-            let name = palette::preset_for(hex).map_or(hex.as_str(), |p| p.name);
-            format!("{what} set to {name}")
+            let name = palette::preset_for(hex).map_or_else(|| hex.clone(), |p| p.label());
+            set_to(&name)
         }
         (Control::Segmented(choices) | Control::Select(choices), Value::Text(id)) => {
             let label = choices
                 .iter()
                 .find(|c| c.value == id)
-                .map_or(id.as_str(), |c| c.label);
-            format!("{what} set to {label}")
+                .map_or_else(|| id.clone(), |c| c.label_text(def.id));
+            set_to(&label)
         }
         (Control::Switch, Value::Bool(on)) => {
-            format!("{what} {}", if *on { "turned on" } else { "turned off" })
+            let (key, english) = if *on {
+                ("ui.change.turned_on", "{what} turned on")
+            } else {
+                ("ui.change.turned_off", "{what} turned off")
+            };
+            tr_args(key, english, &[("what", &what)])
         }
         (Control::Slider(slider), Value::Number(number)) => {
             if *number <= 0.0 && slider.stops.first() == Some(&0.0) {
-                return format!("{what} set to Off");
+                return set_to(&tr("ui.common.off", OFF_LABEL));
             }
-            format!(
-                "{what} set to {}{}",
+            set_to(&format!(
+                "{}{}",
                 format_number(*number),
                 slider.unit.trim_start_matches(' ')
-            )
+            ))
         }
         (Control::Wallpaper, Value::Text(path)) => {
             let name = std::path::Path::new(path)
                 .file_stem()
                 .map_or(path.clone(), |stem| stem.to_string_lossy().into_owned());
-            format!("{what} set to {name}")
+            set_to(&name)
         }
-        (_, value) => format!("{what} set to {value}"),
+        (_, value) => set_to(&value.to_string()),
     }
 }
 

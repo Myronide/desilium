@@ -1,5 +1,7 @@
 //! Pages and the sidebar navigation.
 
+use crate::i18n::{keys, tr};
+
 /// A settings page that exists today.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Page {
@@ -9,39 +11,61 @@ pub enum Page {
     Desktop,
     /// Keyboard shortcuts.
     Keyboard,
+    /// Pointer speed, scrolling and clicking of mice.
+    Mouse,
     Panel,
+    /// Download and select icon themes, cursor themes and colour schemes from the KDE Store.
+    Themes,
     /// Version and system information.
     About,
 }
 
 impl Page {
     /// All pages in sidebar order.
-    pub const ALL: [Page; 5] = [
+    pub const ALL: [Page; 7] = [
         Page::Appearance,
+        Page::Themes,
         Page::Desktop,
         Page::Panel,
         Page::Keyboard,
+        Page::Mouse,
         Page::About,
     ];
 
-    /// Page heading and sidebar label.
-    pub fn title(self) -> &'static str {
+    /// Page heading and sidebar label in the current language.
+    pub fn title(self) -> String {
+        tr(&keys::page(self.slug()), self.source_title())
+    }
+
+    /// Sentence under the heading in the current language.
+    pub fn subtitle(self) -> String {
+        tr(&keys::page_subtitle(self.slug()), self.source_subtitle())
+    }
+
+    /// English heading, the source of the translation.
+    fn source_title(self) -> &'static str {
         match self {
             Page::Appearance => "Appearance",
             Page::Desktop => "Desktop",
             Page::Keyboard => "Keyboard",
+            Page::Mouse => "Mouse",
             Page::Panel => "Panel & Dock",
+            Page::Themes => "Get new themes",
             Page::About => "About",
         }
     }
 
-    /// Sentence under the heading.
-    pub fn subtitle(self) -> &'static str {
+    /// English sentence under the heading, the source of the translation.
+    fn source_subtitle(self) -> &'static str {
         match self {
             Page::Appearance => "Make Desilium look the way you want. Changes apply instantly.",
             Page::Desktop => "Window focus, snapping, virtual desktops and the programs you start.",
             Page::Keyboard => "Key repeat and shortcuts for windows and desktops.",
+            Page::Mouse => "Pointer speed, scrolling and clicking.",
             Page::Panel => "Choose a dock or taskbar and make it your own.",
+            Page::Themes => {
+                "Download icon themes, cursor themes and colour schemes from the KDE Store."
+            }
             Page::About => "What is running on this computer.",
         }
     }
@@ -52,7 +76,9 @@ impl Page {
             Page::Appearance => "palette",
             Page::Desktop => "layers",
             Page::Keyboard => "keyboard",
+            Page::Mouse => "mouse",
             Page::Panel => "layers",
+            Page::Themes => "sparkles",
             Page::About => "info",
         }
     }
@@ -63,7 +89,9 @@ impl Page {
             Page::Appearance => "appearance",
             Page::Desktop => "desktop",
             Page::Keyboard => "keyboard",
+            Page::Mouse => "mouse",
             Page::Panel => "panel",
+            Page::Themes => "themes",
             Page::About => "about",
         }
     }
@@ -87,7 +115,9 @@ pub enum NavEntry {
     Page(Page),
     /// A planned page: shown disabled with a tooltip.
     Planned {
-        /// Label.
+        /// Stable name, the `<slug>` of its translation key `page.<slug>`.
+        slug: &'static str,
+        /// English label.
         label: &'static str,
         /// Icon name.
         icon: &'static str,
@@ -97,17 +127,21 @@ pub enum NavEntry {
 }
 
 /// Sidebar layout.
-pub const NAV: [NavEntry; 9] = [
+pub const NAV: [NavEntry; 11] = [
     NavEntry::Page(Page::Appearance),
+    NavEntry::Page(Page::Themes),
     NavEntry::Page(Page::Desktop),
     NavEntry::Page(Page::Panel),
     NavEntry::Page(Page::Keyboard),
+    NavEntry::Page(Page::Mouse),
     NavEntry::Separator,
     NavEntry::Planned {
+        slug: "notifications",
         label: "Notifications",
         icon: "bell",
     },
     NavEntry::Planned {
+        slug: "privacy",
         label: "Privacy & Security",
         icon: "lock",
     },

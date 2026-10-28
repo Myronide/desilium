@@ -11,11 +11,10 @@ use desilium_ui::{
 
 use crate::{
     view::{BASE_CSS, DOCK_CSS},
-    visibility::{Presence, bar_inset},
+    visibility::{Presence, bar_inset, panel_zone, reserves_space},
 };
-use desilium_config_types::Visibility;
-pub use layout::{BOTTOM_MARGIN, DockLayout, HEIGHT, RADIUS};
-pub use view::{DockCell, DockView, Status, TASKBAR_RADIUS};
+pub use layout::{BOTTOM_MARGIN, DockLayout, HEIGHT};
+pub use view::{DockCell, DockView, Status, panel_radius};
 
 /// Namespace of the dock's layer surface.
 pub const NAMESPACE: &str = "desilium-dock";
@@ -75,6 +74,11 @@ impl Dock {
         self.layout.items.get(index).copied()
     }
 
+    /// Makes the next [`show`](Self::show) draw the dock again even if its content is unchanged.
+    pub fn invalidate(&mut self) {
+        self.dirty = true;
+    }
+
     /// Read the current scrolled client rectangle and clip it to the app strip.
     pub fn visible_cell_rect(&self, host: &mut LayerHost, index: usize) -> Option<Rect> {
         let rect = host
@@ -127,6 +131,19 @@ impl Dock {
         self.apply_placement(host)
     }
 
+    /// Exclusive zone for the current settings, presence and height: reserved space for an always
+    /// visible panel, 0 for a taskbar (stacked behind the bar, nothing reserved), -1 for a dock.
+    fn zone(&self, full_height: u32) -> i32 {
+        let settings = &self.settings;
+        if self.presence == Presence::Shown && reserves_space(settings) {
+            panel_zone(settings, full_height)
+        } else if settings.mode == desilium_config_types::PanelMode::Taskbar {
+            0
+        } else {
+            -1
+        }
+    }
+
     /// Anchor, margins, reserved space and height for the current settings and presence.
     fn apply_placement(&mut self, host: &mut LayerHost) -> Result<(), UiError> {
         let settings = &self.settings;
@@ -138,23 +155,13 @@ impl Dock {
             Presence::Peek => 0,
             Presence::Off => -1,
         };
-        // A dock below the top bar keeps clear of it; a taskbar is stacked by its exclusive zone.
-        let below_bar = if settings.mode == desilium_config_types::PanelMode::Dock
-            && presence != Presence::Off
-        {
+        // A surface with a zone of -1 ignores the bar and is placed against the screen edge, so
+        // it keeps clear of the bar by margin; any other zone is stacked behind the bar already.
+        let zone = self.zone(self.layout.height);
+        let below_bar = if zone < 0 && presence != Presence::Off {
             bar_inset(settings)
         } else {
             0
-        };
-        let reserve = presence == Presence::Shown
-            && settings.panel_visibility == Visibility::Always
-            && settings.mode == desilium_config_types::PanelMode::Taskbar;
-        let zone = if reserve {
-            i32::from(settings.icon_size) + 16
-        } else if settings.mode == desilium_config_types::PanelMode::Taskbar {
-            0
-        } else {
-            -1
         };
         let height = presence.height(self.layout.height);
         let width = self.layout.width;
@@ -195,7 +202,11 @@ impl Dock {
             host.surface_mut(self.id)
                 .map(|ui| ui.resize(layout.width, height))
                 .transpose()?;
-            host.reconfigure(self.id, |config| config.size = (layout.width, height))?;
+            let zone = self.zone(layout.height);
+            host.reconfigure(self.id, |config| {
+                config.size = (layout.width, height);
+                config.exclusive_zone = zone;
+            })?;
         }
         if let Some(Err(error)) = host.update(self.id, |ui| ui.replace_children("#root", &html)) {
             tracing::warn!(%error, "dock update failed");

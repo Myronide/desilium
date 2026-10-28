@@ -48,15 +48,22 @@ pub(super) fn wheel_delta(horizontal: &AxisScroll, vertical: &AxisScroll) -> Whe
     }
 }
 
+/// Logical pixels one wheel notch scrolls. The document engine would turn a line into 20 px
+/// on its own, which feels sluggish, so notches are converted here and sent as pixels.
+const WHEEL_NOTCH_PX: f64 = 48.0;
+
 /// Wayland axis values to what `UiSurface::wheel` needs to scroll the content the same way.
 ///
 /// Wayland reports a positive value when the user scrolls down (reveals lower content), but the
 /// document engine follows the winit convention where positive moves the content down. Without
-/// the flip the page scrolls against the user's hand. The layer host currently passes values
-/// through unflipped (see the report of the settings app).
+/// the flip the page scrolls against the user's hand. Notches become [`WHEEL_NOTCH_PX`] pixels
+/// each; smooth (touchpad) pixels pass through 1:1. Both hosts use this, so they scroll alike.
 pub(super) fn content_scroll(delta: WheelDelta) -> WheelDelta {
     match delta {
-        WheelDelta::Lines { x, y } => WheelDelta::Lines { x: -x, y: -y },
+        WheelDelta::Lines { x, y } => WheelDelta::Pixels {
+            x: -x * WHEEL_NOTCH_PX,
+            y: -y * WHEEL_NOTCH_PX,
+        },
         WheelDelta::Pixels { x, y } => WheelDelta::Pixels { x: -x, y: -y },
     }
 }
@@ -97,15 +104,29 @@ mod tests {
     }
 
     #[test]
-    fn content_scroll_flips_both_axes() {
-        assert_eq!(
-            content_scroll(WheelDelta::Lines { x: 1.0, y: 2.0 }),
-            WheelDelta::Lines { x: -1.0, y: -2.0 }
-        );
+    fn content_scroll_flips_both_axes_and_passes_pixels_through() {
         assert_eq!(
             content_scroll(WheelDelta::Pixels { x: -3.0, y: 4.0 }),
             WheelDelta::Pixels { x: 3.0, y: -4.0 }
         );
+    }
+
+    #[test]
+    fn one_notch_scrolls_48_pixels_against_the_wayland_sign() {
+        assert_eq!(
+            content_scroll(WheelDelta::Lines { x: 0.0, y: 1.0 }),
+            WheelDelta::Pixels { x: 0.0, y: -48.0 }
+        );
+        assert_eq!(
+            content_scroll(WheelDelta::Lines { x: -2.0, y: -3.0 }),
+            WheelDelta::Pixels { x: 96.0, y: 144.0 }
+        );
+    }
+
+    #[test]
+    fn a_wayland_notch_ends_up_as_pixels() {
+        let delta = content_scroll(wheel_delta(&scroll(0, 0.0), &scroll(1, 15.0)));
+        assert_eq!(delta, WheelDelta::Pixels { x: 0.0, y: -48.0 });
     }
 
     #[test]

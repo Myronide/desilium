@@ -3,12 +3,12 @@
 How a Desilium session starts, how `desilium-session` supervises it, and how to test it
 without touching a real desktop.
 
-> **Status: the session cannot yet run a real desktop.**
-> The compositor has one real backend today, **winit**, which is a window inside an existing
-> Wayland or X11 session, plus a **headless** mode for screenshots. There is no **DRM/KMS**
-> backend yet, so a login manager cannot start a usable desktop on bare hardware. Everything in
-> this document is implemented and tested as far as it goes; the DRM backend is the missing piece
-> (see [What is not done yet](#what-is-not-done-yet)).
+> **Status: implemented and unit-tested, never run against a live KWin.**
+> The compositor is KWin (`kwin_wayland`), which brings its own DRM/KMS backend and a nested
+> Wayland backend. The supervisor, the plan and the readiness gate are tested with stand-in
+> scripts; a full session with the real `kwin_wayland` has not been started yet. The KDE-side
+> facts are listed in [kwin-integration.md](kwin-integration.md#11-verification-status), and the
+> open points in [What is not done yet](#what-is-not-done-yet).
 
 ## 1. Start-up chain
 
@@ -17,14 +17,15 @@ login manager (greetd, SDDM, GDM, ...)
   └─ reads /usr/share/wayland-sessions/desilium.desktop   (Exec=desilium-session)
        └─ desilium-session                     supervisor, own process, owns restart policy
             ├─ re-exec under dbus-run-session  only when no session bus exists
-            ├─ desilium-compositor             critical, Wayland provider, started first
-            │     └─ creates wayland-N in $XDG_RUNTIME_DIR, then logs "listening for Wayland clients"
+            ├─ kwin_wayland                    critical, Wayland provider, started first
+            │     └─ creates wayland-N in $XDG_RUNTIME_DIR
             ├─ desilium-shell                  restartable, Wayland client, after the socket
-            └─ desilium-notifications          restartable, Wayland client, after the socket
+            ├─ desilium-kwin                   restartable, the KWin bridge, after the socket
+            └─ desilium-notifications          restartable, after the socket
 ```
 
 The login manager only has to know the `.desktop` file. Nothing is installed as a systemd user
-unit; logind still provides the seat and session the compositor needs.
+unit; logind still provides the seat and session KWin needs.
 
 ## 2. Plan: what starts, in which order
 
@@ -35,33 +36,41 @@ Components, in start order (`crates/desilium-session/src/startup/defaults.rs`):
 
 | Component | Binary | Criticality | Wayland role | If not installed |
 |---|---|---|---|---|
-| compositor | `desilium-compositor` | Critical | provider | error, session does not start |
+| compositor | `kwin_wayland` | Critical | provider | error, session does not start |
 | shell | `desilium-shell` | Restartable | client | skipped with an info log |
+| kwin-bridge | `desilium-kwin` | Restartable | client | skipped with an info log |
 | notifications | `desilium-notifications` | Restartable | client | skipped with an info log |
 
 Discovery per binary: next to the `desilium-session` executable first (installed prefix or
-`target/`), then `PATH`. An explicit flag (`--compositor`, `--shell`, `--notifications`) always wins
-and must exist; compositor arguments after `--` (or the first unknown argument) go to the compositor
-only.
+`target/`), then `PATH`. KWin is normally found on `PATH`. An explicit flag (`--compositor`,
+`--shell`, `--kwin-bridge`, `--notifications`) always wins and must exist.
+
+KWin is started with the arguments `--xwayland --no-lockscreen`: a rootless Xwayland for X11
+applications, and no lock screen, because that needs `kscreenlocker`, which Desilium does not ship.
+Arguments after `--` (or the first argument that is not a session flag) are appended to those and
+go to KWin only; the other components get none. The component is still called `compositor` because
+it is the Wayland provider; the binary is KWin. Desilium ships no compositor.
 
 ## 3. Wayland readiness protocol
 
-Clients must not start before the compositor can accept them. The compositor picks its own socket
-name (the first free `wayland-N` in `$XDG_RUNTIME_DIR`), so the supervisor cannot dictate it.
+Clients must not start before the compositor can accept them. KWin picks its own socket name (a
+free `wayland-N` in `$XDG_RUNTIME_DIR`), so the supervisor cannot dictate it.
 
-1. Before the compositor starts, the supervisor lists the `wayland-N` entries in `$XDG_RUNTIME_DIR`
+1. Before KWin starts, the supervisor lists the `wayland-N` entries in `$XDG_RUNTIME_DIR`
    (`.lock` files are ignored).
-2. It starts the compositor and polls the directory every **25 ms** for an entry that was not in
+2. It starts KWin and polls the directory every **25 ms** for an entry that was not in
    the first listing.
 3. The new name is the display. The supervisor stores it and passes `WAYLAND_DISPLAY=<name>` to
    every child it starts from then on, including restarts.
-4. Two things end the wait early: the compositor exiting (`ProviderExitedEarly`) and the **10 s**
-   timeout (`WaylandSocketTimeout`; the compositor is then killed and the session fails).
+4. Two things end the wait early: KWin exiting (`ProviderExitedEarly`) and the **10 s**
+   timeout (`WaylandSocketTimeout`; KWin is then killed and the session fails).
 
 Polling was chosen over inotify on purpose: the wait happens once per session, is bounded, and needs
 no extra dependency. A socket that appears from another display's leftovers is never mistaken for
-ours, because it was already in the first listing. The protocol is tested with shell scripts that
-create the socket file (`crates/desilium-session/tests/wayland.rs`), so no compositor is needed.
+ours, because it was already in the first listing; this matters when KWin runs nested, because the
+host's own socket is in the same directory. The protocol is tested with shell scripts that create
+the socket file (`crates/desilium-session/tests/wayland.rs`), so no compositor is needed. Whether a
+real `kwin_wayland` creates its socket within the 10 s limit has not been measured.
 
 ## 4. Environment
 
@@ -70,15 +79,24 @@ Set for every child (`crates/desilium-session/src/startup/environment.rs`):
 | Variable | Value | Rule |
 |---|---|---|
 | `XDG_SESSION_TYPE` | `wayland` | always set |
-| `XDG_CURRENT_DESKTOP` | `Desilium` | always set |
+| `XDG_CURRENT_DESKTOP` | `Desilium:KDE` | always set |
 | `XDG_SESSION_DESKTOP` | `desilium` | always set |
 | `DESKTOP_SESSION` | `desilium` | always set |
+| `KDE_SESSION_VERSION` | `6` | always set |
+| `KWIN_WAYLAND_NO_PERMISSION_CHECKS` | `1` | only with `--allow-any-client` |
 | `WAYLAND_DISPLAY` | the compositor's socket | set after the compositor is ready |
 | `QT_QPA_PLATFORM` | `wayland;xcb` | only when the user has not set it |
 | `MOZ_ENABLE_WAYLAND` | `1` | only when the user has not set it |
 | `GDK_BACKEND` | `wayland,x11` | only when the user has not set it |
 | `ELECTRON_OZONE_PLATFORM_HINT` | `auto` | only when the user has not set it |
 | `SDL_VIDEODRIVER` | `wayland,x11` | only when the user has not set it |
+
+`XDG_CURRENT_DESKTOP` is a list: portals and applications try `Desilium` first and fall back to
+what they know for `KDE`, which is what KWin and its portal backend belong to.
+`KWIN_WAYLAND_NO_PERMISSION_CHECKS` makes KWin hand its restricted protocols (window list, virtual
+desktops) to every client. It is a development switch; the normal route is the shell's desktop
+file with `X-KDE-Wayland-Interfaces` (see
+[kwin-integration.md](kwin-integration.md#3-permission-mechanism)).
 
 `--dry-run` marks each variable as added (`+`), replaced (`~ ... (was ...)`), unchanged (`=`) or
 kept because the user set it (`= ... (kept: set by the user)`).
@@ -103,29 +121,32 @@ Restart rules are pure and live in `policy.rs`; `supervisor.rs` applies them to 
 
 | Situation | Behaviour |
 |---|---|
-| Compositor (Critical) exits, any status | session ends; exit code follows the compositor's status |
+| KWin (Critical) exits, any status | session ends; exit code follows KWin's status |
 | Restartable component exits with status 0 | restarted after 500 ms; crash history untouched |
 | Restartable component fails (non-zero, signal, spawn error) | restarted after backoff: 500 ms, doubling, capped at 30 s |
 | Run lasted at least 60 s | counts as healthy: backoff and crash history reset |
 | 5 failures within 60 s | crash loop: the component is given up, the session continues |
 | SIGTERM or SIGINT to the supervisor | SIGTERM to every component group, 5 s grace, then SIGKILL |
-| Compositor cannot be started or its socket never appears | session fails with an error, children are stopped |
+| KWin cannot be started or its socket never appears | session fails with an error, children are stopped |
 
 Each component runs in its own process group, so signals reach whole process trees and the
-supervisor can kill stragglers. A compositor restart is not supported: it would drop every client
-connection, so a compositor exit always ends the session.
+supervisor can kill stragglers. A KWin restart is not supported: it would drop every client
+connection, so a KWin exit always ends the session. A bridge restart is harmless: it applies the
+configuration again.
 
 ## 7. Command line
 
 ```text
-desilium-session [--dry-run[=text|json]] [--print-env]
-                 [--compositor <path>] [--shell <path>] [--notifications <path>]
-                 [--] [compositor args...]
+desilium-session [--dry-run[=text|json]] [--print-env] [--allow-any-client]
+                 [--compositor <kwin_wayland path>] [--shell <path>]
+                 [--kwin-bridge <path>] [--notifications <path>]
+                 [--] [kwin_wayland args...]
 ```
 
 - `--dry-run` prints the plan (components, paths and how they were found, start order, skipped
   components, D-Bus action, environment changes) and exits 0 without starting anything. A missing
-  compositor is an error (exit 1) even in a dry run.
+  `kwin_wayland` is an error (exit 1) even in a dry run.
+- `--allow-any-client` exports `KWIN_WAYLAND_NO_PERMISSION_CHECKS=1`. Development only.
 - `--dry-run=json` prints the same plan as one JSON document for tooling.
 - `--print-env` prints `export` lines for the session environment, for shells and debugging.
 
@@ -165,18 +186,30 @@ target/debug/desilium-session --dry-run=json
 target/debug/desilium-session --print-env
 ```
 
-Running the compositor itself safely, nested:
+Running a session safely, nested:
 
-- `scripts/docker-run.sh --command foot` runs the compositor (winit) in a hardened container as a
-  client of your host Wayland session. Only the host Wayland socket and the render node are passed
-  in; the container has no network and no capabilities. The session supervisor is not involved.
-- `scripts/docker-screenshot.sh --command "..."` runs the compositor headless and writes a PNG,
-  which is the easiest way to check visual changes.
+- Start KWin nested in your current Wayland session: `target/debug/desilium-session
+  --allow-any-client`. KWin should use its nested Wayland backend when it finds `WAYLAND_DISPLAY`
+  (not verified). Extra arguments for KWin go after `--`, for example `-- --width 1600
+  --height 900`. The bridge writes KDE configuration files into `$XDG_CONFIG_HOME`, so use a
+  throw-away directory for it on the host.
+- `scripts/docker-run.sh` does the same in a hardened container: it runs `desilium-session` (default
+  argument `--allow-any-client`; your arguments replace it, and arguments after `--` go to
+  `kwin_wayland`). Only the host Wayland socket and the render node are passed in; the container
+  has no network and no capabilities except `SYS_NICE`, which `kwin_wayland` needs to be
+  executed at all. The container user is `dev` with the home `/home/dev`, a named Docker volume
+  (`desilium-dev-home-<distro>`) seeded from `docker/home-skel` with the XDG user folders,
+  `Applications`, wallpapers and executable launchers on the desktop; the XDG directories are the
+  defaults below that home, so the configuration the bridge writes persists between runs
+  (`--fresh-home`, `--reset-home`, `--save`; images for Debian, `--arch`, `--ubu`
+  and `--fed`; see [testing.md](testing.md#the-development-user-space)). The images were not
+  built or run when this was written.
+- `kwin_wayland --virtual` runs KWin without a display, for tests (see [headless.md](headless.md)).
 
-To exercise the supervisor end to end without a compositor, point it at a stand-in: a script that
-creates `$XDG_RUNTIME_DIR/wayland-1` and then sleeps, passed with `--compositor`. Never run
-`desilium-session` on a host desktop without a sandbox; a real start creates a compositor and
-children in your session.
+To exercise the supervisor end to end without KWin, point it at a stand-in: a script that creates
+`$XDG_RUNTIME_DIR/wayland-1` and then sleeps, passed with `--compositor`. Never run
+`desilium-session` on a host desktop without a sandbox or a nested run; a real start creates a
+compositor and children in your session.
 
 ## 10. Packaging
 
@@ -186,12 +219,16 @@ why systemd user units are not used.
 
 ## What is not done yet
 
-- **DRM/KMS backend.** The compositor runs only as winit (a window in an existing session) or
-  headless. A login-manager start on bare hardware therefore fails at compositor start today:
-  the session stops with an error and logs why. This is the largest gap.
+- **A run with a real KWin.** No session has been started with `kwin_wayland` yet. The DRM/KMS
+  backend is no longer a Desilium gap (KWin has one), but whether a login-manager start works end
+  to end is unproven.
 - A session-level log file with rotation (section 8).
 - Restarting the Wayland provider. Clients keep the socket name of the first start.
-- Health checks beyond exit status (no ping or readiness from the shell and notification daemon).
-- A Desilium portal backend; `packaging/xdg-desktop-portal/desilium-portals.conf` uses GTK for now.
-- Config-service supervision (the architecture lists it; it does not exist yet).
+- Health checks beyond exit status (no ping or readiness from the shell, the bridge and the
+  notification daemon).
+- A lock screen. KWin is started with `--no-lockscreen`.
+- A Desilium portal backend; `packaging/xdg-desktop-portal/desilium-portals.conf` sends ScreenCast,
+  RemoteDesktop, Screenshot, GlobalShortcuts and InputCapture to the KDE backend and everything
+  else to GTK.
+- Config-service supervision (there is no separate configuration process).
 - Safe mode after repeated crash loops of the shell (the architecture lists it as a goal).

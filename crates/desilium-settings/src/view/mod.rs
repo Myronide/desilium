@@ -6,10 +6,12 @@
 
 mod about;
 mod controls;
+pub use controls::range_updates;
 mod keyboard;
 mod page;
 mod preview;
 mod search_page;
+mod themes;
 
 use std::{fmt::Write, path::Path, time::Instant};
 
@@ -19,6 +21,7 @@ use desilium_ui::icon_svg;
 
 use crate::{
     changes::Recovery,
+    i18n::{keys, tr},
     model::{Level, Model, Notice, Toast},
     registry::{NAV, NavEntry},
 };
@@ -28,7 +31,7 @@ pub const SHARED_CSS: &str = include_str!("../../assets/shared.css");
 /// Styles of the settings app.
 pub const SETTINGS_CSS: &str = include_str!("../../assets/settings.css");
 
-/// Tooltip shown on entries that are planned but not built yet.
+/// English tooltip of entries that are planned but not built yet.
 const PLANNED_TOOLTIP: &str = "Coming soon";
 
 /// Everything a view function may read.
@@ -104,11 +107,11 @@ pub fn document(ctx: &Ctx<'_>) -> String {
     format!(
         "<div class='app{compact}' id=app>\
          <div class=side>\
-         <div class='search fld{filled}' id=searchbox>{search}<span class=phd>Search all settings</span>\
+         <div class='search fld{filled}' id=searchbox>{search}<span class=phd>{placeholder}</span>\
          <input id=search data-key=search data-submit=search value='{query}' autocomplete=off>\
          <span id=searchhint class=kbd>/</span><span class=clear data-action=search-clear>{close}</span></div>\
          <div id=nav class=navlist>{nav}</div>\
-         <div class=foot>{spark}<span>Every option of Desilium lives here. No config files, no tweak tools.</span></div>\
+         <div class=foot>{spark}<span>{footer}</span></div>\
          </div>\
          <div class=main id=main>{main}</div>\
          <div id=tip></div></div>",
@@ -118,6 +121,11 @@ pub fn document(ctx: &Ctx<'_>) -> String {
         } else {
             " filled"
         },
+        placeholder = esc(&tr("ui.search.placeholder", "Search all settings")),
+        footer = esc(&tr(
+            "ui.sidebar.footer",
+            "Every option of Desilium lives here. No config files, no tweak tools."
+        )),
         query = esc(&ctx.model.query),
         close = icon("close", 12),
         search = icon("search", 16),
@@ -133,12 +141,17 @@ pub fn nav_html(ctx: &Ctx<'_>) -> String {
     for entry in NAV {
         match entry {
             NavEntry::Separator => out.push_str("<div class=nav-sep></div>"),
-            NavEntry::Planned { label, icon: name } => {
+            NavEntry::Planned {
+                slug,
+                label,
+                icon: name,
+            } => {
                 let _ = write!(
                     out,
-                    "<div class='nav dis' data-tooltip='{PLANNED_TOOLTIP}'><span class=t>{}</span>{}</div>",
+                    "<div class='nav dis' data-tooltip='{}'><span class=t>{}</span>{}</div>",
+                    esc(&tr("ui.nav.coming_soon", PLANNED_TOOLTIP)),
                     icon(name, 16),
-                    esc(label)
+                    esc(&tr(&keys::page(slug), label))
                 );
             }
             NavEntry::Page(page) => {
@@ -149,7 +162,7 @@ pub fn nav_html(ctx: &Ctx<'_>) -> String {
                     if on { " on" } else { "" },
                     page.slug(),
                     icon(page.icon(), 16),
-                    page.title()
+                    esc(&page.title())
                 );
             }
         }
@@ -176,17 +189,22 @@ fn notice_html(notice: Option<&Notice>) -> String {
         Level::Error => ("notice err", "info"),
     };
     let action = match notice.action {
-        Some(Recovery::Reload) => {
-            "<span class='btn sm' data-action=notice-reload>Reload from disk</span>"
-        }
-        Some(Recovery::Retry) => "<span class='btn sm' data-action=notice-retry>Try again</span>",
-        Some(Recovery::Dismiss) | None => "",
+        Some(Recovery::Reload) => format!(
+            "<span class='btn sm' data-action=notice-reload>{}</span>",
+            esc(&tr("ui.notice.reload", "Reload from disk"))
+        ),
+        Some(Recovery::Retry) => format!(
+            "<span class='btn sm' data-action=notice-retry>{}</span>",
+            esc(&tr("ui.notice.retry", "Try again"))
+        ),
+        Some(Recovery::Dismiss) | None => String::new(),
     };
     format!(
         "<div class='{class}' id=notice>{}<span class=msg>{}</span>{action}\
-         <span class='btn sm ghost' data-action=notice-dismiss>Dismiss</span></div>",
+         <span class='btn sm ghost' data-action=notice-dismiss>{}</span></div>",
         icon(name, 16),
-        esc(&notice.text)
+        esc(&notice.text),
+        esc(&tr("ui.notice.dismiss", "Dismiss"))
     )
 }
 
@@ -197,14 +215,23 @@ pub fn toast_html(toast: Option<&Toast>, idle: bool) -> String {
             return String::new();
         }
         return format!(
-            "<div class='undo idle'>{}<span class=msg>Changes are saved and applied right away.</span></div>",
-            icon("check", 16)
+            "<div class='undo idle'>{}<span class=msg>{}</span></div>",
+            icon("check", 16),
+            esc(&tr(
+                "ui.toast.idle",
+                "Changes are saved and applied right away."
+            ))
         );
     };
     let undo = toast
         .undo
         .as_ref()
-        .map(|_| "<span class='btn sm ghost' data-action=undo style='color:var(--text-on-surface-accent)'>Undo</span>")
+        .map(|_| {
+            format!(
+                "<span class='btn sm ghost' data-action=undo style='color:var(--text-on-surface-accent)'>{}</span>",
+                esc(&tr("ui.toast.undo", "Undo"))
+            )
+        })
         .unwrap_or_default();
     format!(
         "<div class=undo>{}<span class=msg>{}</span>{undo}</div>",

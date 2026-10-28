@@ -16,7 +16,11 @@ pub(crate) fn exact(chain: &[ThemeIndex], name: &str, size: u32, scale: u32) -> 
         .iter()
         .flat_map(|theme| theme.directories.iter().map(move |dir| (theme, dir)))
         .filter(|(_, dir)| theme::distance(dir, size, scale) == 0)
-        .find_map(|(theme, dir)| file_in_directory(&theme.dir.join(&dir.path), name, dir.size))
+        .find_map(|(theme, dir)| {
+            theme
+                .paths(dir)
+                .find_map(|path| file_in_directory(&path, name, dir.size))
+        })
 }
 
 /// Icon from the directory closest to the requested size; ties keep theme order.
@@ -29,12 +33,9 @@ pub(crate) fn closest(
     let mut candidates: Vec<(u64, PathBuf, u32)> = chain
         .iter()
         .flat_map(|theme| theme.directories.iter().map(move |dir| (theme, dir)))
-        .map(|(theme, dir)| {
-            (
-                theme::distance(dir, size, scale),
-                theme.dir.join(&dir.path),
-                dir.size,
-            )
+        .flat_map(|(theme, dir)| {
+            let distance = theme::distance(dir, size, scale);
+            theme.paths(dir).map(move |path| (distance, path, dir.size))
         })
         .collect();
     candidates.sort_by_key(|(distance, _, _)| *distance);

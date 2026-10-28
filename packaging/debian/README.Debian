@@ -6,17 +6,18 @@ the session file, the portal preferences, the desktop entries and the wallpapers
 A Debian source package should use the same script instead of hand-written install rules:
 
   - Build-Depends: cargo, rustc (or rustup), pkgconf, libwayland-dev, libxkbcommon-dev,
-    libgbm-dev, libegl-dev, libgles-dev, libinput-dev, libudev-dev, libseat-dev, libdrm-dev,
-    libfontconfig-dev
-  - Depends: libwayland-server0 | libwayland-client0, libxkbcommon0, libgbm1, libegl1,
-    libinput10, libudev1, libseat1, libdrm2, libfontconfig1, fonts-inter
-  - Recommends: xdg-desktop-portal-gtk, dbus-user-session
-  - Depends: kitty, libglib2.0-0t64
+    libglib2.0-dev, libfontconfig-dev
+  - Depends: libwayland-client0, libxkbcommon0, libfontconfig1, fonts-inter, kitty, libglib2.0-0t64,
+    dbus-user-session | dbus-x11
+  - Depends (the compositor): kwin-wayland, kglobalacceld, kf6-kconfig-bin (kwriteconfig6),
+    xwayland, breeze-icon-theme (KDE's default icon theme)
+  - Recommends: xdg-desktop-portal-kde, xdg-desktop-portal-gtk, breeze
   - Recommends: gvfs-backends, udisks2, network-manager, wireplumber, bluez, brightnessctl, power-profiles-daemon
-  - In debian/rules, run: cargo build --release --locked -p desilium-compositor -p desilium-session
+  - In debian/rules, run: cargo build --release --locked -p desilium-session -p desilium-kwin
     -p desilium-shell -p desilium-settings -p desilium-notifications -p desilium-files, then
     DESTDIR=debian/tmp packaging/install.sh --prefix /usr
 
-Use the package names of the release you target; names above follow current Debian conventions.
+Use the package names of the release you target. The KDE package names above are from memory and
+have not been checked against a Debian archive; KWin must be a Plasma 6 build (kwin-wayland 6.x).
 The session file belongs to the desilium package, so display managers pick it up from
 /usr/share/wayland-sessions/desilium.desktop without further configuration.

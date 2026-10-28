@@ -1,6 +1,21 @@
 # Desilium Design Language
 
-Source of truth in code: `crates/desilium-theme` (typed, validated, serde/TOML). Built-in files: `crates/desilium-theme/themes/desilium-{dark,light}.toml`. Every token below is a user-changeable setting with a default; HTML mockups, shaders and the compositor all read the same values.
+Source of truth in code: `crates/desilium-theme` (typed, validated, serde/TOML). Built-in files: `crates/desilium-theme/themes/desilium-{dark,light}.toml`. Every token below is a user-changeable setting with a default; the shell, the HTML mockups and the KDE colour scheme exported by the KWin bridge read the same values.
+
+> **Since the move to KWin** Desilium no longer draws windows. Window decorations, window shadows
+> and window animations are KWin's. What of this document reaches them today:
+>
+> - The **palette** is exported as a KDE colour scheme (`DesiliumDark` / `DesiliumLight`, with the
+>   accent), including the `[WM]` title bar colours, so KDE/Qt applications and KWin's decoration
+>   follow the theme. See [`kwin-integration.md`](kwin-integration.md#colours).
+> - **Motion** reaches KWin only as a speed factor (`animations`, `animation_speed`, `reduce_motion`
+>   become `AnimationDurationFactor`). The per-event durations, easings and the spring below are
+>   used by the shell's own animations; for windows they are a design target, not behaviour.
+> - The **window** tokens (corner radius, title bar height, buttons, border, shadows, translucency)
+>   describe the intended look. Nothing draws them now. They are kept for a possible Desilium
+>   decoration theme or KDecoration3 plugin (see the known gaps in `kwin-integration.md`).
+> - Blur: the shell asks KWin for backdrop blur behind its own panels; only on/off reaches KWin, not
+>   the radius.
 
 ## 1. Rationale
 
@@ -76,7 +91,7 @@ Units are logical px unless noted. Colors are `#RRGGBB[AA]`.
 | `buttons.glyph_on_danger` | `text_on_accent` if >= 4.5:1 on danger, else white or black | dark `#0C0A1E`, light `#FFFFFF` |
 | `buttons.glyph_size` / `glyph_stroke` | 16 / 1.5 | glyph box is centred in the hit area; size <= min(width, height) |
 
-Window buttons are neutral and right-aligned, as in the approved mockups: minimize, maximize/restore, close. Only close turns danger on hover and press. The compositor draws server-side decorations from these tokens and hit-tests each button as its `width` x `height` rectangle.
+Window buttons are neutral and right-aligned, as in the approved mockups: minimize, maximize/restore, close. Only close turns danger on hover and press. The former compositor drew server-side decorations from these tokens and hit-tested each button as its `width` x `height` rectangle; with KWin these tokens are not drawn (see the note at the top).
 
 ### Spacing (`[spacing]`, always snapped to `unit` = 4)
 
@@ -113,7 +128,7 @@ Spring (drags, snapping, interruptible): stiffness 320, damping 28, mass 1 (damp
 | stop 0 / 0.55 / 1 | `#0A0817` `#15102D` `#31184E` | `#F4F2FD` `#E4E0FB` `#C8CFF9` |
 | `noise` (grain, 0-0.25) | 0.025 | 0.025 |
 
-Gradient stops are the accent hue at low (dark) or high (light) lightness, with the last stop turned +18 / -18 degrees for gentle depth. Grain hides 8-bit banding.
+Gradient stops are the accent hue at low (dark) or high (light) lightness, with the last stop turned +18 / -18 degrees for gentle depth. Grain hides 8-bit banding. The gradient is the shell's wallpaper backdrop: KWin draws no wallpaper, so the shell paints it behind (and, without a configured image, instead of) the wallpaper image.
 
 | Effect | Default | Meaning |
 |---|---|---|
@@ -155,6 +170,9 @@ Level 2 of the mockups is lighter than `popup`; deriving it as a lighter focused
 
 ## 4. Motion principles
 
+These principles govern the shell's own animations. Window open, close, maximize and snap
+animations are KWin's effects; only their speed and on/off state follow the Desilium settings.
+
 1. **Fast in, soft landing.** Entering uses `ease-out-expo`; 80% of movement happens in the first third.
 2. **Leaving is shorter than arriving** (160 vs 240 ms) and uses `ease-in`. Closing never makes the user wait.
 3. **Animate what changed, nothing else.** Transform and opacity only; never layout on the hot path.
@@ -164,6 +182,9 @@ Level 2 of the mockups is lighter than `popup`; deriving it as a lighter focused
 7. **Respect `reduce_motion`:** instant state changes, no exceptions.
 
 ## 5. Window chrome mockups
+
+These mockups show the intended look of a Desilium decoration. With KWin the real windows use
+KWin's decoration in the Desilium colours; the mockups stay as the design target.
 
 Active (focused: raised bar, accent-tinted outline, `shadow.focused`; glyphs at `glyph_active`):
 

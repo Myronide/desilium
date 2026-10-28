@@ -52,7 +52,7 @@ fn dots_html(dots: &[Dot]) -> String {
 
 fn cell_html(index: usize, cell: &DockCell) -> String {
     format!(
-        "<div class=dock-item id=dock-{index} data-action=app data-middle-action=app-new data-secondary-action=app-menu data-arg=\"{key}\" data-tooltip=\"{name}\">{icon}{dots}</div>",
+        "<div class=dock-item id=dock-{index} data-action=app data-middle-action=app-new data-secondary-action=app-menu data-drag=dock-item data-arg=\"{key}\" data-tooltip=\"{name}\">{icon}{dots}</div>",
         key = esc(&cell.key),
         name = esc(&cell.name),
         icon = icon_html(&cell.icon, "", ICON_PX),
@@ -78,8 +78,11 @@ pub fn dock_html(view: &DockView, layout: &DockLayout) -> String {
     )
 }
 
-/// Corner radius of a taskbar (also the compositor's clip radius).
-pub const TASKBAR_RADIUS: u32 = 18;
+/// Corner radius of the dock or taskbar (also the compositor's clip radius): the configured
+/// one, but never more than half the height, which would turn the corners inside out.
+pub fn panel_radius(settings: &desilium_config_types::ShellSettings, height: u32) -> u32 {
+    u32::from(settings.panel_radius).min(height / 2)
+}
 
 /// What the taskbar's right cluster shows besides the fixed tray icons.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -139,7 +142,7 @@ pub fn configured_html(
 ) -> String {
     let labels = settings.mode == desilium_config_types::PanelMode::Taskbar && settings.show_labels;
     let taskbar = settings.mode == desilium_config_types::PanelMode::Taskbar;
-    let radius = if taskbar { TASKBAR_RADIUS } else { 22 };
+    let radius = panel_radius(settings, layout.height);
     let icon = settings.icon_size.saturating_sub(2);
     let strip_width = layout.system.map_or(layout.width as f64, |rect| {
         (rect.x - f64::from(settings.spacing)).max(0.0)
@@ -185,7 +188,7 @@ pub fn configured_html(
         } else {
             ""
         };
-        inner.push_str(&format!("<div class='dock-item{focused}' id=dock-{index} data-action=app data-middle-action=app-new data-secondary-action=app-menu data-arg='{}' data-tooltip='{}' style='{}'>{}{label}{dots}</div>",esc(&cell.key),esc(&cell.name),rect_style(rect),icon_html(&cell.icon,"",u32::from(icon))));
+        inner.push_str(&format!("<div class='dock-item{focused}' id=dock-{index} data-action=app data-middle-action=app-new data-secondary-action=app-menu data-drag=dock-item data-arg='{}' data-tooltip='{}' style='{}'>{}{label}{dots}</div>",esc(&cell.key),esc(&cell.name),rect_style(rect),icon_html(&cell.icon,"",u32::from(icon))));
     }
     if view.separator == Some(view.cells.len()) {
         let x = layout
@@ -223,13 +226,13 @@ fn separator(x: f64, height: u32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{dock::layout::layout, model::icons::GENERIC_TILE};
+    use crate::dock::layout::layout;
 
     fn cell(key: &str, dots: Vec<Dot>) -> DockCell {
         DockCell {
             key: key.into(),
             name: format!("<{key}>"),
-            icon: IconSpec::Tile(GENERIC_TILE),
+            icon: IconSpec::NEUTRAL,
             dots,
         }
     }

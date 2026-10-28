@@ -134,6 +134,10 @@ pub struct Model {
     pub info: SystemInfo,
     /// Single-column layout.
     pub compact: bool,
+    /// Setting and value of a slider that is being dragged; stored when the button is released.
+    pub range_preview: Option<(&'static str, f64)>,
+    /// The "Get new themes" page.
+    pub store: crate::store::StoreState,
 }
 
 impl Model {
@@ -154,6 +158,8 @@ impl Model {
             rebind: None,
             info: SystemInfo::default(),
             compact: false,
+            range_preview: None,
+            store: crate::store::StoreState::default(),
         }
     }
 

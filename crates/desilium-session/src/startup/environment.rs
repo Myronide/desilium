@@ -6,11 +6,15 @@ use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
 /// Session-wide variables that always have the given value.
-const SESSION_VARIABLES: [(&str, &str); 4] = [
+///
+/// `XDG_CURRENT_DESKTOP` is a list: portals and applications try `Desilium` first and then fall
+/// back to what they know for `KDE`, which is what KWin and its portal backend belong to.
+const SESSION_VARIABLES: [(&str, &str); 5] = [
     ("XDG_SESSION_TYPE", "wayland"),
-    ("XDG_CURRENT_DESKTOP", "Desilium"),
+    ("XDG_CURRENT_DESKTOP", "Desilium:KDE"),
     ("XDG_SESSION_DESKTOP", "desilium"),
     ("DESKTOP_SESSION", "desilium"),
+    ("KDE_SESSION_VERSION", "6"),
 ];
 
 /// Toolkit hints that are applied only when the user has not set the variable.
@@ -138,7 +142,11 @@ mod tests {
         let entries = session_environment(&Environment::default());
         assert_eq!(entries.len(), SESSION_VARIABLES.len() + TOOLKIT_HINTS.len());
         assert_eq!(find(&entries, "GDK_BACKEND").value(), "wayland,x11");
-        assert_eq!(find(&entries, "XDG_CURRENT_DESKTOP").value(), "Desilium");
+        assert_eq!(
+            find(&entries, "XDG_CURRENT_DESKTOP").value(),
+            "Desilium:KDE"
+        );
+        assert_eq!(find(&entries, "KDE_SESSION_VERSION").value(), "6");
     }
 
     #[test]

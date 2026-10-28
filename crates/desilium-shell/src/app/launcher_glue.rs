@@ -13,7 +13,7 @@ use crate::{
         launcher::{Activation, Outcome, PINNED_SLOTS, RowIcon},
     },
     services::apps::CatalogLookup,
-    view::icon::{IconSpec, resolve_icon},
+    view::icon::{IconSpec, candidate_names, resolve_icon},
 };
 
 /// Edge of the pinned strip's icons.
@@ -28,19 +28,12 @@ struct ShellIcons<'a> {
 
 impl RowIcons for ShellIcons<'_> {
     fn app_icon(&mut self, icon: &RowIcon, px: u32) -> IconSpec {
-        let RowIcon::App {
-            desktop_id,
-            icon,
-            categories,
-        } = icon
-        else {
-            return IconSpec::Tile(crate::model::icons::GENERIC_TILE);
+        let RowIcon::App { desktop_id, icon } = icon else {
+            return IconSpec::NEUTRAL;
         };
         resolve_icon(
             self.resolver,
-            desktop_id,
-            icon.as_deref(),
-            categories,
+            &candidate_names(icon.as_deref(), desktop_id),
             px,
             self.scale,
         )
@@ -76,9 +69,7 @@ impl Shell {
             .map(|app| PinView {
                 icon: resolve_icon(
                     &mut self.icons,
-                    &app.desktop_id,
-                    app.icon.as_deref(),
-                    &app.categories,
+                    &candidate_names(app.icon.as_deref(), &app.desktop_id),
                     PIN_ICON_PX,
                     scale,
                 ),

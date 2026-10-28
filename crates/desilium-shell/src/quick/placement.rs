@@ -114,15 +114,13 @@ mod tests {
     }
     #[test]
     fn top_popup_hangs_below_the_bar_and_follows_its_height() {
-        let tall = bounds(
-            (1280, 800),
-            Origin::Top,
-            300,
-            Insets { top: 32, bottom: 0 },
-        );
+        let tall = bounds((1280, 800), Origin::Top, 300, Insets { top: 32, bottom: 0 });
         let none = bounds((1280, 800), Origin::Top, 300, Insets::default());
         assert_eq!(tall.y, 40.0);
-        assert_eq!(none.y, 12.0, "without a bar the popup keeps the screen margin");
+        assert_eq!(
+            none.y, 12.0,
+            "without a bar the popup keeps the screen margin"
+        );
         assert_eq!(tall.x + tall.width, 1268.0);
     }
     #[test]

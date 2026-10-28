@@ -1,0 +1,147 @@
+# syntax=docker/dockerfile:1
+# Fedora variant of docker/Dockerfile: the same binaries and the same user space on a dnf-based
+# runtime. Run via `scripts/docker-run.sh --fed`.
+#
+# All Fedora/KDE package names below (kwin-wayland, kglobalacceld, kf6-kconfig, breeze-icon-theme,
+# xorg-x11-server-Xwayland, dbus-tools, rsms-inter-fonts, ...) were written from memory and this
+# image has not been built (not in the authoring environment either); check them with
+# `dnf search` first. kwriteconfig6 is expected from kf6-kconfig.
+#
+# Structurally identical to docker/Dockerfile (Debian), .arch and .ubuntu: user `dev`, /home/dev
+# skeleton from docker/home-skel, same ENV, ENTRYPOINT and CMD; only the package manager lines
+# differ. Needs BuildKit (COPY --chmod / --chown with build arguments).
+#
+# Builder and runtime use the same base image, so the glibc matches. Fedora's rust package is
+# current enough for edition 2024, and without rustup rust-toolchain.toml is ignored.
+
+ARG BASE_IMAGE=fedora:latest
+
+# ---------------------------------------------------------------------------
+# Builder
+# ---------------------------------------------------------------------------
+FROM ${BASE_IMAGE} AS builder
+
+RUN dnf install -y --setopt=install_weak_deps=False \
+        cargo \
+        rust \
+        gcc \
+        pkgconf-pkg-config \
+        wayland-devel \
+        libxkbcommon-devel \
+        glib2-devel \
+        fontconfig-devel \
+    && dnf clean all
+
+WORKDIR /src
+COPY . .
+
+# Cache mounts keep the registry and build artifacts out of the image layers.
+# The binaries are copied out of the target cache inside the same RUN, because
+# cache mounts are not part of the resulting layer.
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    --mount=type=cache,target=/src/target \
+    set -eux; \
+    cargo build --release --locked \
+        -p desilium-session -p desilium-kwin -p desilium-shell \
+        -p desilium-notifications -p desilium-settings -p desilium-files; \
+    cargo build --release -p desilium-ui --example layer_demo; \
+    cp target/release/desilium-session target/release/desilium-kwin \
+       target/release/desilium-shell target/release/desilium-notifications \
+       target/release/desilium-settings target/release/doria \
+       /usr/local/bin/; \
+    cp target/release/examples/layer_demo /usr/local/bin/ui-demo
+
+# ---------------------------------------------------------------------------
+# Runtime
+# ---------------------------------------------------------------------------
+FROM ${BASE_IMAGE} AS runtime
+
+# KWin comes with its Qt stack; dbus-daemon is for the session bus that desilium-session starts
+# through dbus-run-session (dbus-tools); xorg-x11-server-Xwayland lets KWin run X11 applications.
+RUN dnf install -y --setopt=install_weak_deps=False \
+        wayland \
+        libxkbcommon \
+        xkeyboard-config \
+        mesa-dri-drivers \
+        mesa-libEGL \
+        kwin \
+        kwin-wayland \
+        kglobalacceld \
+        kf6-kconfig \
+        breeze-icon-theme \
+        xorg-x11-server-Xwayland \
+        dbus-daemon \
+        dbus-tools \
+        kitty \
+        foot \
+        glib2 \
+        gvfs \
+        hicolor-icon-theme \
+        dejavu-sans-fonts \
+        shadow-utils \
+        findutils \
+        tar \
+        grep \
+        sed \
+    && (dnf install -y --setopt=install_weak_deps=False rsms-inter-fonts \
+        || dnf install -y --setopt=install_weak_deps=False google-inter-fonts) \
+    # A cursor theme: without one KWin has no pointer image and the cursor is invisible.
+    && (dnf install -y --setopt=install_weak_deps=False breeze-cursor-theme \
+        || dnf install -y --setopt=install_weak_deps=False adwaita-cursor-theme) \
+    && dnf clean all
+
+# D-Bus (and with it KWin's services and portals) wants a machine id; the image ships none.
+RUN dbus-uuidgen --ensure=/etc/machine-id
+
+# The development user and its home. scripts/docker-run.sh passes these as build arguments
+# (DESILIUM_USER, default dev); the home is the mount point of the persistent Docker volume.
+ARG USER_NAME=dev
+ARG USER_UID=1000
+ARG USER_GID=1000
+ARG USER_HOME=/home/${USER_NAME}
+
+RUN groupadd --gid ${USER_GID} ${USER_NAME} \
+    && useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --home-dir ${USER_HOME} \
+        --shell /bin/bash ${USER_NAME}
+
+COPY --from=builder /usr/local/bin/desilium-session /usr/local/bin/desilium-session
+COPY --from=builder /usr/local/bin/desilium-kwin /usr/local/bin/desilium-kwin
+COPY --from=builder /usr/local/bin/desilium-shell /usr/local/bin/desilium-shell
+COPY --from=builder /usr/local/bin/desilium-notifications /usr/local/bin/desilium-notifications
+COPY --from=builder /usr/local/bin/desilium-settings /usr/local/bin/desilium-settings
+COPY --from=builder /usr/local/bin/doria /usr/local/bin/doria
+COPY --from=builder /usr/local/bin/ui-demo /usr/local/bin/ui-demo
+COPY assets/wallpapers /usr/share/desilium/wallpapers
+COPY packaging/applications/org.desilium.Shell.desktop /usr/share/applications/org.desilium.Shell.desktop
+COPY packaging/applications/org.desilium.Doria.desktop /usr/share/applications/org.desilium.Doria.desktop
+COPY packaging/icons/org.desilium.Doria.svg /usr/share/icons/hicolor/scalable/apps/org.desilium.Doria.svg
+COPY packaging/icons/desilium-settings.svg /usr/share/icons/hicolor/scalable/apps/desilium-settings.svg
+COPY packaging/applications/desilium-settings.desktop /usr/share/applications/desilium-settings.desktop
+# Fake applications and icons for shell screenshots. NOT on the default XDG_DATA_DIRS:
+# pass XDG_DATA_DIRS=/usr/share/desilium-demo:/usr/share and DESILIUM_ICON_THEME=desilium-demo to the shell to see them.
+COPY assets/demo-apps /usr/share/desilium-demo
+
+# The seeded user space: the skeleton from docker/home-skel (XDG user folders, user-dirs.dirs,
+# Documents/Welcome.txt), the bundled wallpapers and executable launchers on the desktop (Desilium
+# only starts launchers that have the executable bit). scripts/docker-run.sh mounts a named volume
+# at the home; Docker fills a new volume from this content once, including ownership.
+COPY --chown=${USER_UID}:${USER_GID} docker/home-skel/ ${USER_HOME}/
+RUN find ${USER_HOME} -name .gitkeep -type f -delete
+COPY --chown=${USER_UID}:${USER_GID} assets/wallpapers/ ${USER_HOME}/Pictures/Wallpapers/
+COPY --chown=${USER_UID}:${USER_GID} --chmod=0755 packaging/applications/org.desilium.Doria.desktop ${USER_HOME}/Desktop/org.desilium.Doria.desktop
+COPY --chown=${USER_UID}:${USER_GID} --chmod=0755 packaging/applications/desilium-settings.desktop ${USER_HOME}/Desktop/desilium-settings.desktop
+
+# The root filesystem is mounted read-only at run time; the home (a volume) and /tmp (tmpfs) are
+# the only writable locations. The XDG directories are the defaults below $HOME.
+ENV LANG=C.UTF-8 \
+    HOME=${USER_HOME}
+
+USER ${USER_UID}:${USER_GID}
+WORKDIR ${USER_HOME}
+
+# The session starts KWin (nested in the host session), the bridge, the shell and the
+# notification daemon. --allow-any-client: the shell binary is in /usr/local/bin here, and the
+# container is the sandbox, so KWin's per-executable permission check is switched off.
+ENTRYPOINT ["desilium-session"]
+CMD ["--allow-any-client"]

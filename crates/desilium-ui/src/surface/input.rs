@@ -17,8 +17,13 @@ use keyboard_types::{Code, Location};
 
 use super::UiSurface;
 use crate::input::{
-    CursorHint, HoverTarget, KeyEvent, PointerButton, Rect, UiAction, UiEvent, WheelDelta,
+    CursorHint, DragPhase, HoverTarget, KeyEvent, PointerButton, Rect, UiAction, UiDrag, UiEvent,
+    WheelDelta,
 };
+
+/// Distance in logical pixels the pointer may move with the button held and still count as a click.
+const DRAG_THRESHOLD: f32 = 5.0;
+const DRAG_ATTR: &str = "data-drag";
 
 /// Ancestor hops allowed when looking for an action element (guards against cycles).
 const MAX_DEPTH: usize = 64;
@@ -30,11 +35,25 @@ const MIDDLE_ACTION_ATTR: &str = "data-middle-action";
 const SECONDARY_ACTION_ATTR: &str = "data-secondary-action";
 const KEY_ATTR: &str = "data-key";
 
+/// An element the primary button went down on that can be dragged.
+/// A press on a draggable element. Name and argument are read when the button goes down: the
+/// document is often redrawn while the drag goes on, which removes the pressed element.
+#[derive(Clone)]
+struct DragPress {
+    name: String,
+    arg: Option<String>,
+    origin: (f32, f32),
+}
+
 #[derive(Default)]
 pub(super) struct PointerState {
     position: Option<(f32, f32)>,
     pressed_action: Option<NodeId>,
     buttons: MouseEventButtons,
+    /// Button is down on a draggable element and has not moved far enough yet.
+    drag_press: Option<DragPress>,
+    /// A drag is under way.
+    dragging: Option<DragPress>,
 }
 
 /// Collects the `input` events Blitz emits while it edits a text field.
@@ -160,6 +179,9 @@ impl UiSurface {
     }
 
     fn dispatch(&mut self, event: BlitzUiEvent) {
+        // Blitz hit-tests against the layout tree; after the document was edited that tree still
+        // lists removed nodes, and looking one up panics. Lay out first, whatever the event is.
+        self.ensure_layout();
         let collector = InputCollector::default();
         let seen = collector.0.clone();
         let mut driver = EventDriver::new(&mut self.doc, collector);
@@ -184,12 +206,71 @@ impl UiSurface {
         if self.doc.get_hover_node_id() != before {
             self.mark_dirty();
         }
+        self.update_drag(pos);
+    }
+
+    /// Starts a drag once the pointer left the click threshold, and reports further movement.
+    fn update_drag(&mut self, pos: (f32, f32)) {
+        if let Some(drag) = self.pointer.dragging.clone() {
+            self.push_drag(DragPhase::Move, &drag, pos);
+            return;
+        }
+        let Some(press) = self.pointer.drag_press.clone() else {
+            return;
+        };
+        let moved = (pos.0 - press.origin.0).hypot(pos.1 - press.origin.1);
+        if moved < DRAG_THRESHOLD {
+            return;
+        }
+        self.pointer.drag_press = None;
+        // From here on the press is a drag, not a click.
+        self.pointer.pressed_action = None;
+        self.push_drag(DragPhase::Start, &press, pos);
+        self.pointer.dragging = Some(press);
+    }
+
+    fn push_drag(&mut self, phase: DragPhase, press: &DragPress, pos: (f32, f32)) {
+        let point = |(x, y): (f32, f32)| (f64::from(x), f64::from(y));
+        self.events.push_back(UiEvent::Drag(UiDrag {
+            phase,
+            name: press.name.clone(),
+            arg: press.arg.clone(),
+            origin: point(press.origin),
+            pos: point(pos),
+        }));
+    }
+
+    /// The draggable element under `(x, y)`, as a press that started at `origin`.
+    fn drag_press_at(&mut self, x: f32, y: f32) -> Option<DragPress> {
+        self.ensure_layout();
+        let hit = self.doc.hit(x, y)?;
+        let node = self.ancestor_with(hit.node_id, DRAG_ATTR)?;
+        if self.is_disabled(node) {
+            return None;
+        }
+        Some(DragPress {
+            name: self.attr_of(node, DRAG_ATTR)?,
+            arg: self.attr_of(node, ARG_ATTR),
+            origin: (x, y),
+        })
+    }
+
+    /// Where the pointer last was inside this surface, in logical pixels; `None` before it
+    /// entered and after it left. Context menus open at this point.
+    pub fn pointer_position(&self) -> Option<(f64, f64)> {
+        self.pointer
+            .position
+            .map(|(x, y)| (f64::from(x), f64::from(y)))
     }
 
     /// Pointer left the surface; clears hover styles.
     pub fn pointer_leave(&mut self) {
         let pos = self.pointer.position.take().unwrap_or_default();
         let event = pointer_event(pos, MouseEventButton::Main, MouseEventButtons::None);
+        self.pointer.drag_press = None;
+        if let Some(drag) = self.pointer.dragging.take() {
+            self.push_drag(DragPhase::End, &drag, pos);
+        }
         self.pointer.pressed_action = None;
         self.pointer.buttons = MouseEventButtons::None;
         self.dispatch(BlitzUiEvent::PointerLeave(event));
@@ -206,6 +287,10 @@ impl UiSurface {
             PointerButton::Middle => self.middle_node_at(pos.0, pos.1),
             PointerButton::Secondary => self.secondary_node_at(pos.0, pos.1),
         };
+        if button == PointerButton::Primary {
+            self.pointer.dragging = None;
+            self.pointer.drag_press = self.drag_press_at(pos.0, pos.1);
+        }
         let event = pointer_event(pos, native, self.pointer.buttons);
         self.dispatch(BlitzUiEvent::PointerDown(event));
         self.mark_dirty();
@@ -219,6 +304,13 @@ impl UiSurface {
         let event = pointer_event(pos, native, self.pointer.buttons);
         self.dispatch(BlitzUiEvent::PointerUp(event));
         self.mark_dirty();
+        if button == PointerButton::Primary {
+            self.pointer.drag_press = None;
+            if let Some(drag) = self.pointer.dragging.take() {
+                self.push_drag(DragPhase::End, &drag, pos);
+                return;
+            }
+        }
         let pressed = self.pointer.pressed_action.take();
         let Some(pressed) = pressed else {
             return;
@@ -267,6 +359,9 @@ impl UiSurface {
     }
 
     /// Wheel or touchpad scroll at `(x, y)`.
+    ///
+    /// Winit convention: a negative `y` scrolls the content down. The engine turns a line into
+    /// 20 px; the Wayland hosts send pixels instead (see `wayland::input_map`).
     pub fn wheel(&mut self, x: f64, y: f64, delta: WheelDelta) {
         let pos = (x as f32, y as f32);
         let delta = match delta {
@@ -350,6 +445,8 @@ impl UiSurface {
 
     /// Focuses the element matching `selector` (typically a search `<input>`).
     pub fn focus(&mut self, selector: &str) -> Result<(), crate::UiError> {
+        // Elements added since the last layout are only found by `#id` after it ran.
+        self.ensure_layout();
         let id = *self
             .find_all(selector)?
             .first()

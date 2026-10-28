@@ -1,6 +1,7 @@
 //! About page body.
 
 use super::{Ctx, esc, icon};
+use crate::i18n::tr;
 
 pub(super) fn html(ctx: &Ctx<'_>) -> String {
     let info = &ctx.model.info;
@@ -12,13 +13,25 @@ pub(super) fn html(ctx: &Ctx<'_>) -> String {
         .join("<br>");
     format!(
         "<div class=hero><span class='app-icon lg a-settings'>{}</span>\
-         <div class=col><h2>Desilium</h2><span>A calm, fast, keyboard-first desktop.</span></div></div>\
-         <div class=kvrow><span class=k>Version</span><span class=v>{}</span></div>\
-         <div class=kvrow><span class=k>Settings file</span><span class=v>{}</span></div>\
-         <div class=kvrow><span class=k>Wallpaper folders</span><span class=v>{dirs}</span></div>\
-         <div class=kvrow><span class=k>Backups kept</span><span class=v>The last 10 versions of the settings file are kept, so any change can be undone.</span></div>",
+         <div class=col><h2>Desilium</h2><span>{}</span></div></div>\
+         <div class=kvrow><span class=k>{}</span><span class=v>{}</span></div>\
+         <div class=kvrow><span class=k>{}</span><span class=v>{}</span></div>\
+         <div class=kvrow><span class=k>{}</span><span class=v>{dirs}</span></div>\
+         <div class=kvrow><span class=k>{}</span><span class=v>{}</span></div>",
         icon("settings", 32),
+        esc(&tr(
+            "ui.about.tagline",
+            "A calm, fast, keyboard-first desktop."
+        )),
+        esc(&tr("ui.about.version", "Version")),
         esc(&info.version),
+        esc(&tr("ui.about.settings_file", "Settings file")),
         esc(&info.config_file),
+        esc(&tr("ui.about.wallpaper_folders", "Wallpaper folders")),
+        esc(&tr("ui.about.backups_kept", "Backups kept")),
+        esc(&tr(
+            "ui.about.backups_text",
+            "The last 10 versions of the settings file are kept, so any change can be undone."
+        )),
     )
 }

@@ -10,7 +10,10 @@ Layout
 
   wayland-sessions/desilium.desktop          session entry for login managers (Exec=desilium-session)
   xdg-desktop-portal/desilium-portals.conf   portal backend preferences for the Desilium desktop
+  applications/org.desilium.Shell.desktop    names desilium-shell for KWin (X-KDE-Wayland-Interfaces);
+                                             without it KWin refuses the shell its window list
   applications/desilium-settings.desktop     launcher entry for the settings application
+  applications/org.desilium.Doria.desktop    launcher entry for the file manager
   icons/                                     hicolor icon placeholder; *.svg and *.png are installed
   install.sh                                 installs or removes everything (see below)
   arch/PKGBUILD                              Arch Linux package (builds the release binaries)
@@ -33,23 +36,30 @@ the settings entry to $PREFIX/share/applications, wallpapers to $PREFIX/share/de
 and icons to $PREFIX/share/icons/hicolor/scalable/apps. Missing binaries stop a real install before
 anything is copied. Build first:
 
-  cargo build --release --locked -p desilium-compositor -p desilium-session \
-      -p desilium-shell -p desilium-settings -p desilium-notifications
+  cargo build --release --locked -p desilium-session -p desilium-kwin \
+      -p desilium-shell -p desilium-settings -p desilium-notifications -p desilium-files
+
+Desilium ships no compositor. KWin (kwin_wayland, KDE Plasma 6) is a runtime dependency of the
+package, together with kglobalacceld (global shortcuts), kconfig (kwriteconfig6, used by
+desilium-kwin), Xwayland, and xdg-desktop-portal-kde (screen casting, remote desktop and
+screenshots). The shell must be installed in a directory on PATH, because KWin matches it through
+the Exec line of org.desilium.Shell.desktop.
 
 Dry run to review the file list without touching the system:
 
   DESTDIR=/tmp/desilium-stage packaging/install.sh --dry-run --prefix /usr
 
 Installing into the running system is the user's decision; the script never runs by itself.
+install.sh was not run for real, and the PKGBUILD was not built, since the move to KWin.
 
 Arch Linux
 ----------
 
-arch/PKGBUILD builds the five binaries with --locked, runs the session crate's tests, and installs
+arch/PKGBUILD builds the binaries with --locked, runs the session crate's tests, and installs
 through install.sh with DESTDIR=$pkgdir and --prefix /usr. The source line is a placeholder that
-must point at a release archive; then run updpkgsums. Runtime dependencies are the native libraries
-the Smithay and -sys crates link against (wayland, libxkbcommon, mesa for gbm/EGL/GLES, libinput,
-systemd-libs for libudev, seatd for libseat, libdrm, fontconfig) plus the inter-font default face.
+must point at a release archive; then run updpkgsums. Runtime dependencies are kwin, kglobalacceld,
+kconfig, xorg-xwayland and xdg-desktop-portal-kde, plus the native libraries the -sys crates link
+against (wayland, libxkbcommon, fontconfig, glib2, dbus) and the inter-font default face.
 Kitty is the default terminal. Doria is the native file manager. GVfs backends provide network locations; the quick settings use WirePlumber, NetworkManager, BlueZ, brightnessctl and power-profiles-daemon when available.
 
 Debian
@@ -64,9 +74,9 @@ Why systemd user units are not used
 Desilium supervises its own components (desilium-session) instead of shipping systemd user units.
 The reasons:
 
-  - The restart policy is part of the product: a compositor exit ends the session, shell and
+  - The restart policy is part of the product: a KWin exit ends the session, shell, bridge and
     notification restarts use Desilium's backoff and crash-loop rules, and the readiness gate waits
-    for the compositor's Wayland socket. systemd can express parts of this, but not the socket
+    for KWin's Wayland socket. systemd can express parts of this, but not the socket
     hand-over, and it would make the session depend on one init system.
   - The session must work on distributions and init systems without systemd (the supervisor only
     needs a login manager and a session bus). Logind is still used for seat access, which is the
@@ -79,6 +89,9 @@ supervisor does not depend on that wrapper, and nothing here installs one.
 Portal preferences
 ------------------
 
-xdg-desktop-portal reads the file named after the lowercased XDG_CURRENT_DESKTOP, so
-desilium-portals.conf applies to the Desilium session. Today it selects the GTK backend. The file
-has a marked place for a native Desilium portal, which is added once it exists.
+The session sets XDG_CURRENT_DESKTOP=Desilium:KDE. xdg-desktop-portal reads a file named after each
+entry of that list, lowercased, so desilium-portals.conf applies first and kde-portals.conf is the
+fallback. desilium-portals.conf selects the KDE backend for ScreenCast, RemoteDesktop, Screenshot,
+GlobalShortcuts and InputCapture (KWin implements these, and only the KDE backend talks to them)
+and the GTK backend for everything else. The file has a marked place for a native Desilium portal,
+which is added once it exists. None of this has been run against a live KWin.

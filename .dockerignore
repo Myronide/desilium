@@ -8,6 +8,10 @@ screenshots
 # Docker and tooling files are not needed inside the build context
 docker
 scripts
+# ... except the home skeleton that the runtime images copy into the dev user's home
+!docker/home-skel
+# Saved whole systems (scripts/docker-run.sh --save) are large
+pseudo-*
 
 # Documentation (the build does not read any Markdown)
 docs

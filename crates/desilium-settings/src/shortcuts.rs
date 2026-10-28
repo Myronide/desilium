@@ -3,46 +3,137 @@
 use desilium_config_types::{Action, CompositorSettings, Modifiers, Shortcut};
 use desilium_ui::{Key, KeyEvent};
 
-/// What the user sees for an action.
-pub fn action_label(action: Action) -> &'static str {
-    match action {
-        Action::CloseFocusedWindow => "Close window",
-        Action::LaunchTerminal => "Open a terminal",
-        Action::Quit => "Quit Desilium",
-        Action::ToggleMaximize => "Maximize or restore window",
-        Action::ToggleFullscreen => "Full screen on or off",
-        Action::MinimizeWindow => "Minimize window",
-        Action::SnapLeft => "Snap window to the left half",
-        Action::SnapRight => "Snap window to the right half",
-        Action::CycleWindowsForward => "Next window",
-        Action::CycleWindowsBackward => "Previous window",
-        Action::RestoreMinimized => "Restore minimized window",
-        Action::SwitchDesktopNext => "Next desktop",
-        Action::SwitchDesktopPrev => "Previous desktop",
-        Action::SwitchToDesktop1 => "Go to desktop 1",
-        Action::SwitchToDesktop2 => "Go to desktop 2",
-        Action::SwitchToDesktop3 => "Go to desktop 3",
-        Action::SwitchToDesktop4 => "Go to desktop 4",
-        Action::MoveToDesktop1 => "Move window to desktop 1",
-        Action::MoveToDesktop2 => "Move window to desktop 2",
-        Action::MoveToDesktop3 => "Move window to desktop 3",
-        Action::MoveToDesktop4 => "Move window to desktop 4",
-        Action::ToggleLauncher => "Open or close the launcher",
-    }
+use crate::i18n::{keys, tr};
+
+/// Every action with its name in the configuration file (the `<name>` of `action.<name>`) and
+/// its English label.
+pub const ACTIONS: [(Action, &str, &str); 22] = [
+    (
+        Action::CloseFocusedWindow,
+        "close-focused-window",
+        "Close window",
+    ),
+    (Action::LaunchTerminal, "launch-terminal", "Open a terminal"),
+    (Action::Quit, "quit", "Quit Desilium"),
+    (
+        Action::ToggleMaximize,
+        "toggle-maximize",
+        "Maximize or restore window",
+    ),
+    (
+        Action::ToggleFullscreen,
+        "toggle-fullscreen",
+        "Full screen on or off",
+    ),
+    (Action::MinimizeWindow, "minimize-window", "Minimize window"),
+    (
+        Action::SnapLeft,
+        "snap-left",
+        "Snap window to the left half",
+    ),
+    (
+        Action::SnapRight,
+        "snap-right",
+        "Snap window to the right half",
+    ),
+    (
+        Action::CycleWindowsForward,
+        "cycle-windows-forward",
+        "Next window",
+    ),
+    (
+        Action::CycleWindowsBackward,
+        "cycle-windows-backward",
+        "Previous window",
+    ),
+    (
+        Action::RestoreMinimized,
+        "restore-minimized",
+        "Restore minimized window",
+    ),
+    (
+        Action::SwitchDesktopNext,
+        "switch-desktop-next",
+        "Next desktop",
+    ),
+    (
+        Action::SwitchDesktopPrev,
+        "switch-desktop-prev",
+        "Previous desktop",
+    ),
+    (
+        Action::SwitchToDesktop1,
+        "switch-to-desktop1",
+        "Go to desktop 1",
+    ),
+    (
+        Action::SwitchToDesktop2,
+        "switch-to-desktop2",
+        "Go to desktop 2",
+    ),
+    (
+        Action::SwitchToDesktop3,
+        "switch-to-desktop3",
+        "Go to desktop 3",
+    ),
+    (
+        Action::SwitchToDesktop4,
+        "switch-to-desktop4",
+        "Go to desktop 4",
+    ),
+    (
+        Action::MoveToDesktop1,
+        "move-to-desktop1",
+        "Move window to desktop 1",
+    ),
+    (
+        Action::MoveToDesktop2,
+        "move-to-desktop2",
+        "Move window to desktop 2",
+    ),
+    (
+        Action::MoveToDesktop3,
+        "move-to-desktop3",
+        "Move window to desktop 3",
+    ),
+    (
+        Action::MoveToDesktop4,
+        "move-to-desktop4",
+        "Move window to desktop 4",
+    ),
+    (
+        Action::ToggleLauncher,
+        "toggle-launcher",
+        "Open or close the launcher",
+    ),
+];
+
+/// What the user sees for an action, in the current language.
+pub fn action_label(action: Action) -> String {
+    ACTIONS
+        .iter()
+        .find(|(known, _, _)| *known == action)
+        .map_or_else(
+            || format!("{action:?}"),
+            |(_, name, english)| tr(&keys::action(name), english),
+        )
 }
 
 /// How a keysym name reads on a keycap: `Return` is "Enter", `Up` is an arrow.
 pub fn key_label(key: &str) -> String {
     match key {
-        "Return" => "Enter".to_owned(),
+        "Return" => tr("ui.key.enter", "Enter"),
         "Up" => "\u{2191}".to_owned(),
         "Down" => "\u{2193}".to_owned(),
         "Left" => "\u{2190}".to_owned(),
         "Right" => "\u{2192}".to_owned(),
-        "space" => "Space".to_owned(),
-        "BackSpace" => "Backspace".to_owned(),
-        "Page_Up" => "Page Up".to_owned(),
-        "Page_Down" => "Page Down".to_owned(),
+        "space" => tr("ui.key.space", "Space"),
+        "BackSpace" => tr("ui.key.backspace", "Backspace"),
+        "Page_Up" => tr("ui.key.page_up", "Page Up"),
+        "Page_Down" => tr("ui.key.page_down", "Page Down"),
+        "Delete" => tr("ui.key.delete", "Delete"),
+        "Home" => tr("ui.key.home", "Home"),
+        "End" => tr("ui.key.end", "End"),
         other if other.chars().count() == 1 => other.to_uppercase(),
         other => other.to_owned(),
     }
@@ -51,14 +142,14 @@ pub fn key_label(key: &str) -> String {
 /// Keycap texts of a chord in display order: Ctrl, Alt, Shift, Super, key.
 pub fn chord_parts(modifiers: Modifiers, key: &str) -> Vec<String> {
     let mut parts = Vec::new();
-    for (on, name) in [
-        (modifiers.ctrl, "Ctrl"),
-        (modifiers.alt, "Alt"),
-        (modifiers.shift, "Shift"),
-        (modifiers.logo, "Super"),
+    for (on, name, english) in [
+        (modifiers.ctrl, "ui.key.ctrl", "Ctrl"),
+        (modifiers.alt, "ui.key.alt", "Alt"),
+        (modifiers.shift, "ui.key.shift", "Shift"),
+        (modifiers.logo, "ui.key.super", "Super"),
     ] {
         if on {
-            parts.push(name.to_owned());
+            parts.push(tr(name, english));
         }
     }
     parts.push(key_label(key));
@@ -136,7 +227,7 @@ pub enum Capture {
         key: String,
     },
     /// Only a modifier so far or an unsupported combination; keep waiting and say why.
-    Reject(&'static str),
+    Reject(String),
 }
 
 /// Maps a key event to a shortcut chord.
@@ -154,10 +245,16 @@ pub fn capture(event: &KeyEvent) -> Capture {
         return Capture::Cancel;
     }
     let Some(key) = key_name(&event.key, modifiers.shift) else {
-        return Capture::Reject("That key cannot be used in a shortcut. Try another one.");
+        return Capture::Reject(tr(
+            "ui.keyboard.reject_key",
+            "That key cannot be used in a shortcut. Try another one.",
+        ));
     };
     if !is_bindable(modifiers) {
-        return Capture::Reject("Hold Alt, Ctrl or Super together with the key.");
+        return Capture::Reject(tr(
+            "ui.keyboard.reject_modifier",
+            "Hold Alt, Ctrl or Super together with the key.",
+        ));
     }
     Capture::Chord { modifiers, key }
 }

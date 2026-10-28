@@ -26,15 +26,19 @@ pub enum Due {
     Session,
     /// Installed applications changed on disk; the catalog is reloaded after a quiet moment.
     Catalog,
+    /// KDE's `kdeglobals` changed (colour scheme or icon theme); re-read after a quiet moment.
+    Kde,
+    /// The desktop folder changed; it is listed again after a quiet moment.
+    Desktop,
 }
 
 /// One optional deadline per [`Due`] kind.
 #[derive(Debug, Default)]
 pub struct Deadlines {
-    slots: [Option<Instant>; 9],
+    slots: [Option<Instant>; 11],
 }
 
-const ALL: [Due; 9] = [
+const ALL: [Due; 11] = [
     Due::Clock,
     Due::Tooltip,
     Due::Housekeeping,
@@ -44,6 +48,8 @@ const ALL: [Due; 9] = [
     Due::Panels,
     Due::Session,
     Due::Catalog,
+    Due::Kde,
+    Due::Desktop,
 ];
 
 /// Slot of `due`; an exhaustive match, so a new kind cannot be forgotten silently.
@@ -58,6 +64,8 @@ fn index(due: Due) -> usize {
         Due::Panels => 6,
         Due::Session => 7,
         Due::Catalog => 8,
+        Due::Kde => 9,
+        Due::Desktop => 10,
     }
 }
 

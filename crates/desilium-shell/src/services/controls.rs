@@ -16,7 +16,7 @@ pub struct Link {
     pub name: String,
 }
 /// A Wi-Fi network in range.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct WifiNetwork {
     pub ssid: String,
     pub signal: u8,

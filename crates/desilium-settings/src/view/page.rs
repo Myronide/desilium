@@ -3,10 +3,16 @@
 use std::fmt::Write;
 
 use super::{Ctx, about, controls, esc, icon, keyboard, preview};
-use crate::registry::{Control, Page, Section, SettingDef, sections};
+use crate::{
+    i18n::{tr, tr_args},
+    registry::{Control, Page, Section, SettingDef, sections},
+};
 
 pub(super) fn html(ctx: &Ctx<'_>) -> String {
     let page = ctx.model.page;
+    if page == Page::Themes {
+        return format!("{}{}", header(ctx), super::themes::html(ctx));
+    }
     let cards: String = sections(page)
         .iter()
         .map(|section| card(ctx, section))
@@ -32,28 +38,29 @@ fn has_side_column(page: Page) -> bool {
 fn header(ctx: &Ctx<'_>) -> String {
     let page = ctx.model.page;
     let pill = if page.has_preview() {
-        "Live preview"
+        tr("ui.header.live_preview", "Live preview")
     } else {
-        "Applied instantly"
+        tr("ui.header.applied_instantly", "Applied instantly")
     };
     let reset = if page_is_default(ctx, page) || page == Page::About {
         String::new()
     } else {
         format!(
-            "<span class='btn sm' data-action=reset-page data-arg={}>{}Reset page</span>",
+            "<span class='btn sm' data-action=reset-page data-arg={}>{}{}</span>",
             page.slug(),
-            icon("restore", 16)
+            icon("restore", 16),
+            esc(&tr("ui.header.reset_page", "Reset page"))
         )
     };
-    let live = if page == Page::About {
+    let live = if matches!(page, Page::About | Page::Themes) {
         String::new()
     } else {
-        format!("<span class=live><i></i>{pill}</span>")
+        format!("<span class=live><i></i>{}</span>", esc(&pill))
     };
     format!(
-        "<div class=ph><div class='col grow' style='gap:2px'><h1>{}</h1><span class=sub>{}</span></div>{live}{reset}</div>",
-        page.title(),
-        esc(page.subtitle())
+        "<div class=ph><div class='col grow'><h1>{}</h1><span class=sub>{}</span></div>{live}{reset}</div>",
+        esc(&page.title()),
+        esc(&page.subtitle())
     )
 }
 
@@ -82,7 +89,11 @@ fn card_header(ctx: &Ctx<'_>, section: &Section) -> String {
     let defs = &section.settings;
     let key = match defs.as_slice() {
         [only] => only.id.to_owned(),
-        many => format!("{} settings", many.len()),
+        many => tr_args(
+            "ui.count.settings",
+            "{count} settings",
+            &[("count", &many.len().to_string())],
+        ),
     };
     let informational = defs.iter().all(|def| def.is_informational());
     let reset = if informational {
@@ -97,7 +108,7 @@ fn card_header(ctx: &Ctx<'_>, section: &Section) -> String {
     };
     format!(
         "<div class=sh><h3>{}</h3>{key}<span class=grow></span>{reset}</div>",
-        esc(section.title)
+        esc(&section.title_text())
     )
 }
 
@@ -108,13 +119,19 @@ fn reset_badge(ctx: &Ctx<'_>, section: &Section) -> String {
         .iter()
         .any(|def| !def.is_default(ctx.config));
     if !changed {
-        return format!("<span class=reset>{}Default</span>", icon("restore", 14));
+        return format!(
+            "<span class=reset>{}{}</span>",
+            icon("restore", 14),
+            esc(&tr("ui.card.default", "Default"))
+        );
     }
     format!(
-        "<span class='reset on' data-action=reset-section data-arg='{}/{}' data-tooltip='Back to the default'>{}Reset</span>",
+        "<span class='reset on' data-action=reset-section data-arg='{}/{}' data-tooltip='{}'>{}{}</span>",
         ctx.model.page.slug(),
         esc(section.title),
-        icon("restore", 14)
+        esc(&tr("ui.card.reset_tooltip", "Back to the default")),
+        icon("restore", 14),
+        esc(&tr("ui.card.reset", "Reset"))
     )
 }
 
@@ -137,8 +154,9 @@ pub(super) fn modified_link(ctx: &Ctx<'_>, def: &SettingDef, single_in_card: boo
     let mut out = String::new();
     let _ = write!(
         out,
-        "<span class=mod data-action=reset data-arg={}>Modified. Reset</span>",
-        def.id
+        "<span class=mod data-action=reset data-arg={}>{}</span>",
+        def.id,
+        esc(&tr("ui.row.modified_reset", "Modified. Reset"))
     );
     out
 }

@@ -2,6 +2,7 @@
 
 mod context;
 mod demo;
+mod desktop;
 mod events;
 mod launcher_glue;
 mod panels;
@@ -40,20 +41,19 @@ use crate::{
         windows::{WindowId, WindowModel, Workspaces},
     },
     services::{
-        appearance::resolve_theme,
+        appearance::{icon_theme, resolve_theme},
         apps::Starter,
         battery::{POWER_SUPPLY_DIR, read_battery},
-        protocol::{OutputInfo, ShellProtocol},
+        protocol::ShellProtocol,
         watch::DirWatch,
     },
     tooltip::Tooltip,
+    wallpaper::{Look, Wallpaper},
 };
 use timers::{Deadlines, Due};
 
-/// Icon theme used until the configuration offers a choice.
-const ICON_THEME: &str = "hicolor";
-/// Environment variable that overrides [`ICON_THEME`].
-const ICON_THEME_VAR: &str = "DESILIUM_ICON_THEME";
+/// Quiet time after `kdeglobals` changed before the KDE theme is read again.
+const KDE_DEBOUNCE: Duration = Duration::from_millis(300);
 /// Catalog, icon theme and battery are re-checked this often.
 const HOUSEKEEPING: Duration = Duration::from_secs(60);
 /// Quiet time after the last configuration file event before reloading.
@@ -85,6 +85,8 @@ pub struct Shell {
     session_saved: Option<Vec<crate::services::session::SavedWindow>>,
     restore: Option<crate::services::session::Restore>,
     controls: Option<crate::services::controls::Worker>,
+    /// Kept alive for the callback thread; read by nobody.
+    _shortcuts: Option<desilium_kwin::shortcuts::ShortcutListener>,
     host: LayerHost,
     proto: Option<ShellProtocol>,
     args: Args,
@@ -98,9 +100,17 @@ pub struct Shell {
     pins: DockConfig,
     windows: WindowModel,
     workspaces: Workspaces,
-    output: Option<OutputInfo>,
     battery: Option<Battery>,
     clock: ClockText,
+    wallpaper: Wallpaper,
+    /// The icons on the desktop and what is open on them (menu, rename).
+    desktop: crate::desktop::Desktop,
+    /// Watches the desktop folder.
+    desktop_watch: Option<DirWatch>,
+    /// Surface size and panel insets the icons were laid out for, to notice a change.
+    desktop_drawn: Option<((u32, u32), u32, u32)>,
+    /// A drag changed the desktop since it was last drawn.
+    desktop_dirty: bool,
     bar: Bar,
     dock: Dock,
     launcher: Launcher,
@@ -112,6 +122,10 @@ pub struct Shell {
     icon_scale: u32,
     watch: Option<DirWatch>,
     apps_watch: Option<DirWatch>,
+    /// Watches the directory of `kdeglobals`: the KDE colour scheme and icon theme live there.
+    kde_watch: Option<DirWatch>,
+    /// Name of the icon theme `icons` resolves in.
+    icon_theme: String,
     config_files_changed: bool,
     deadlines: Deadlines,
     demo_pending: bool,
@@ -127,7 +141,7 @@ impl Shell {
         let proto = ShellProtocol::connect(&connection)?;
         if proto.is_none() {
             tracing::warn!(
-                "desilium_shell_manager_v1 is not offered: running without windows, workspaces and effects"
+                "KWin offers none of the KDE protocols: running without windows, workspaces and effects"
             );
         }
         let config_dir = args
@@ -144,7 +158,7 @@ impl Shell {
                 .as_deref()
                 .and_then(std::path::Path::parent),
         );
-        let icon_theme = std::env::var(ICON_THEME_VAR).unwrap_or_else(|_| ICON_THEME.to_owned());
+        let icon_theme = icon_theme(&store.get().appearance);
         let icons = IconResolver::new(&icon_theme, &env);
         let usage = UsageStats::load(UsageStats::default_path(&env.state_home));
         let terminal = store
@@ -166,6 +180,7 @@ impl Shell {
             battery,
             &mut IconResolver::new(&icon_theme, &env),
         );
+        let wallpaper = Wallpaper::new(&mut host, Look::of(&store.get().appearance, &theme))?;
         let bar = Bar::new(&mut host, &theme, initial.bar)?;
         let dock = Dock::new(&mut host, &theme, initial.dock)?;
         let launcher = Launcher::new(&theme)?;
@@ -183,6 +198,7 @@ impl Shell {
             session_saved: None,
             restore: None,
             controls: None,
+            _shortcuts: None,
             host,
             proto,
             theme,
@@ -195,9 +211,13 @@ impl Shell {
             pins,
             windows: WindowModel::default(),
             workspaces: Workspaces::default(),
-            output: None,
             battery,
             clock,
+            wallpaper,
+            desktop: Default::default(),
+            desktop_watch: None,
+            desktop_drawn: None,
+            desktop_dirty: false,
             bar,
             dock,
             launcher,
@@ -213,6 +233,10 @@ impl Shell {
             )
             .map_err(|error| tracing::warn!(%error, "new applications appear after a minute"))
             .ok(),
+            kde_watch: DirWatch::existing([desilium_theme::kde::KdeDirs::from_env().config_home])
+                .map_err(|error| tracing::info!(%error, "KDE theme changes are not watched"))
+                .ok(),
+            icon_theme,
             config_files_changed: false,
             deadlines: Deadlines::default(),
             demo_pending: args.demo_hover.is_some(),
@@ -225,6 +249,7 @@ impl Shell {
             quit: false,
         };
         shell.apply_effects();
+        shell.start_desktop();
         shell.arm_clock(local);
         shell
             .deadlines
@@ -243,40 +268,52 @@ impl Shell {
         self.deadlines.set(Due::Clock, Instant::now() + wait);
     }
 
-    /// Logical output size: from the shell protocol, else from the output's own report.
+    /// Logical output size, from the output's own report.
     pub(crate) fn output_size(&self) -> Option<(i32, i32)> {
-        self.output
-            .map(|output| (output.width, output.height))
-            .or_else(|| self.host.output_logical_size())
+        self.host.output_logical_size()
     }
 
-    /// Asks the compositor for blur and rounded corners behind our surfaces.
-    fn apply_effects(&mut self) {
-        let Some(proto) = &self.proto else {
-            return;
-        };
+    /// Corner radius of the launcher and quick settings popups.
+    pub(super) fn popup_radius(&self) -> u32 {
+        u32::from(self.store.get().shell.popup_radius)
+    }
+
+    /// Asks KWin for blur and rounded corners behind our surfaces.
+    pub(super) fn apply_effects(&mut self) {
+        let radius = crate::dock::panel_radius(&self.store.get().shell, self.dock.layout().height);
+        let popup = self.popup_radius();
         let surfaces = [
             (Some(self.bar.id()), views::BAR_BLUR, [0; 4]),
-            (
-                Some(self.dock.id()),
-                views::DOCK_BLUR,
-                [if self.store.get().shell.mode == desilium_config_types::PanelMode::Taskbar {
-                    crate::dock::TASKBAR_RADIUS
-                } else {
-                    crate::dock::RADIUS
-                }; 4],
-            ),
-            (
-                self.launcher.id(),
-                views::LAUNCHER_BLUR,
-                [views::LAUNCHER_RADIUS; 4],
-            ),
+            (Some(self.dock.id()), views::DOCK_BLUR, [radius; 4]),
+            (self.launcher.id(), views::LAUNCHER_BLUR, [popup; 4]),
         ];
         for (id, blur, radii) in surfaces {
-            let surface = id.and_then(|id| self.host.wl_surface(id));
-            if let Some(surface) = surface {
-                proto.set_surface_effects(&surface, blur, radii);
+            if let Some(id) = id {
+                self.set_effects(id, blur, radii);
             }
+        }
+        if let Some(id) = self.launcher.id() {
+            self.host.update(id, |ui| {
+                let _ = ui.set_attr("#panel", "style", &format!("border-radius:{popup}px"));
+            });
+        }
+    }
+
+    /// Blur and corner radii for one surface of ours; the pending state is applied by a commit.
+    pub(super) fn set_effects(
+        &self,
+        id: desilium_ui::wayland::SurfaceId,
+        blur: u32,
+        radii: [u32; 4],
+    ) {
+        let (Some(proto), Some(surface), Some(ui)) =
+            (&self.proto, self.host.wl_surface(id), self.host.surface(id))
+        else {
+            return;
+        };
+        let changed = proto.set_surface_effects(&surface, ui.size(), blur, radii);
+        if changed && self.host.is_configured(id) {
+            surface.commit();
         }
     }
 
@@ -297,7 +334,9 @@ impl Shell {
                 self.handle_host_event(event);
             }
         }
+        self.flush_desktop();
         self.check_scale();
+        self.check_desktop();
         self.run_demo_hover();
         if let Err(error) = self.host.connection().flush() {
             tracing::warn!(%error, "flush failed, exiting");
@@ -315,13 +354,9 @@ impl Shell {
             return;
         }
         let update = proto.take_update();
-        if let Some(output) = update.output {
-            self.output = Some(output);
-        }
         if let Some(workspaces) = update.workspaces {
             self.workspaces = workspaces;
         }
-        let output_changed = update.output.is_some();
         let windows_changed = update.windows.is_some();
         if let Some(windows) = update.windows {
             self.windows.replace(windows);
@@ -330,25 +365,34 @@ impl Shell {
         if windows_changed {
             self.session_windows_changed();
         }
-        if windows_changed || update.workspaces.is_some() || output_changed {
+        if windows_changed || update.workspaces.is_some() {
             self.refresh_bar();
             self.refresh_dock();
         }
-        if output_changed && self.quick.is_open() {
-            let output = self.output_size().unwrap_or((1280, 800));
-            let insets = self.popup_insets();
-            if let Err(error) = self.quick.reposition(&mut self.host, output, insets) {
-                tracing::warn!(%error,"popup resize failed");
-            }
-        }
-        for name in update.shortcuts {
-            self.handle_shortcut(&name);
+    }
+
+    /// A global shortcut of the `desilium` component was pressed.
+    fn handle_shortcut(&mut self, action: &str) {
+        match action {
+            desilium_kwin::shortcuts::TOGGLE_LAUNCHER => self.toggle_launcher(),
+            desilium_kwin::shortcuts::RESTORE_MINIMIZED => self.restore_minimized(),
+            _ => {}
         }
     }
 
-    fn handle_shortcut(&mut self, name: &str) {
-        if name == desilium_protocols::shortcut::TOGGLE_LAUNCHER {
-            self.toggle_launcher();
+    /// Restores the window that was minimized most recently.
+    fn restore_minimized(&self) {
+        let Some(proto) = &self.proto else {
+            return;
+        };
+        let newest = self
+            .windows
+            .windows()
+            .iter()
+            .filter(|window| window.minimized)
+            .min_by_key(|window| self.windows.recency(window.id).unwrap_or(usize::MAX));
+        if let Some(window) = newest {
+            proto.activate(window.id);
         }
     }
 
@@ -433,6 +477,48 @@ impl Shell {
         }
     }
 
+    /// The configuration directory of KDE changed.
+    ///
+    /// Returns false when the watch is broken and its source should be removed.
+    fn kde_fd_ready(&mut self) -> bool {
+        let Some(watch) = &mut self.kde_watch else {
+            return false;
+        };
+        match watch.drain() {
+            Ok(names) => {
+                if names.iter().any(|name| name == "kdeglobals") {
+                    self.deadlines.set(Due::Kde, Instant::now() + KDE_DEBOUNCE);
+                }
+                true
+            }
+            Err(error) => {
+                tracing::warn!(%error, "KDE theme watch stopped");
+                self.kde_watch = None;
+                false
+            }
+        }
+    }
+
+    /// The user changed the KDE colour scheme or icon theme: follow it.
+    fn reload_kde(&mut self) {
+        self.apply_theme();
+        self.refresh_icon_theme();
+    }
+
+    /// Resolves icons in a new theme when the choice changed (configuration or KDE).
+    fn refresh_icon_theme(&mut self) {
+        let name = icon_theme(&self.store.get().appearance);
+        if name == self.icon_theme {
+            return;
+        }
+        tracing::info!(theme = %name, "icon theme changed");
+        self.icons = IconResolver::new(&name, &Environment::from_env());
+        self.icon_theme = name;
+        self.refresh_dock();
+        self.refresh_bar();
+        self.refresh_desktop();
+    }
+
     /// Reloads the application catalog and what depends on it.
     fn reload_catalog(&mut self) {
         let mut changed = self.catalog.refresh_if_changed();
@@ -471,9 +557,12 @@ impl Shell {
                 .or_else(|| TerminalSpec::detect(&Environment::from_env()));
             self.starter.set_terminal(terminal);
             self.apply_theme();
+            self.refresh_icon_theme();
             self.tick_clock();
             self.refresh_dock();
             self.apply_effects();
+            // The option that shows or hides the icons may have changed.
+            self.rescan_desktop();
         }
         let pins = system::load_pins(&self.config_dir, &self.catalog);
         if pins != self.pins {
@@ -484,6 +573,13 @@ impl Shell {
 
     fn apply_theme(&mut self) {
         let theme = resolve_theme(&self.store.get().appearance, self.args.theme);
+        let look = Look::of(&self.store.get().appearance, &theme);
+        match self.wallpaper.update(&mut self.host, look) {
+            // New surfaces start empty; the icons are drawn again once they are configured.
+            Ok(true) => self.desktop_drawn = None,
+            Ok(false) => {}
+            Err(error) => tracing::warn!(%error, "the wallpaper could not be updated"),
+        }
         if theme == self.theme {
             return;
         }
@@ -507,6 +603,8 @@ impl Shell {
             Due::Panels => self.update_panels(),
             Due::Session => self.save_session(),
             Due::Catalog => self.reload_catalog(),
+            Due::Kde => self.reload_kde(),
+            Due::Desktop => self.rescan_desktop(),
         }
     }
 
@@ -537,6 +635,20 @@ pub fn run(args: Args) -> Result<(), ShellError> {
         })
         .map_err(|error| ShellError::EventLoop(error.to_string()))?;
 
+    let (shortcut_tx, shortcut_rx) = calloop::channel::channel();
+    shell._shortcuts = desilium_kwin::shortcuts::ShortcutListener::spawn(move |event| {
+        let _ = shortcut_tx.send(event.action);
+    })
+    .inspect_err(|error| tracing::warn!(%error, "global shortcuts are unavailable"))
+    .ok();
+    handle
+        .insert_source(shortcut_rx, |event, _, shell: &mut Shell| {
+            if let calloop::channel::Event::Msg(action) = event {
+                shell.handle_shortcut(&action);
+            }
+        })
+        .map_err(|error| ShellError::EventLoop(error.to_string()))?;
+
     let wayland_fd = shell
         .host
         .poll_fd()
@@ -561,6 +673,42 @@ pub fn run(args: Args) -> Result<(), ShellError> {
                 Generic::new(fd, Interest::READ, Mode::Level),
                 |_, _, shell: &mut Shell| {
                     Ok(if shell.config_fd_ready() {
+                        PostAction::Continue
+                    } else {
+                        PostAction::Remove
+                    })
+                },
+            )
+            .map_err(|error| ShellError::EventLoop(error.to_string()))?;
+    }
+    if let Some(watch) = &shell.desktop_watch {
+        let fd = watch
+            .fd()
+            .try_clone_to_owned()
+            .map_err(|error| ShellError::EventLoop(error.to_string()))?;
+        handle
+            .insert_source(
+                Generic::new(fd, Interest::READ, Mode::Level),
+                |_, _, shell: &mut Shell| {
+                    Ok(if shell.desktop_fd_ready() {
+                        PostAction::Continue
+                    } else {
+                        PostAction::Remove
+                    })
+                },
+            )
+            .map_err(|error| ShellError::EventLoop(error.to_string()))?;
+    }
+    if let Some(watch) = &shell.kde_watch {
+        let fd = watch
+            .fd()
+            .try_clone_to_owned()
+            .map_err(|error| ShellError::EventLoop(error.to_string()))?;
+        handle
+            .insert_source(
+                Generic::new(fd, Interest::READ, Mode::Level),
+                |_, _, shell: &mut Shell| {
+                    Ok(if shell.kde_fd_ready() {
                         PostAction::Continue
                     } else {
                         PostAction::Remove

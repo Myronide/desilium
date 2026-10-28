@@ -3,7 +3,7 @@
 use std::time::Instant;
 
 use desilium_ui::{
-    HoverTarget, Rect, UiAction, UiEvent,
+    HoverTarget, Rect, UiAction, UiDrag, UiEvent,
     wayland::{HostEvent, SurfaceId},
 };
 
@@ -26,8 +26,21 @@ impl Shell {
             } if self.launcher.owns(surface) && element_id.as_deref() == Some("q") => {
                 self.launcher_text_changed(&value);
             }
+            HostEvent::Ui {
+                surface,
+                event: UiEvent::Drag(drag),
+            } => self.handle_drag(surface, &drag),
+            HostEvent::Ui {
+                surface,
+                event: UiEvent::Submit { action, value },
+            } if action == "desk-rename" && self.wallpaper.is_primary(surface) => {
+                self.desktop_rename_submitted(&value);
+            }
             HostEvent::Hover { surface, target } => self.handle_hover(surface, target),
-            HostEvent::Pointer { surface, inside } => self.panel_pointer(surface, inside),
+            HostEvent::Pointer { surface, inside } => {
+                self.desktop_pointer(surface, inside);
+                self.panel_pointer(surface, inside);
+            }
             HostEvent::Key { surface, event }
                 if self.quick.owns(surface) && event.key == desilium_ui::Key::Escape =>
             {
@@ -54,6 +67,15 @@ impl Shell {
         }
     }
 
+    /// A drag: icons on the desktop, or a dock icon being moved.
+    fn handle_drag(&mut self, surface: SurfaceId, drag: &UiDrag) {
+        if surface == self.dock.id() {
+            self.dock_drag(drag);
+        } else if self.wallpaper.owns(surface) {
+            self.desktop_drag(surface, drag);
+        }
+    }
+
     fn handle_action(&mut self, surface: SurfaceId, action: &UiAction) {
         self.hide_tooltip();
         let arg = action.arg.as_deref().unwrap_or_default();
@@ -65,6 +87,8 @@ impl Shell {
             self.quick_action(&action.action, arg);
         } else if self.launcher.owns(surface) {
             self.launcher_action(&action.action, arg);
+        } else if self.wallpaper.owns(surface) {
+            self.desktop_action(surface, &action.action, arg);
         }
     }
 
@@ -113,7 +137,7 @@ impl Shell {
             .windows
             .windows()
             .iter()
-            .filter(|window| window.workspace == workspace)
+            .filter(|window| window.on_workspace(workspace))
             .collect();
         let hide = here.iter().any(|window| !window.minimized);
         for window in here {

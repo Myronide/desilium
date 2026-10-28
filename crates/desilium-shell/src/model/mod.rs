@@ -4,8 +4,9 @@
 
 pub mod battery;
 pub mod clock;
+pub mod desktop;
 pub mod dock;
-pub mod icons;
+pub mod grid;
 pub mod launcher;
 pub mod pins;
 pub mod windows;

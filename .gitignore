@@ -1,4 +1,8 @@
 /target
+target/
+
+# Saved whole systems of the container images (scripts/docker-run.sh --save)
+pseudo-*/
 
 # Local screenshots from headless runs (see docs/testing.md)
 /screenshots/

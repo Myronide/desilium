@@ -16,8 +16,6 @@ pub const BORDER: u32 = 1;
 pub const SEPARATOR: u32 = 5;
 /// Tile height.
 pub const HEIGHT: u32 = ITEM + 2 * (PAD_Y + BORDER);
-/// Corner radius of the tile (also the compositor's clip radius).
-pub const RADIUS: u32 = 22;
 /// Distance between the tile and the screen edge.
 pub const BOTTOM_MARGIN: i32 = 14;
 /// Quick buttons a taskbar shows next to the launcher.

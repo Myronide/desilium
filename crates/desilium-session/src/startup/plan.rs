@@ -18,18 +18,27 @@ use crate::startup::readiness::WaylandReadiness;
 
 const LAUNCHER_BINARY: &str = "dbus-run-session";
 const COMPOSITOR: &str = "compositor";
+/// Variable that makes KWin hand its privileged protocols to every client (development only).
+pub const KWIN_NO_PERMISSION_CHECKS: &str = "KWIN_WAYLAND_NO_PERMISSION_CHECKS";
+/// What KWin is started with unless the command line adds more: a rootless Xwayland for X11
+/// applications, and no lock screen (it needs `kscreenlocker`, which Desilium does not ship).
+const KWIN_DEFAULT_ARGS: [&str; 2] = ["--xwayland", "--no-lockscreen"];
 
 /// What the command line asked for.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PlanRequest {
-    /// Explicit compositor executable (`--compositor`).
+    /// Explicit KWin executable (`--compositor`).
     pub compositor: Option<PathBuf>,
     /// Explicit shell executable (`--shell`).
     pub shell: Option<PathBuf>,
+    /// Explicit KWin bridge executable (`--kwin-bridge`).
+    pub kwin_bridge: Option<PathBuf>,
     /// Explicit notification daemon executable (`--notifications`).
     pub notifications: Option<PathBuf>,
-    /// Arguments passed through to the compositor.
+    /// Arguments passed through to KWin, after its defaults.
     pub compositor_args: Vec<OsString>,
+    /// Development: let every client use KWin's privileged protocols (`--allow-any-client`).
+    pub allow_any_client: bool,
 }
 
 impl PlanRequest {
@@ -37,6 +46,7 @@ impl PlanRequest {
         match name {
             COMPOSITOR => self.compositor.as_deref(),
             "shell" => self.shell.as_deref(),
+            "kwin-bridge" => self.kwin_bridge.as_deref(),
             "notifications" => self.notifications.as_deref(),
             _ => None,
         }
@@ -130,11 +140,21 @@ pub fn build_plan(
         already_reexecuted: env.non_empty(REEXEC_MARKER_VARIABLE).is_some(),
         launcher: find_in_path(Path::new(LAUNCHER_BINARY), search_path),
     });
+    let mut session_env = session_environment(env);
+    if request.allow_any_client {
+        session_env.push(EnvEntry {
+            key: KWIN_NO_PERMISSION_CHECKS,
+            change: EnvChange::Set {
+                value: OsString::from("1"),
+                previous: env.get(KWIN_NO_PERMISSION_CHECKS).cloned(),
+            },
+        });
+    }
     Ok(SessionPlan {
         components,
         skipped,
         dbus,
-        env: session_environment(env),
+        env: session_env,
         runtime_dir: env.runtime_dir(),
     })
 }
@@ -171,13 +191,8 @@ fn planned(
     request: &PlanRequest,
 ) -> PlannedComponent {
     let args = if default.name == COMPOSITOR {
-        let mut args = request.compositor_args.clone();
-        // The session supervises the shell itself; a second one from the compositor would
-        // put two bars and docks on screen.
-        let decided = args.iter().any(|arg| arg == "--shell" || arg == "--no-shell");
-        if !decided {
-            args.insert(0, OsString::from("--no-shell"));
-        }
+        let mut args: Vec<OsString> = KWIN_DEFAULT_ARGS.iter().map(OsString::from).collect();
+        args.extend(request.compositor_args.iter().cloned());
         args
     } else {
         Vec::new()
@@ -248,8 +263,9 @@ mod tests {
 
     fn install_all(scratch: &Scratch) {
         for binary in [
-            "desilium-compositor",
+            "kwin_wayland",
             "desilium-shell",
+            "desilium-kwin",
             "desilium-notifications",
         ] {
             scratch.touch(&format!("bin/{binary}"));
@@ -261,7 +277,7 @@ mod tests {
     }
 
     #[test]
-    fn full_install_starts_compositor_then_clients_next_to_the_session() {
+    fn full_install_starts_kwin_then_clients_next_to_the_session() {
         let scratch = Scratch::new("plan-full");
         install_all(&scratch);
         let exe_dir = scratch.path().join("bin");
@@ -269,7 +285,10 @@ mod tests {
         let plan = build_plan(&PlanRequest::default(), &base_env(&[]), Some(&exe_dir))
             .expect("plan builds");
 
-        assert_eq!(names(&plan), ["compositor", "shell", "notifications"]);
+        assert_eq!(
+            names(&plan),
+            ["compositor", "shell", "kwin-bridge", "notifications"]
+        );
         assert!(plan.skipped.is_empty());
         assert!(
             plan.components
@@ -283,7 +302,7 @@ mod tests {
     #[test]
     fn missing_optional_clients_are_skipped_and_reported() {
         let scratch = Scratch::new("plan-skip");
-        scratch.touch("bin/desilium-compositor");
+        scratch.touch("bin/kwin_wayland");
         let exe_dir = scratch.path().join("bin");
 
         let plan = build_plan(&PlanRequest::default(), &base_env(&[]), Some(&exe_dir))
@@ -296,6 +315,10 @@ mod tests {
                 SkippedComponent {
                     name: "shell",
                     binary: "desilium-shell",
+                },
+                SkippedComponent {
+                    name: "kwin-bridge",
+                    binary: "desilium-kwin",
                 },
                 SkippedComponent {
                     name: "notifications",
@@ -318,7 +341,7 @@ mod tests {
             error,
             PlanError::NotFound {
                 name: "compositor",
-                binary: "desilium-compositor",
+                binary: "kwin_wayland",
             }
         );
     }
@@ -354,12 +377,12 @@ mod tests {
     }
 
     #[test]
-    fn compositor_arguments_go_only_to_the_compositor() {
+    fn kwin_gets_its_defaults_then_the_passthrough_arguments_and_nobody_else_does() {
         let scratch = Scratch::new("plan-args");
         install_all(&scratch);
         let exe_dir = scratch.path().join("bin");
         let request = PlanRequest {
-            compositor_args: vec![OsString::from("--nested")],
+            compositor_args: vec![OsString::from("--virtual")],
             ..PlanRequest::default()
         };
 
@@ -367,15 +390,46 @@ mod tests {
 
         assert_eq!(
             plan.components[0].args,
-            [OsString::from("--no-shell"), OsString::from("--nested")]
+            [
+                OsString::from("--xwayland"),
+                OsString::from("--no-lockscreen"),
+                OsString::from("--virtual")
+            ]
         );
-        assert!(plan.components[1].args.is_empty());
+        assert!(plan.components[1..].iter().all(|c| c.args.is_empty()));
+    }
+
+    #[test]
+    fn allow_any_client_exports_the_kwin_switch_and_is_off_by_default() {
+        let scratch = Scratch::new("plan-any-client");
+        install_all(&scratch);
+        let exe_dir = scratch.path().join("bin");
+        let default = build_plan(&PlanRequest::default(), &base_env(&[]), Some(&exe_dir))
+            .expect("plan builds");
+        assert!(
+            default
+                .env
+                .iter()
+                .all(|entry| entry.key != KWIN_NO_PERMISSION_CHECKS)
+        );
+
+        let request = PlanRequest {
+            allow_any_client: true,
+            ..PlanRequest::default()
+        };
+        let plan = build_plan(&request, &base_env(&[]), Some(&exe_dir)).expect("plan builds");
+        let entry = plan
+            .env
+            .iter()
+            .find(|entry| entry.key == KWIN_NO_PERMISSION_CHECKS)
+            .expect("switch is exported");
+        assert_eq!(entry.value(), "1");
     }
 
     #[test]
     fn path_fallback_is_used_when_nothing_sits_next_to_the_session() {
         let scratch = Scratch::new("plan-path");
-        scratch.touch("usr/desilium-compositor");
+        scratch.touch("usr/kwin_wayland");
         let env = base_env(&[scratch.path().join("usr")]);
 
         let plan = build_plan(&PlanRequest::default(), &env, None).expect("plan builds");

@@ -10,6 +10,9 @@ mod dispatch;
 mod keys;
 mod rebind;
 mod sync;
+mod themes;
+#[cfg(test)]
+mod themes_tests;
 mod thumbs;
 
 use std::{path::PathBuf, time::Instant};
@@ -21,6 +24,7 @@ use crate::{
     changes::{ChangeError, Recovery},
     model::{Level, Model, Notice},
     registry::{Page, Value},
+    store::{StoreDirs, StoreWorker},
     theme::resolve_theme,
     view::Ctx,
     wallpapers::{Env, ThumbWorker, cache_dir, discover, search_dirs},
@@ -41,6 +45,8 @@ pub struct AppOptions {
     pub cache_dir: PathBuf,
     /// Cursor themes to offer.
     pub cursor_themes: Vec<String>,
+    /// Where the theme store finds, installs and unpacks themes.
+    pub store_dirs: StoreDirs,
 }
 
 impl AppOptions {
@@ -53,6 +59,7 @@ impl AppOptions {
             wallpaper_env: Env::from_process(),
             cache_dir: cache_dir(std::env::var_os("XDG_CACHE_HOME"), std::env::var_os("HOME")),
             cursor_themes: Vec::new(),
+            store_dirs: StoreDirs::from_environment(),
         }
     }
 }
@@ -73,6 +80,8 @@ pub struct App {
     worker: Option<ThumbWorker>,
     pending_thumbs: Vec<String>,
     retry: Option<Retry>,
+    themes_dirs: StoreDirs,
+    themes_worker: Option<StoreWorker>,
 }
 
 impl App {
@@ -96,8 +105,11 @@ impl App {
             worker,
             pending_thumbs: Vec::new(),
             retry: None,
+            themes_dirs: options.store_dirs,
+            themes_worker: None,
         };
         app.request_thumbs();
+        app.refresh_installed();
         app
     }
 
@@ -175,6 +187,7 @@ pub(crate) mod tests {
             override_dir: Some(dir.path().join("wallpapers").into_os_string()),
             ..Env::default()
         };
+        options.store_dirs = StoreDirs::under(dir.path());
         let app = App::new(store, options, None);
         (dir, app)
     }

@@ -7,7 +7,6 @@ use desilium_ui::wayland::SurfaceId;
 
 use super::{Shell, timers::Due};
 use crate::{
-    bar::BAR_HEIGHT,
     dock::layout::screen_rect,
     quick::placement::Insets,
     visibility::{self, HIDE_DELAY, Presence},
@@ -33,8 +32,7 @@ impl Shell {
         if inside {
             self.update_panels();
         } else {
-            self.deadlines
-                .set(Due::Panels, Instant::now() + HIDE_DELAY);
+            self.deadlines.set(Due::Panels, Instant::now() + HIDE_DELAY);
         }
     }
 
@@ -43,7 +41,7 @@ impl Shell {
         let settings = &self.store.get().shell;
         let mut insets = Insets::default();
         if settings.bar_enabled {
-            insets.top = BAR_HEIGHT;
+            insets.top = u32::from(settings.bar_height);
         }
         if settings.panel_enabled {
             let dock = self.dock.layout().height + u32::from(settings.margin);
@@ -68,7 +66,7 @@ impl Shell {
         let workspace = self.workspaces.active;
         let popup = self.popup_open();
 
-        let bar_area = (0, 0, output.0, BAR_HEIGHT as i32);
+        let bar_area = (0, 0, output.0, i32::from(settings.bar_height));
         let bar_hidden = visibility::hidden(
             settings.bar_visibility,
             bar_area,
@@ -77,8 +75,14 @@ impl Shell {
             self.hover.bar || popup,
         );
         let bar_presence = Presence::of(settings.bar_enabled, bar_hidden);
-        let reserve = bar_presence == Presence::Shown && settings.bar_visibility == Visibility::Always;
-        if let Err(error) = self.bar.place(&mut self.host, bar_presence, reserve) {
+        let reserve =
+            bar_presence == Presence::Shown && settings.bar_visibility == Visibility::Always;
+        if let Err(error) = self.bar.place(
+            &mut self.host,
+            bar_presence,
+            reserve,
+            u32::from(settings.bar_height),
+        ) {
             tracing::warn!(%error, "top bar placement failed");
         }
 
@@ -107,8 +111,7 @@ impl Shell {
                 || dock_presence == Presence::Shown
                     && settings.panel_visibility != Visibility::Always);
         if waiting {
-            self.deadlines
-                .set(Due::Panels, Instant::now() + HIDE_DELAY);
+            self.deadlines.set(Due::Panels, Instant::now() + HIDE_DELAY);
         }
     }
 }

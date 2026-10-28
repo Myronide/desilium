@@ -24,11 +24,13 @@ pub struct DefaultComponent {
     pub required: bool,
 }
 
-/// Start order: the compositor first, then the clients that need its socket.
-pub const DEFAULT_COMPONENTS: [DefaultComponent; 3] = [
+/// Start order: KWin first, then the clients that need its socket.
+///
+/// Desilium has no compositor of its own; the `compositor` component is KWin.
+pub const DEFAULT_COMPONENTS: [DefaultComponent; 4] = [
     DefaultComponent {
         name: "compositor",
-        binary: "desilium-compositor",
+        binary: "kwin_wayland",
         criticality: Criticality::Critical,
         wayland: WaylandRole::Provider,
         required: true,
@@ -36,6 +38,13 @@ pub const DEFAULT_COMPONENTS: [DefaultComponent; 3] = [
     DefaultComponent {
         name: "shell",
         binary: "desilium-shell",
+        criticality: Criticality::Restartable,
+        wayland: WaylandRole::Client,
+        required: false,
+    },
+    DefaultComponent {
+        name: "kwin-bridge",
+        binary: "desilium-kwin",
         criticality: Criticality::Restartable,
         wayland: WaylandRole::Client,
         required: false,

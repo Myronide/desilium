@@ -9,7 +9,7 @@ description = "Desilium desktop shell process: top bar, dock and launcher"
 desilium-apps = { path = "../desilium-apps" }
 desilium-config = { path = "../desilium-config" }
 desilium-config-types = { path = "../desilium-config-types" }
-desilium-protocols = { path = "../desilium-protocols", features = ["client"] }
+desilium-kwin = { path = "../desilium-kwin" }
 desilium-theme = { path = "../desilium-theme" }
 desilium-ui = { path = "../desilium-ui" }
 
@@ -22,6 +22,7 @@ toml = "0.8"
 tracing.workspace = true
 tracing-subscriber.workspace = true
 wayland-client = "0.31"
+wayland-protocols-plasma = { version = "0.3", features = ["client"] }
 
 [dev-dependencies]
 png = "0.17"

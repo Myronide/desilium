@@ -1,6 +1,10 @@
 //! Control kinds and their value rules.
 
 use super::value::{InvalidValue, Value, normalize_hex, normalize_text};
+use crate::i18n::{keys, tr};
+
+/// English text of the lowest slider stop; shown translated.
+pub const OFF_LABEL: &str = "Off";
 
 /// One option of a segmented control or dropdown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +35,11 @@ impl Choice {
             icon: Some(icon),
         }
     }
+
+    /// The label in the current language; `setting_id` is the registry id it belongs to.
+    pub fn label_text(&self, setting_id: &str) -> String {
+        tr(&keys::choice(setting_id, self.value), self.label)
+    }
 }
 
 /// A discrete slider: the user picks one of a fixed set of stops.
@@ -47,13 +56,15 @@ pub struct Slider {
     pub unit: &'static str,
 }
 
-/// A bounded integer with minus and plus buttons.
+/// A bounded integer edited with a draggable slider; a click on the track jumps to the value.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Stepper {
     /// Smallest value.
     pub min: i64,
     /// Largest value.
     pub max: i64,
+    /// Unit suffix of the value shown next to the slider, e.g. `px`.
+    pub unit: &'static str,
 }
 
 /// The widget that edits a setting.
@@ -102,7 +113,12 @@ impl Control {
                 .iter()
                 .any(|choice| choice.value == text)
                 .then_some(Value::Text(text))
-                .ok_or_else(|| InvalidValue::new("That option does not exist.")),
+                .ok_or_else(|| {
+                    InvalidValue::translated(
+                        "ui.error.no_such_option",
+                        "That option does not exist.",
+                    )
+                }),
             (Control::Switch, value @ Value::Bool(_)) => Ok(value),
             (Control::Slider(slider), Value::Number(number)) => slider.snap(number),
             (Control::Stepper(stepper), Value::Number(number)) => Ok(stepper.clamp(number)),
@@ -114,8 +130,14 @@ impl Control {
             }
             (Control::Text { .. }, Value::Unset) => Ok(Value::Unset),
             (Control::Shortcuts, value @ Value::Text(_)) => Ok(value),
-            (Control::About, _) => Err(InvalidValue::new("This entry is read-only.")),
-            _ => Err(InvalidValue::new("That value does not fit this setting.")),
+            (Control::About, _) => Err(InvalidValue::translated(
+                "ui.error.read_only",
+                "This entry is read-only.",
+            )),
+            _ => Err(InvalidValue::translated(
+                "ui.error.wrong_kind",
+                "That value does not fit this setting.",
+            )),
         }
     }
 }
@@ -123,7 +145,10 @@ impl Control {
 fn normalize_cursor_theme(text: &str) -> Result<Value, InvalidValue> {
     let value = normalize_text(text)?;
     if matches!(&value, Value::Text(name) if name.contains('/')) {
-        return Err(InvalidValue::new("A cursor theme name cannot contain '/'."));
+        return Err(InvalidValue::translated(
+            "ui.error.cursor_slash",
+            "A cursor theme name cannot contain '/'.",
+        ));
     }
     Ok(value)
 }
@@ -132,14 +157,19 @@ impl Slider {
     /// The stop closest to `number`.
     pub fn snap(&self, number: f64) -> Result<Value, InvalidValue> {
         if !number.is_finite() {
-            return Err(InvalidValue::new("Enter a number."));
+            return Err(InvalidValue::translated(
+                "ui.error.enter_number",
+                "Enter a number.",
+            ));
         }
         self.stops
             .iter()
             .copied()
             .min_by(|a, b| (a - number).abs().total_cmp(&(b - number).abs()))
             .map(Value::Number)
-            .ok_or_else(|| InvalidValue::new("This slider has no positions."))
+            .ok_or_else(|| {
+                InvalidValue::translated("ui.error.no_positions", "This slider has no positions.")
+            })
     }
 
     /// Index of the stop closest to `number`.
@@ -149,6 +179,14 @@ impl Slider {
             .enumerate()
             .min_by(|(_, a), (_, b)| (*a - number).abs().total_cmp(&(*b - number).abs()))
             .map_or(0, |(index, _)| index)
+    }
+
+    /// The stop nearest to `fraction` of the track (stops are spread evenly, ends included).
+    pub fn stop_at(&self, fraction: f64) -> f64 {
+        let last = self.stops.len().saturating_sub(1);
+        let fraction = if fraction.is_finite() { fraction } else { 0.0 };
+        let index = (fraction.clamp(0.0, 1.0) * last as f64).round() as usize;
+        self.stops.get(index.min(last)).copied().unwrap_or_default()
     }
 
     /// Position of stop `index` along the track, `0.0` to `1.0`.
@@ -162,6 +200,33 @@ impl Slider {
 }
 
 impl Stepper {
+    /// A range from `min` to `max` (both included) shown with `unit`.
+    pub const fn new(min: i64, max: i64, unit: &'static str) -> Self {
+        Self { min, max, unit }
+    }
+
+    /// Number of selectable values.
+    pub fn count(&self) -> usize {
+        usize::try_from(self.max - self.min + 1).unwrap_or(1).max(1)
+    }
+
+    /// Where `value` sits along the track, `0.0` to `1.0`: every value owns an equal slice of the
+    /// track and the thumb stands in the middle of its slice.
+    pub fn position(&self, value: f64) -> f64 {
+        let Value::Number(snapped) = self.clamp(value) else {
+            return 0.0;
+        };
+        ((snapped - self.min as f64) + 0.5) / self.count() as f64
+    }
+
+    /// The value whose slice contains `fraction` of the track; outside the track it is the
+    /// nearest end.
+    pub fn value_at(&self, fraction: f64) -> f64 {
+        let fraction = if fraction.is_finite() { fraction } else { 0.0 };
+        let index = (fraction.clamp(0.0, 1.0) * self.count() as f64).floor();
+        (self.min as f64 + index).min(self.max as f64)
+    }
+
     /// Rounds to a whole number inside the range.
     pub fn clamp(&self, number: f64) -> Value {
         let rounded = if number.is_finite() {
@@ -202,11 +267,27 @@ mod tests {
 
     #[test]
     fn stepper_clamps_and_rounds() {
-        let stepper = Stepper { min: 1, max: 32 };
+        let stepper = Stepper::new(1, 32, "");
         assert_eq!(stepper.clamp(0.0), Value::Number(1.0));
         assert_eq!(stepper.clamp(99.0), Value::Number(32.0));
         assert_eq!(stepper.clamp(4.6), Value::Number(5.0));
         assert_eq!(stepper.clamp(f64::NAN), Value::Number(1.0));
+    }
+
+    #[test]
+    fn range_positions_and_values_round_trip() {
+        let range = Stepper::new(0, 40, "px");
+        for value in 0..=40 {
+            let at = range.position(f64::from(value));
+            assert!((0.0..=1.0).contains(&at));
+            assert_eq!(range.value_at(at), f64::from(value), "value {value}");
+        }
+        assert_eq!(range.value_at(-3.0), 0.0);
+        assert_eq!(range.value_at(0.0), 0.0);
+        assert_eq!(range.value_at(1.0), 40.0);
+        assert_eq!(range.value_at(9.0), 40.0);
+        assert_eq!(range.value_at(f64::NAN), 0.0);
+        assert!(range.position(0.0) < range.position(1.0));
     }
 
     #[test]

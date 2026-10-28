@@ -18,30 +18,9 @@ button { font: inherit; color: inherit; background: none; border: 0; }
 .ic.s28 { width: 28px; height: 28px; }
 .ic.s32 { width: 32px; height: 32px; }
 
-/* App icons: gradient tile + white glyph */
-.app-icon {
-  display: grid; place-items: center; color: #fff; flex: none;
-  width: 48px; height: 48px; border-radius: 27%;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 0 rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.30);
-}
-.app-icon .ic { width: 55%; height: 55%; stroke-width: 1.6; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18)); }
-.a-files    { background: linear-gradient(150deg, var(--app-files)); }
-.a-terminal { background: linear-gradient(150deg, var(--app-terminal)); }
-.a-web      { background: linear-gradient(150deg, var(--app-web)); }
-.a-settings { background: linear-gradient(150deg, var(--app-settings)); }
-.a-music    { background: linear-gradient(150deg, var(--app-music)); }
-.a-photos   { background: linear-gradient(150deg, var(--app-photos)); }
-.a-code     { background: linear-gradient(150deg, var(--app-code)); }
-.a-calc     { background: linear-gradient(150deg, var(--app-calc)); }
-.a-mail     { background: linear-gradient(150deg, var(--app-mail)); }
-.a-notes    { background: linear-gradient(150deg, var(--app-notes)); }
-.a-calendar { background: linear-gradient(150deg, var(--app-calendar)); }
-.a-store    { background: linear-gradient(150deg, var(--app-store)); }
-.app-icon.sm { width: 24px; height: 24px; }
-.app-icon.md { width: 32px; height: 32px; }
-.app-icon.lg { width: 56px; height: 56px; }
-.app-icon.xl { width: 72px; height: 72px; }
-.app-icon.xs { width: 16px; height: 16px; box-shadow: none; }
+/* Applications draw their own icons (<img>). The glyph is only for an application with no icon
+   in any theme: a plain outline, never a coloured tile. */
+.app-glyph { display: grid; place-items: center; flex: none; color: var(--text-2); }
 
 .kbd {
   display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 5px;

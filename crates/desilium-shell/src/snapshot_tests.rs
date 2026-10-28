@@ -15,7 +15,6 @@ use crate::{
         battery::{Battery, BatteryStatus},
         clock::ClockText,
         dock::Dot,
-        icons::tile_for,
         launcher::{Activation, CalcCard, Category, LauncherModel, Results, Row, RowIcon, Section},
         windows::Workspaces,
     },
@@ -78,7 +77,7 @@ fn bar_view() -> BarView {
         },
         app: ActiveApp {
             name: "Code".into(),
-            glyph: "code".into(),
+            icon: demo_icon("code"),
             title: "main.rs - desilium".into(),
         },
         clock: ClockText {
@@ -117,7 +116,7 @@ fn dock_view(with_files: bool) -> DockView {
     let cell = |name: &str, id: &str, dots: Vec<Dot>| DockCell {
         key: format!("{id}.desktop"),
         name: name.into(),
-        icon: IconSpec::Tile(tile_for(&format!("{id}.desktop"), &[])),
+        icon: demo_icon(id),
         dots,
     };
     let mut cells = vec![
@@ -209,7 +208,6 @@ fn launcher_model() -> LauncherModel {
         icon: RowIcon::App {
             desktop_id: format!("{id}.desktop"),
             icon: None,
-            categories: vec!["Utility".into()],
         },
     };
     let rows = vec![
@@ -242,17 +240,30 @@ fn launcher_model() -> LauncherModel {
     model
 }
 
+/// The icon files of `assets/demo-apps`, standing in for what installed applications ship; ids
+/// without one show the neutral glyph, which is what an application without an icon gets.
+fn demo_icon(id: &str) -> IconSpec {
+    let file = match id.trim_end_matches(".desktop") {
+        "nautilus" | "doria" => "demo-files",
+        "firefox" => "demo-web",
+        "code" => "demo-code",
+        "music" => "demo-music",
+        "mail" => "demo-mail",
+        _ => return IconSpec::NEUTRAL,
+    };
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../assets/demo-apps/icons/desilium-demo/scalable/apps")
+        .join(format!("{file}.svg"));
+    IconSpec::File(crate::view::icon::file_url(&path))
+}
+
 struct Tiles;
 
 impl crate::launcher::RowIcons for Tiles {
     fn app_icon(&mut self, icon: &RowIcon, _: u32) -> IconSpec {
         match icon {
-            RowIcon::App {
-                desktop_id,
-                categories,
-                ..
-            } => IconSpec::Tile(tile_for(desktop_id, categories)),
-            _ => IconSpec::Tile(crate::model::icons::GENERIC_TILE),
+            RowIcon::App { desktop_id, .. } => demo_icon(desktop_id),
+            _ => IconSpec::NEUTRAL,
         }
     }
 }
@@ -272,7 +283,7 @@ fn launcher_renders_with_natural_height() {
         ])
         .map(|(name, id)| PinView {
             name: (*name).into(),
-            icon: IconSpec::Tile(tile_for(&format!("{id}.desktop"), &[])),
+            icon: demo_icon(id),
         })
         .collect();
     for (name, theme, wallpaper) in themes() {
@@ -490,7 +501,8 @@ fn quick_settings_and_taskbar_render_in_both_themes() {
         };
         let view = dock_view(false);
         let layout = crate::dock::layout::configured(view.cells.len(), None, &settings, 1280);
-        let html = crate::dock::configured_html_for_tests(&view, &layout, &settings, &taskbar_status());
+        let html =
+            crate::dock::configured_html_for_tests(&view, &layout, &settings, &taskbar_status());
         assert!(html.contains("task-label"));
         let mut options = SurfaceOptions::new(layout.width, layout.height);
         options.theme = theme.clone();
@@ -562,4 +574,246 @@ fn configured_dock_hit_rectangles_match_rendered_cells_and_keep_status_separate(
             }
         }
     }
+}
+
+#[test]
+fn icons_inserted_into_an_existing_document_are_drawn() {
+    // The dock replaces its children on every update, so an icon file has to load into a
+    // document that already exists, not only into one built around it.
+    let wallpaper = [38, 30, 84];
+    let html = crate::view::icon::icon_html(&demo_icon("firefox"), "", 64);
+    let mut options = SurfaceOptions::new(90, 90);
+    options.theme = Theme::dark();
+    let mut ui = UiSurface::new("<div id=root></div>", &[BASE_CSS], options).unwrap();
+    ui.replace_children("#root", &html).unwrap();
+    let (rgba, _) = snapshot(&mut ui, "icon-inserted-late", wallpaper);
+    let drawn = rgba
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .any(|px| px[..3] != wallpaper);
+    assert!(drawn, "the icon file did not show up");
+}
+
+fn desktop_with_items() -> crate::desktop::Desktop {
+    use crate::model::desktop::{DeskItem, Kind};
+    let item = |name: &str, kind: Kind, icon: Option<&str>| DeskItem {
+        path: PathBuf::from(format!("/home/u/Desktop/{name}")),
+        file_name: name.to_owned(),
+        name: name.trim_end_matches(".desktop").to_owned(),
+        kind,
+        icon: icon.map(str::to_owned),
+    };
+    let mut desktop = crate::desktop::Desktop::default();
+    desktop.set_items(vec![
+        item("Projects", Kind::Folder, None),
+        item("Photos", Kind::Folder, None),
+        item(
+            "Browser.desktop",
+            Kind::Launcher { trusted: true },
+            Some("firefox"),
+        ),
+        item(
+            "Downloaded.desktop",
+            Kind::Launcher { trusted: false },
+            Some("mail"),
+        ),
+        item("budget-2026-final-version.pdf", Kind::File, None),
+        item("notes.txt", Kind::File, None),
+    ]);
+    desktop
+}
+
+fn desktop_icons(desktop: &crate::desktop::Desktop) -> Vec<IconSpec> {
+    use crate::model::desktop::Kind;
+    desktop
+        .items
+        .iter()
+        .map(|item| match (item.icon.as_deref(), item.kind) {
+            (Some(icon), _) => demo_icon(icon),
+            (None, Kind::Folder) => demo_icon("nautilus"),
+            (None, _) => IconSpec::NEUTRAL,
+        })
+        .collect()
+}
+
+/// The shell redraws the icons after every pointer event of a drag, which replaces the very
+/// element the button went down on. The drag must go on and end properly.
+#[test]
+fn a_drag_survives_the_desktop_being_redrawn_under_the_pointer() {
+    use desilium_ui::{DragPhase, PointerButton, UiEvent};
+    let appearance = desilium_config_types::AppearanceSettings::default();
+    let look = crate::wallpaper::Look::of(&appearance, &Theme::dark());
+    let mut options = SurfaceOptions::new(1280, 720);
+    options.theme = Theme::dark();
+    let mut ui = UiSurface::new(&look.html(), &crate::wallpaper::STYLES, options).unwrap();
+    let mut desktop = desktop_with_items();
+    let icons = desktop_icons(&desktop);
+    let grid = crate::model::grid::Grid::new((1280, 720), 32, 100);
+    let draw = |ui: &mut UiSurface, desktop: &mut crate::desktop::Desktop| {
+        let cells = desktop.cells(&grid);
+        let html = crate::desktop::html(desktop, &icons, &grid, &cells, (1280, 720));
+        ui.replace_children("#desk", &html).unwrap();
+    };
+    draw(&mut ui, &mut desktop);
+    let first = ui.element_rect(".dicon").unwrap();
+    let (x, y) = (first.x + first.width / 2.0, first.y + first.height / 2.0);
+
+    let mut phases = Vec::new();
+    ui.pointer_move(x, y);
+    ui.pointer_down(x, y, PointerButton::Primary);
+    for step in 1..=6 {
+        let at = (x + 40.0 * f64::from(step), y + 20.0 * f64::from(step));
+        ui.pointer_move(at.0, at.1);
+        for event in ui.take_events() {
+            let UiEvent::Drag(drag) = event else { continue };
+            assert_eq!(drag.name, "desk-icon", "step {step}: {drag:?}");
+            phases.push(drag.phase);
+            match drag.phase {
+                DragPhase::Start => {
+                    desktop.begin_icon_drag(0, drag.origin, &grid);
+                    desktop.drag_icons(drag.pos, &grid);
+                }
+                _ => desktop.drag_icons(drag.pos, &grid),
+            }
+        }
+        draw(&mut ui, &mut desktop);
+    }
+    let end = (x + 240.0, y + 120.0);
+    ui.pointer_up(end.0, end.1, PointerButton::Primary);
+    for event in ui.take_events() {
+        let UiEvent::Drag(drag) = event else { continue };
+        assert_eq!(drag.name, "desk-icon", "{drag:?}");
+        phases.push(drag.phase);
+        desktop.drag_icons(drag.pos, &grid);
+        desktop.drop_icons(&grid);
+    }
+    draw(&mut ui, &mut desktop);
+    assert_eq!(phases.first(), Some(&DragPhase::Start), "{phases:?}");
+    assert_eq!(phases.last(), Some(&DragPhase::End), "{phases:?}");
+    assert!(phases.contains(&DragPhase::Move), "{phases:?}");
+}
+
+#[test]
+fn the_desktop_draws_icons_and_a_menu_and_reports_clicks() {
+    use desilium_ui::{PointerButton, UiEvent};
+    let appearance = desilium_config_types::AppearanceSettings::default();
+    let look = crate::wallpaper::Look::of(&appearance, &Theme::dark());
+    let mut options = SurfaceOptions::new(1280, 720);
+    options.theme = Theme::dark();
+    let mut ui = UiSurface::new(&look.html(), &crate::wallpaper::STYLES, options).unwrap();
+    let mut desktop = desktop_with_items();
+    desktop.select_for_menu(2);
+    let icons = desktop_icons(&desktop);
+    let grid = crate::model::grid::Grid::new((1280, 720), 32, 100);
+    let draw = |ui: &mut UiSurface, desktop: &mut crate::desktop::Desktop| {
+        let cells = desktop.cells(&grid);
+        let html = crate::desktop::html(desktop, &icons, &grid, &cells, (1280, 720));
+        ui.replace_children("#desk", &html).unwrap();
+    };
+    draw(&mut ui, &mut desktop);
+    let (rgba, _) = snapshot(&mut ui, "desktop-icons", [38, 30, 84]);
+    assert!(rgba.iter().any(|byte| *byte != 0));
+
+    // A click on the first icon, its right click, and a click on empty desktop.
+    let first = ui.element_rect(".dicon").unwrap();
+    let (x, y) = (first.x + first.width / 2.0, first.y + first.height / 2.0);
+
+    // The pointer is a hand over an icon only; the empty desktop keeps the arrow.
+    ui.pointer_move(x, y);
+    assert_eq!(ui.cursor_hint(), desilium_ui::CursorHint::Pointer);
+    ui.pointer_move(1000.0, 300.0);
+    assert_eq!(ui.cursor_hint(), desilium_ui::CursorHint::Default);
+    let click = |ui: &mut UiSurface, x: f64, y: f64, button: PointerButton| {
+        ui.pointer_move(x, y);
+        ui.pointer_down(x, y, button);
+        ui.pointer_up(x, y, button);
+        ui.take_events()
+    };
+    let action = |events: Vec<UiEvent>| match events.into_iter().next() {
+        Some(UiEvent::Action(action)) => (action.action, action.arg),
+        other => panic!("expected an action, got {other:?}"),
+    };
+    assert_eq!(
+        action(click(&mut ui, x, y, PointerButton::Primary)),
+        ("desk-item".to_owned(), Some("0".to_owned()))
+    );
+    assert_eq!(
+        action(click(&mut ui, x, y, PointerButton::Secondary)),
+        ("desk-item-menu".to_owned(), Some("0".to_owned()))
+    );
+    assert_eq!(
+        action(click(&mut ui, 1000.0, 300.0, PointerButton::Primary)).0,
+        "desk-bg"
+    );
+    assert_eq!(
+        ui.pointer_position(),
+        Some((1000.0, 300.0)),
+        "menus open where the pointer is"
+    );
+    assert_eq!(
+        action(click(&mut ui, 1000.0, 300.0, PointerButton::Secondary)).0,
+        "desk-menu"
+    );
+
+    // Dragging from an icon starts an icon drag, from the empty desktop a selection rectangle.
+    let drag_from = |ui: &mut UiSurface, x: f64, y: f64| {
+        ui.pointer_move(x, y);
+        ui.pointer_down(x, y, PointerButton::Primary);
+        ui.pointer_move(x + 40.0, y + 40.0);
+        ui.pointer_up(x + 40.0, y + 40.0, PointerButton::Primary);
+        ui.take_events().into_iter().find_map(|event| match event {
+            UiEvent::Drag(drag) => Some((drag.name, drag.arg)),
+            _ => None,
+        })
+    };
+    assert_eq!(
+        drag_from(&mut ui, x, y),
+        Some(("desk-icon".to_owned(), Some("0".to_owned())))
+    );
+    assert_eq!(
+        drag_from(&mut ui, 1000.0, 300.0),
+        Some(("desk-band".to_owned(), None))
+    );
+
+    // Carrying two icons and drawing a selection rectangle, as the shell draws them.
+    desktop.selected = ["Projects", "Photos"].map(str::to_owned).into();
+    desktop.begin_icon_drag(0, (x, y), &grid);
+    desktop.drag_icons((x + 330.0, y + 180.0), &grid);
+    draw(&mut ui, &mut desktop);
+    snapshot(&mut ui, "desktop-drag", [38, 30, 84]);
+    assert!(ui.element_rect(".dtarget").is_ok());
+    desktop.end_gesture();
+    desktop.begin_band((600.0, 120.0));
+    desktop.drag_band((20.0, 330.0), &grid);
+    draw(&mut ui, &mut desktop);
+    snapshot(&mut ui, "desktop-band", [38, 30, 84]);
+    assert!(ui.element_rect(".dband").is_ok());
+    assert!(desktop.selected.len() >= 2, "{:?}", desktop.selected);
+    desktop.clear();
+
+    // The menu of an icon.
+    desktop.menu = Some(crate::desktop::Menu {
+        target: Some("Downloaded.desktop".into()),
+        at: (700, 200),
+    });
+    draw(&mut ui, &mut desktop);
+    snapshot(&mut ui, "desktop-menu", [38, 30, 84]);
+    let menu = ui.element_rect(".dmenu").unwrap();
+    assert!(menu.x >= 0.0 && menu.x + menu.width <= 1280.0 && menu.y + menu.height <= 720.0);
+    let command = ui.element_rect(".dcmd").unwrap();
+    let (cx, cy) = (command.x + 20.0, command.y + 10.0);
+    assert_eq!(
+        action(click(&mut ui, cx, cy, PointerButton::Primary)),
+        ("desk-cmd".to_owned(), Some("open".to_owned())),
+        "a menu button wins over the desktop behind it"
+    );
+
+    // Renaming shows an input holding the current name.
+    desktop.menu = None;
+    desktop.renaming = Some("notes.txt".into());
+    draw(&mut ui, &mut desktop);
+    ui.focus("#desk-rename").unwrap();
+    assert_eq!(ui.input_value("#desk-rename").unwrap(), "notes.txt");
+    snapshot(&mut ui, "desktop-rename", [38, 30, 84]);
 }

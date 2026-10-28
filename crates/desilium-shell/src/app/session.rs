@@ -20,7 +20,8 @@ impl Shell {
         self.session_seen
             .extend(self.windows.windows().iter().map(|window| window.id));
         let wanted = self.store.get().shell.restore_session;
-        if wanted && self.proto.is_some() && self.windows.windows().is_empty() {
+        let can_place = self.proto.as_ref().is_some_and(|proto| proto.has_windows());
+        if wanted && can_place && self.windows.windows().is_empty() {
             self.begin_session_restore();
         }
     }

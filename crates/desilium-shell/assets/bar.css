@@ -1,6 +1,6 @@
 /* Top bar: the surface is the bar. Derived from docs/design/shared.css (.topbar, .tb-*). */
 .bar {
-  position: relative; display: flex; align-items: center; width: 100%; height: 32px; padding: 0 var(--space-2); gap: var(--space-1);
+  position: relative; display: flex; align-items: center; width: 100%; height: 32px; box-sizing: border-box; padding: 0 var(--space-2); gap: var(--space-1);
   background: var(--bar-bg); border-bottom: 1px solid var(--divider);
   font-size: var(--fs-body); color: var(--text);
 }

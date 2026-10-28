@@ -253,13 +253,13 @@ pub fn launcher_html(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{icons::GENERIC_TILE, launcher::Results};
+    use crate::model::launcher::Results;
 
     struct Tiles;
 
     impl RowIcons for Tiles {
         fn app_icon(&mut self, _: &RowIcon, _: u32) -> IconSpec {
-            IconSpec::Tile(GENERIC_TILE)
+            IconSpec::NEUTRAL
         }
     }
 
@@ -275,7 +275,6 @@ mod tests {
             icon: RowIcon::App {
                 desktop_id: format!("{title}.desktop"),
                 icon: None,
-                categories: Vec::new(),
             },
         }
     }
@@ -363,7 +362,7 @@ mod tests {
     fn pins_are_limited_to_six_slots() {
         let pin = PinView {
             name: "X".into(),
-            icon: IconSpec::Tile(GENERIC_TILE),
+            icon: IconSpec::NEUTRAL,
         };
         let html = pins_html(&vec![pin; 9]);
         assert_eq!(html.matches("class=pin ").count(), 6);

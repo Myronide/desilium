@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::action::Action;
+use crate::mouse::MouseSettings;
 use crate::shortcut::{Modifiers, Shortcut};
 
 /// Number of virtual desktops when the configuration does not say.
@@ -64,7 +65,9 @@ impl KeyboardLayout {
     }
 }
 
-/// User-facing compositor settings.
+/// User-facing window-management settings (the `[compositor]` table of the configuration).
+///
+/// Desilium has no compositor of its own; `desilium-kwin` applies these to KWin.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CompositorSettings {
@@ -83,11 +86,13 @@ pub struct CompositorSettings {
     pub keyboard_repeat_delay: u16,
     pub keyboard_repeat_rate: u16,
     pub keyboard_layout: KeyboardLayout,
+    /// Pointer speed, scrolling and clicking of mice.
+    pub mouse: MouseSettings,
 }
 
 impl Default for CompositorSettings {
     fn default() -> Self {
-        // Alt is the default instead of Logo because the compositor is developed
+        // Alt is the default instead of Logo because the session is developed with KWin
         // nested inside another desktop, which already claims the Logo key.
         let alt = Modifiers {
             alt: true,
@@ -128,6 +133,7 @@ impl Default for CompositorSettings {
             keyboard_repeat_delay: 200,
             keyboard_repeat_rate: 25,
             keyboard_layout: KeyboardLayout::De,
+            mouse: MouseSettings::default(),
         }
     }
 }

@@ -1,5 +1,10 @@
 # Desktop integration validation
 
+> **Historical.** This record was taken on 2026-10-26, before the move from Desilium's own
+> compositor to KWin. The test counts below include the removed compositor crates and are no
+> longer current. It was not repeated after the migration. The KWin integration has no runtime
+> validation yet; see the verification status in [kwin-integration.md](kwin-integration.md#11-verification-status).
+
 Local validation on 2026-10-26, Linux, stable Rust 1.98.0, debug builds:
 
 - `cargo build --workspace --locked`: passed.
@@ -13,8 +18,9 @@ Local validation on 2026-10-26, Linux, stable Rust 1.98.0, debug builds:
 - Pureline's external executable was not installed; that separate style checker
   was not run.
 
-The tests include real Wayland keyboard-repeat notifications, focus and snap
-policy, panel GUI transactions, explicit secondary-click routing, atomic app
+The tests included real Wayland keyboard-repeat notifications and focus and snap
+policy of the former compositor (both are now KWin settings written by the bridge, see
+[configuration.md](configuration.md)), panel GUI transactions, explicit secondary-click routing, atomic app
 pins, local GIO file copies/renames, symlink handling, cancellation and native
 GIO authentication/host-question signals. Tests did not change host Wi-Fi,
 Bluetooth, volume, brightness or physical mount state.

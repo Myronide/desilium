@@ -14,7 +14,9 @@ mod value;
 
 use desilium_config_types::DesiliumConfig;
 
-pub use control::{Choice, Control, Slider, Stepper};
+use crate::i18n::{keys, locale, tr, translated};
+
+pub use control::{Choice, Control, OFF_LABEL, Slider, Stepper};
 pub use page::{NAV, NavEntry, Page};
 pub use value::{InvalidValue, Value, format_number, normalize_hex, normalize_text, parse_number};
 
@@ -47,6 +49,46 @@ pub struct SettingDef {
 }
 
 impl SettingDef {
+    /// Row title in the current language.
+    pub fn title_text(&self) -> String {
+        tr(&keys::setting(self.id, "title"), self.title)
+    }
+
+    /// Explanation under the title in the current language.
+    pub fn description_text(&self) -> String {
+        tr(&keys::setting(self.id, "description"), self.description)
+    }
+
+    /// Card title in the current language.
+    pub fn section_text(&self) -> String {
+        tr(&keys::section(self.page.slug(), self.section), self.section)
+    }
+
+    /// Hint of an empty text field, for settings edited as text.
+    pub fn placeholder_text(&self) -> Option<String> {
+        match self.control {
+            Control::Text { placeholder } => {
+                Some(tr(&keys::setting(self.id, "placeholder"), placeholder))
+            }
+            _ => None,
+        }
+    }
+
+    /// Search words: the English keywords plus the translated ones of the current language,
+    /// so typing either finds the setting.
+    pub fn search_keywords(&self) -> Vec<String> {
+        let mut words: Vec<String> = self
+            .keywords
+            .iter()
+            .map(|word| (*word).to_owned())
+            .collect();
+        let key = keys::setting(self.id, "keywords");
+        if let Some(extra) = translated(locale(), &key) {
+            words.extend(extra.split(',').map(|word| word.trim().to_owned()));
+        }
+        words
+    }
+
     /// The built-in default value.
     pub fn default_value(&self) -> Value {
         (self.get)(&DesiliumConfig::default())
@@ -105,10 +147,19 @@ pub fn for_page(page: Page) -> impl Iterator<Item = &'static SettingDef> {
 
 /// A card: consecutive settings of one page that share a section title.
 pub struct Section {
-    /// Card title.
+    /// The page it is on.
+    pub page: Page,
+    /// Card title (English source text; stable, used in action arguments).
     pub title: &'static str,
     /// Its settings.
     pub settings: Vec<&'static SettingDef>,
+}
+
+impl Section {
+    /// Card title in the current language.
+    pub fn title_text(&self) -> String {
+        tr(&keys::section(self.page.slug(), self.title), self.title)
+    }
 }
 
 /// Groups a page into cards.
@@ -118,6 +169,7 @@ pub fn sections(page: Page) -> Vec<Section> {
         match out.last_mut() {
             Some(last) if last.title == def.section => last.settings.push(def),
             _ => out.push(Section {
+                page,
                 title: def.section,
                 settings: vec![def],
             }),
@@ -174,8 +226,16 @@ mod tests {
         let titles: Vec<_> = cards.iter().map(|card| card.title).collect();
         assert_eq!(
             titles,
-            ["Style", "Accent color", "Wallpaper", "Motion", "Pointer"]
+            [
+                "Style",
+                "Accent color",
+                "Icons",
+                "Wallpaper",
+                "Motion",
+                "Pointer",
+                "Shape"
+            ]
         );
-        assert_eq!(cards[2].settings.len(), 2);
+        assert_eq!(cards[3].settings.len(), 2);
     }
 }

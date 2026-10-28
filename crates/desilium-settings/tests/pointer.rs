@@ -6,6 +6,7 @@ use std::time::Instant;
 use desilium_config::ConfigStore;
 use desilium_settings::{
     app::{App, AppOptions},
+    i18n::{Locale, set_locale},
     refresh::Refresh,
     registry::Page,
     surface::build_surface,
@@ -20,6 +21,8 @@ const ACCENT_ROW: (std::ops::Range<usize>, std::ops::Range<usize>) = (300..900, 
 const MOTION_ROW: (std::ops::Range<usize>, std::ops::Range<usize>) = (500..900, 600..1000);
 
 fn new_app(page: Page) -> (tempfile::TempDir, App) {
+    // Controls are found by their English tooltips, whatever language the machine speaks.
+    set_locale(Some(Locale::English));
     let dir = tempfile::tempdir().expect("dir");
     let config_dir = dir.path().join("config");
     let store = ConfigStore::open(&config_dir).store;
@@ -130,30 +133,57 @@ fn the_planned_sidebar_entry_has_a_tooltip_and_does_nothing_when_clicked() {
 }
 
 #[test]
-fn clicking_the_stepper_on_the_desktop_page() {
+fn clicking_and_dragging_a_number_slider_on_the_desktop_page() {
     let (_dir, mut app) = new_app(Page::Desktop);
     let mut ui = build_surface(&mut app, SIZE, 1.0, Instant::now()).expect("surface");
     paint(&mut ui);
-    // The plus button is the right-most `data-action=step` control of the first card.
-    let mut found = None;
-    'scan: for y in (100..260).step_by(SCAN_STEP) {
-        for x in (600..1000).step_by(SCAN_STEP) {
-            ui.pointer_move(x as f64, y as f64);
-            if ui.hover_target().and_then(|h| h.action).as_deref() == Some("step") {
-                found = Some((x as f64, y as f64));
-            }
-            if found.is_some() && x > 800 {
-                break 'scan;
-            }
-        }
+    let track = ui
+        .element_rect("#trk-compositor-desktops")
+        .expect("the desktop count slider");
+    let y = track.y + track.height / 2.0;
+    let now = Instant::now();
+
+    // A click on the right end jumps to the largest value.
+    let end = (track.x + track.width - 2.0, y);
+    for event in click(&mut ui, end) {
+        let refresh = app.handle_event(&event, now);
+        refresh.apply(&app, &mut ui, now).expect("apply");
     }
-    let at = found.expect("a stepper button");
-    let events = click(&mut ui, at);
+    assert_eq!(app.ctx(now).config.compositor.desktops, 32);
+
+    // A drag reports the track it started on, from the press to the release.
+    paint(&mut ui);
+    let track = ui
+        .element_rect("#trk-compositor-desktops")
+        .expect("the slider after the page was rebuilt");
+    let start = (track.x + track.width - 2.0, y);
+    let finish = (track.x + 2.0, y);
+    ui.pointer_move(start.0, start.1);
+    ui.pointer_down(start.0, start.1, PointerButton::Primary);
+    ui.pointer_move(finish.0, finish.1);
+    ui.pointer_up(finish.0, finish.1, PointerButton::Primary);
+    let drags: Vec<_> = ui
+        .take_events()
+        .into_iter()
+        .filter_map(|event| match event {
+            UiEvent::Drag(drag) => Some(drag),
+            _ => None,
+        })
+        .collect();
     assert!(
-        events
+        drags
             .iter()
-            .any(|e| matches!(e, UiEvent::Action(a) if a.action == "step"))
+            .all(|drag| drag.name == "range" && drag.arg.as_deref() == Some("compositor.desktops")),
+        "{drags:?}"
     );
+    assert_eq!(
+        drags.last().map(|drag| drag.phase),
+        Some(desilium_ui::DragPhase::End)
+    );
+    let last = drags.last().expect("a drag");
+    let fraction = (last.pos.0 - track.x) / track.width;
+    app.range_drag("compositor.desktops", last.phase, fraction, now);
+    assert_eq!(app.ctx(now).config.compositor.desktops, 1);
 }
 
 #[test]

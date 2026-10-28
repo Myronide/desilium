@@ -2,12 +2,13 @@
 
 use std::time::Instant;
 
-use desilium_config_types::Modifiers;
+use desilium_config_types::{Action, Modifiers};
 use desilium_ui::KeyEvent;
 
 use super::App;
 use crate::{
     changes,
+    i18n::tr_args,
     model::{PendingRebind, Rebind},
     refresh::Refresh,
     shortcuts::{self, Capture, action_label, chord_text},
@@ -29,6 +30,18 @@ fn from_flags(flags: [bool; 4]) -> Modifiers {
         shift: flags[2],
         logo: flags[3],
     }
+}
+
+/// "Close window is now Alt+Q", the toast after a re-binding.
+fn now_bound(action: Action, modifiers: Modifiers, key: &str) -> String {
+    tr_args(
+        "ui.change.shortcut_now",
+        "{action} is now {chord}",
+        &[
+            ("action", &action_label(action)),
+            ("chord", &chord_text(modifiers, key)),
+        ],
+    )
 }
 
 impl App {
@@ -72,7 +85,7 @@ impl App {
             Capture::Cancel => self.cancel_rebind(),
             Capture::Reject(reason) => {
                 self.model.rebind = Some(Rebind {
-                    message: Some(reason.to_owned()),
+                    message: Some(reason),
                     ..rebind
                 });
                 Refresh::main()
@@ -99,11 +112,7 @@ impl App {
         let Some(shortcut) = list.get(index) else {
             return self.cancel_rebind();
         };
-        let summary = format!(
-            "{} is now {}",
-            action_label(shortcut.action),
-            chord_text(modifiers, &key)
-        );
+        let summary = now_bound(shortcut.action, modifiers, &key);
         let result = changes::edit_shortcuts(&mut self.store, summary, |list| {
             if let Some(target) = list.get_mut(index) {
                 target.modifiers = modifiers;
@@ -123,17 +132,17 @@ impl App {
         };
         let (index, other) = (rebind.index, pending.conflict);
         let modifiers = from_flags(pending.modifiers);
-        let Some(label) = self
+        let Some(action) = self
             .store
             .get()
             .compositor
             .shortcuts
             .get(index)
-            .map(|s| action_label(s.action))
+            .map(|s| s.action)
         else {
             return self.cancel_rebind();
         };
-        let summary = format!("{label} is now {}", chord_text(modifiers, &pending.key));
+        let summary = now_bound(action, modifiers, &pending.key);
         let result = changes::edit_shortcuts(&mut self.store, summary, |list| {
             if index >= list.len() || other >= list.len() {
                 return;

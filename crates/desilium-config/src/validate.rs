@@ -7,7 +7,8 @@ use std::fmt::Display;
 
 use desilium_config_types::{
     Action, AppearanceSettings, CompositorSettings, DEFAULT_ANIMATION_SPEED, DEFAULT_THEME,
-    DEFAULT_WALLPAPER_MODE, DesiliumConfig, MAX_DESKTOPS, MIN_DESKTOPS, Shortcut,
+    DEFAULT_WALLPAPER_MODE, DOUBLE_CLICK_RANGE, DesiliumConfig, MAX_DESKTOPS, MIN_DESKTOPS,
+    MouseSettings, POINTER_SPEED_RANGE, SCROLL_SPEED_RANGE, Shortcut,
 };
 
 const ANIMATION_SPEED_MIN: f32 = 0.25;
@@ -60,6 +61,21 @@ fn validate_shell(
     settings: &mut desilium_config_types::ShellSettings,
     report: &mut ValidationReport,
 ) {
+    clamp_field(&mut settings.bar_height, 24, 56, "shell.bar_height", report);
+    clamp_field(
+        &mut settings.panel_radius,
+        0,
+        36,
+        "shell.panel_radius",
+        report,
+    );
+    clamp_field(
+        &mut settings.popup_radius,
+        0,
+        36,
+        "shell.popup_radius",
+        report,
+    );
     clamp_field(&mut settings.icon_size, 32, 72, "shell.icon_size", report);
     clamp_field(&mut settings.spacing, 0, 24, "shell.spacing", report);
     clamp_field(&mut settings.margin, 0, 40, "shell.margin", report);
@@ -69,6 +85,7 @@ fn validate_shell(
 fn validate_appearance(appearance: &mut AppearanceSettings, report: &mut ValidationReport) {
     repair_theme(appearance, report);
     repair_accent(appearance, report);
+    repair_icon_theme(appearance, report);
     clear_if_blank(&mut appearance.wallpaper, "appearance.wallpaper", report);
     repair_wallpaper_mode(appearance, report);
     repair_animation_speed(appearance, report);
@@ -84,6 +101,56 @@ fn validate_appearance(appearance: &mut AppearanceSettings, report: &mut Validat
         "appearance.cursor_size",
         report,
     );
+    clamp_field(
+        &mut appearance.corner_radius,
+        0,
+        32,
+        "appearance.corner_radius",
+        report,
+    );
+    clamp_field(
+        &mut appearance.control_radius,
+        0,
+        20,
+        "appearance.control_radius",
+        report,
+    );
+    repair_kde_scheme(appearance, report);
+}
+
+/// A colour scheme is the file name of `color-schemes/<name>.colors`: blank or path-like names
+/// are dropped, so the user's own KDE scheme is followed again.
+fn repair_kde_scheme(appearance: &mut AppearanceSettings, report: &mut ValidationReport) {
+    clear_if_blank(&mut appearance.kde_scheme, "appearance.kde_scheme", report);
+    let invalid = appearance
+        .kde_scheme
+        .as_deref()
+        .is_some_and(|name| name.contains(['/', '\\', '\0']) || name.starts_with('.'));
+    if invalid {
+        appearance.kde_scheme = None;
+        report.record(
+            "appearance.kde_scheme",
+            "the colour scheme name is not a scheme file name; following KDE's choice instead"
+                .to_owned(),
+        );
+    }
+}
+
+/// An icon theme is a directory name below `icons/`: blank or path-like names are dropped.
+fn repair_icon_theme(appearance: &mut AppearanceSettings, report: &mut ValidationReport) {
+    clear_if_blank(&mut appearance.icon_theme, "appearance.icon_theme", report);
+    let invalid = appearance
+        .icon_theme
+        .as_deref()
+        .is_some_and(|name| name.contains(['/', '\\', '\0']) || name.starts_with('.'));
+    if invalid {
+        appearance.icon_theme = None;
+        report.record(
+            "appearance.icon_theme",
+            "the icon theme name is not a theme directory name; following KDE's choice instead"
+                .to_owned(),
+        );
+    }
 }
 
 fn repair_theme(appearance: &mut AppearanceSettings, report: &mut ValidationReport) {
@@ -176,6 +243,34 @@ fn validate_window_controls(compositor: &mut CompositorSettings, report: &mut Va
         1,
         100,
         "compositor.keyboard_repeat_rate",
+        report,
+    );
+    validate_mouse(&mut compositor.mouse, report);
+}
+
+fn validate_mouse(mouse: &mut MouseSettings, report: &mut ValidationReport) {
+    let (speed_min, speed_max) = POINTER_SPEED_RANGE;
+    clamp_field(
+        &mut mouse.pointer_speed,
+        speed_min,
+        speed_max,
+        "compositor.mouse.pointer_speed",
+        report,
+    );
+    let (scroll_min, scroll_max) = SCROLL_SPEED_RANGE;
+    clamp_field(
+        &mut mouse.scroll_speed,
+        scroll_min,
+        scroll_max,
+        "compositor.mouse.scroll_speed",
+        report,
+    );
+    let (click_min, click_max) = DOUBLE_CLICK_RANGE;
+    clamp_field(
+        &mut mouse.double_click_ms,
+        click_min,
+        click_max,
+        "compositor.mouse.double_click_ms",
         report,
     );
 }
@@ -370,6 +465,37 @@ mod tests {
     }
 
     #[test]
+    fn mouse_values_are_clamped_with_messages_and_valid_ones_are_kept() {
+        let mut cfg = valid();
+        cfg.compositor.mouse.pointer_speed = -500;
+        cfg.compositor.mouse.scroll_speed = 2;
+        cfg.compositor.mouse.double_click_ms = 5000;
+        let report = validate(&mut cfg);
+        let mouse = &cfg.compositor.mouse;
+        assert_eq!(
+            (
+                mouse.pointer_speed,
+                mouse.scroll_speed,
+                mouse.double_click_ms
+            ),
+            (-100, 25, 1000)
+        );
+        assert_eq!(
+            fields(&report),
+            [
+                "compositor.mouse.pointer_speed",
+                "compositor.mouse.scroll_speed",
+                "compositor.mouse.double_click_ms"
+            ]
+        );
+        let mut edge = valid();
+        edge.compositor.mouse.pointer_speed = 100;
+        edge.compositor.mouse.scroll_speed = 400;
+        edge.compositor.mouse.double_click_ms = 200;
+        assert!(validate(&mut edge).repairs.is_empty());
+    }
+
+    #[test]
     fn defaults_are_clean() {
         let mut cfg = valid();
         let report = validate(&mut cfg);
@@ -396,6 +522,30 @@ mod tests {
         let report = validate(&mut cfg);
         assert_eq!(cfg.appearance.animation_speed, DEFAULT_ANIMATION_SPEED);
         assert_eq!(fields(&report), vec!["appearance.animation_speed"]);
+    }
+
+    #[test]
+    fn a_colour_scheme_name_must_be_a_file_name() {
+        let mut cfg = valid();
+        cfg.appearance.kde_scheme = Some("BreezeDark".to_owned());
+        assert!(validate(&mut cfg).repairs.is_empty());
+        assert_eq!(cfg.appearance.kde_scheme.as_deref(), Some("BreezeDark"));
+        for bad in ["../x", "a/b", ".hidden", "  "] {
+            cfg.appearance.kde_scheme = Some(bad.to_owned());
+            validate(&mut cfg);
+            assert_eq!(cfg.appearance.kde_scheme, None, "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn the_bar_height_is_clamped_both_ways() {
+        let mut cfg = valid();
+        cfg.shell.bar_height = 4;
+        validate(&mut cfg);
+        assert_eq!(cfg.shell.bar_height, 24);
+        cfg.shell.bar_height = 900;
+        validate(&mut cfg);
+        assert_eq!(cfg.shell.bar_height, 56);
     }
 
     #[test]
@@ -436,6 +586,20 @@ mod tests {
         assert!(!is_hex_color("#abcde"));
         assert!(!is_hex_color("abcdef"));
         assert!(!is_hex_color("#abcdeg"));
+    }
+
+    #[test]
+    fn icon_theme_names_must_be_directory_names() {
+        let mut cfg = valid();
+        cfg.appearance.icon_theme = Some("Papirus-Dark".to_owned());
+        assert!(validate(&mut cfg).repairs.is_empty());
+        assert_eq!(cfg.appearance.icon_theme.as_deref(), Some("Papirus-Dark"));
+        for bad in ["../x", "a/b", ".hidden", "  "] {
+            cfg.appearance.icon_theme = Some(bad.to_owned());
+            let report = validate(&mut cfg);
+            assert_eq!(cfg.appearance.icon_theme, None, "{bad:?}");
+            assert!(!report.repairs.is_empty(), "{bad:?}");
+        }
     }
 
     #[test]

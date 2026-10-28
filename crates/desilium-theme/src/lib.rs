@@ -9,6 +9,7 @@
 mod backdrop;
 mod check;
 mod color;
+pub mod kde;
 mod motion;
 mod palette;
 mod scale;

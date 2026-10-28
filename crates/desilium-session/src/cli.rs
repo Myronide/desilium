@@ -55,9 +55,10 @@ pub enum UsageError {
 }
 
 /// Usage text printed for `--help` and after usage errors.
-pub const USAGE: &str = "usage: desilium-session [--dry-run[=text|json]] [--print-env]\n\
-                         \x20                      [--compositor <path>] [--shell <path>] [--notifications <path>]\n\
-                         \x20                      [--] [compositor args...]";
+pub const USAGE: &str = "usage: desilium-session [--dry-run[=text|json]] [--print-env] [--allow-any-client]\n\
+                         \x20                      [--compositor <kwin_wayland path>] [--shell <path>]\n\
+                         \x20                      [--kwin-bridge <path>] [--notifications <path>]\n\
+                         \x20                      [--] [kwin_wayland args...]";
 
 const DRY_RUN_PREFIX: &str = "--dry-run=";
 
@@ -91,6 +92,8 @@ fn is_session_flag(flag: &str) -> bool {
         flag,
         "--compositor"
             | "--shell"
+            | "--kwin-bridge"
+            | "--allow-any-client"
             | "--notifications"
             | "--dry-run"
             | "--print-env"
@@ -107,6 +110,8 @@ fn apply_flag(
     match flag {
         "--compositor" => parsed.request.compositor = Some(path_value(args, "--compositor")?),
         "--shell" => parsed.request.shell = Some(path_value(args, "--shell")?),
+        "--kwin-bridge" => parsed.request.kwin_bridge = Some(path_value(args, "--kwin-bridge")?),
+        "--allow-any-client" => parsed.request.allow_any_client = true,
         "--notifications" => {
             parsed.request.notifications = Some(path_value(args, "--notifications")?);
         }
@@ -160,29 +165,38 @@ mod tests {
             "/bin/shell",
             "--notifications",
             "/bin/notify",
+            "--kwin-bridge",
+            "/bin/bridge",
+            "--allow-any-client",
             "--",
-            "--backend",
-            "winit",
+            "--virtual",
+            "--width",
+            "800",
         ]))
         .expect("valid flags");
         assert_eq!(parsed.request.compositor, Some(PathBuf::from("/bin/comp")));
         assert_eq!(parsed.request.shell, Some(PathBuf::from("/bin/shell")));
+        assert_eq!(
+            parsed.request.kwin_bridge,
+            Some(PathBuf::from("/bin/bridge"))
+        );
+        assert!(parsed.request.allow_any_client);
         assert_eq!(
             parsed.request.notifications,
             Some(PathBuf::from("/bin/notify"))
         );
         assert_eq!(
             parsed.request.compositor_args,
-            args(&["--backend", "winit"])
+            args(&["--virtual", "--width", "800"])
         );
     }
 
     #[test]
     fn unknown_argument_starts_compositor_arguments() {
-        let parsed = parse_args(args(&["--nested", "--dry-run"])).expect("valid flags");
+        let parsed = parse_args(args(&["--virtual", "--dry-run"])).expect("valid flags");
         assert_eq!(
             parsed.request.compositor_args,
-            args(&["--nested", "--dry-run"])
+            args(&["--virtual", "--dry-run"])
         );
         assert_eq!(parsed.mode, None);
     }
