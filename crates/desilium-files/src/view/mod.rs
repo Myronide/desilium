@@ -1,9 +1,12 @@
 mod dialog;
+
 use crate::{
     app::App,
     model::{Entry, Sort},
 };
+
 pub const CSS: &str = include_str!("style.css");
+
 pub fn esc(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
@@ -11,9 +14,11 @@ pub fn esc(text: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&#39;")
 }
+
 fn icon(name: &str) -> String {
     desilium_ui::icon_svg(name, 16, "")
 }
+
 fn button(action: &str, label: &str) -> String {
     format!(
         "<button data-action='{}'>{}</button>",
@@ -21,9 +26,11 @@ fn button(action: &str, label: &str) -> String {
         esc(label)
     )
 }
+
 pub fn document(app: &App) -> String {
     format!("<div id=root>{}</div>", html(app))
 }
+
 pub fn html(app: &App) -> String {
     format!(
         "<div class=files><aside>{}</aside><main>{}<section id=listing>{}</section><footer id=status>{}</footer></main></div>{}",
@@ -34,6 +41,7 @@ pub fn html(app: &App) -> String {
         dialog::html(app)
     )
 }
+
 /// Folders of the home directory shown under Places, with their icon.
 const HOME_FOLDERS: [(&str, &str); 6] = [
     ("Desktop", "monitor"),
@@ -116,6 +124,7 @@ fn sidebar(app: &App) -> String {
     html.push_str("<span>Connect to server…</span></button></nav>");
     html
 }
+
 fn place(current: &str, uri: &str, label: &str, glyph: &str) -> String {
     format!(
         "<button class='place{}' data-action=go data-arg='{}'>{}<span>{}</span></button>",
@@ -125,12 +134,14 @@ fn place(current: &str, uri: &str, label: &str, glyph: &str) -> String {
         esc(label)
     )
 }
+
 fn toolbar(app: &App) -> String {
     let pinned = app
         .places
         .pins
         .iter()
         .any(|pin| pin.uri == app.browser.current.0);
+
     format!(
         "<header><div class=nav-group><button class=icon-btn data-action=back title='Back (Alt+Left)'>{}</button><button class=icon-btn data-action=forward title='Forward (Alt+Right)'>{}</button><button class=icon-btn data-action=up title='Parent folder (Alt+Up)'>↑</button></div><input id=address data-submit=location value='{}' aria-label='Folder path or server address'/><button class=icon-btn data-action=pin title='Pin this folder'>{}</button><button class=icon-btn data-action=refresh title='Refresh (Ctrl+R)'>↻</button><input id=search data-key=search value='{}' placeholder='Search' aria-label='Search this folder'/></header>",
         icon("chevron-left"),
@@ -140,6 +151,7 @@ fn toolbar(app: &App) -> String {
         esc(&app.browser.query)
     )
 }
+
 /// New folder / paste always; item actions only while something is selected.
 fn actions(app: &App) -> String {
     let mut html = String::from("<div class=actions>");
@@ -150,6 +162,7 @@ fn actions(app: &App) -> String {
     if app.clipboard.is_some() {
         html.push_str(&button("paste", "Paste"));
     }
+
     if let Some(entry) = app.browser.selection() {
         html.push_str(&format!(
             "<span class=spacer></span><span class=sel-name>{}</span>{}{}{}{}{}",
@@ -161,9 +174,11 @@ fn actions(app: &App) -> String {
             "<button class=danger data-action=trash>Trash</button>"
         ));
     }
+
     html.push_str("</div>");
     html
 }
+
 pub fn listing(app: &App) -> String {
     let sorted = |sort: Sort, action: &str, label: &str| {
         format!(
@@ -178,6 +193,7 @@ pub fn listing(app: &App) -> String {
         sorted(Sort::Modified, "modified", "Modified"),
         sorted(Sort::Size, "size", "Size")
     ));
+
     for (index, entry) in app
         .browser
         .visible()
@@ -190,6 +206,7 @@ pub fn listing(app: &App) -> String {
         } else {
             ""
         };
+
         let glyph = if entry.directory { "folder" } else { "file" };
         html.push_str(&format!(
             "<div class='file-row{selected}' data-action=select data-arg={index}><span class=file-name>{}<span>{}</span></span><span class=meta>{}</span><span class=meta>{}</span></div>",
@@ -199,6 +216,7 @@ pub fn listing(app: &App) -> String {
             if entry.directory { "—".into() } else { size(entry.size) },
         ));
     }
+
     if app.browser.visible().is_empty() {
         html.push_str(if app.browser.busy {
             "<div class=empty>Opening folder…</div>"
@@ -206,8 +224,10 @@ pub fn listing(app: &App) -> String {
             "<div class=empty>This folder is empty.</div>"
         });
     }
+
     html
 }
+
 pub fn status(app: &App) -> String {
     let count = app.browser.visible().len();
     let pager = if count > 100 {
@@ -219,6 +239,7 @@ pub fn status(app: &App) -> String {
     } else {
         String::new()
     };
+
     let notice = if app.browser.notice.is_empty() {
         String::new()
     } else {
@@ -227,6 +248,7 @@ pub fn status(app: &App) -> String {
             esc(&app.browser.notice)
         )
     };
+
     format!(
         "{notice}<div class=statusline><span>{count} {}</span>{pager}<span class=spacer></span>{}<button class=quiet data-action=hidden>{}</button></div>",
         if count == 1 { "item" } else { "items" },
@@ -242,6 +264,7 @@ pub fn status(app: &App) -> String {
         }
     )
 }
+
 fn size(bytes: u64) -> String {
     for (factor, unit) in [
         (1_099_511_627_776u64, "TiB"),
@@ -255,6 +278,7 @@ fn size(bytes: u64) -> String {
     }
     format!("{bytes} B")
 }
+
 fn modified(entry: &Entry) -> String {
     i64::try_from(entry.modified)
         .ok()

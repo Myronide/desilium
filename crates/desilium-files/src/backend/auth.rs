@@ -9,15 +9,18 @@ pub struct Credentials {
     pub domain: String,
     pub password: String,
 }
+
 pub struct Challenge {
     pub username: String,
     pub domain: String,
     pub reply: mpsc::SyncSender<Option<Credentials>>,
 }
+
 pub fn operation(events: EventSender) -> gio::MountOperation {
     let operation = gio::MountOperation::new();
     operation.set_password_save(gio::PasswordSave::Never);
     let question_events = events.clone();
+    
     operation.connect_local("ask-question", false, move |values| {
         let operation = values
             .first()
@@ -30,6 +33,7 @@ pub fn operation(events: EventSender) -> gio::MountOperation {
             .map(|choice| choice.to_string())
             .collect();
         let (reply, response) = mpsc::sync_channel(1);
+        
         if question_events
             .send(Event::Question {
                 message,
@@ -41,6 +45,7 @@ pub fn operation(events: EventSender) -> gio::MountOperation {
             operation.reply(gio::MountOperationResult::Aborted);
             return None;
         }
+        
         match response.recv_timeout(Duration::from_secs(120)) {
             Ok(Some(choice)) => {
                 operation.set_choice(choice);
@@ -50,6 +55,7 @@ pub fn operation(events: EventSender) -> gio::MountOperation {
         }
         None
     });
+    
     operation.connect_ask_password(move |operation, _message, username, domain, _flags| {
         let (reply, response) = mpsc::sync_channel(1);
         if events
@@ -63,24 +69,29 @@ pub fn operation(events: EventSender) -> gio::MountOperation {
             operation.reply(gio::MountOperationResult::Aborted);
             return;
         }
+        
         let Ok(Some(credentials)) = response.recv_timeout(Duration::from_secs(120)) else {
             operation.reply(gio::MountOperationResult::Aborted);
             return;
         };
+        
         operation.set_username(Some(&credentials.username));
         operation.set_domain(Some(&credentials.domain));
         operation.set_password(Some(&credentials.password));
         operation.reply(gio::MountOperationResult::Handled);
     });
+    
     operation
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    
     #[test]
     fn sign_in_and_host_confirmation_round_trip_without_persisting_passwords() {
         let (sender, receiver) = calloop::channel::channel();
+        
         let thread = std::thread::spawn(move || {
             let context = gio::glib::MainContext::new();
             context
@@ -104,6 +115,7 @@ mod tests {
                 })
                 .expect("thread context");
         });
+        
         let mut event_loop: calloop::EventLoop<usize> =
             calloop::EventLoop::try_new().expect("loop");
         event_loop
@@ -128,6 +140,7 @@ mod tests {
                 _ => {}
             })
             .expect("source");
+        
         let mut count = 0;
         for _ in 0..4 {
             if count == 2 {
@@ -137,6 +150,7 @@ mod tests {
                 .dispatch(Some(Duration::from_secs(2)), &mut count)
                 .expect("dispatch");
         }
+        
         assert_eq!(count, 2);
         thread.join().expect("authentication worker");
     }

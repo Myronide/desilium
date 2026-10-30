@@ -114,27 +114,31 @@ fn apply_now(
     for warning in warnings {
         tracing::warn!("{warning}");
     }
+
     let bindings = shortcuts::bindings(&config.compositor);
     for skipped in &bindings.skipped {
         tracing::warn!("shortcut left out: {skipped}");
     }
+
     let outcome = applier.apply(&wanted, &bindings.list);
     if outcome.complete() {
         tracing::info!(written = outcome.written, "KWin is up to date");
         *state = Retry::default();
-    } else {
-        state.failed();
-        match state.next_attempt {
-            Some(_) => tracing::warn!(
-                failed = outcome.failed,
-                attempt = state.attempts,
-                "KWin could not be fully configured yet, trying again"
-            ),
-            None => tracing::warn!(
-                failed = outcome.failed,
-                "giving up until the configuration changes; is KWin running?"
-            ),
-        }
+        return;
+    }
+
+    state.failed();
+
+    match state.next_attempt {
+        Some(_) => tracing::warn!(
+            failed = outcome.failed,
+            attempt = state.attempts,
+            "KWin could not be fully configured yet, trying again"
+        ),
+        None => tracing::warn!(
+            failed = outcome.failed,
+            "giving up until the configuration changes; is KWin running?"
+        ),
     }
 }
 
@@ -201,7 +205,9 @@ fn end_session() {
         tracing::warn!("quit shortcut ignored: not started by {SESSION_COMM}");
         return;
     }
+
     tracing::info!(parent, "quit shortcut: ending the session");
+
     let status = std::process::Command::new("kill")
         .args(["-TERM", &parent.to_string()])
         .status();
@@ -213,9 +219,11 @@ fn end_session() {
 /// Watches the configuration directory and sends [`Event::ConfigTouched`] for `config.toml`.
 fn watch_config(dir: &Path, events: Sender<Event>) -> io::Result<()> {
     fs::create_dir_all(dir)?;
+
     let mut inotify = Inotify::init()?;
     let mask = WatchMask::CLOSE_WRITE | WatchMask::MOVED_TO | WatchMask::CREATE | WatchMask::DELETE;
     inotify.watches().add(dir, mask)?;
+
     thread::Builder::new()
         .name("desilium-config-watch".to_owned())
         .spawn(move || {
@@ -225,6 +233,7 @@ fn watch_config(dir: &Path, events: Sender<Event>) -> io::Result<()> {
                     tracing::warn!("configuration watch stopped; changes need a restart");
                     return;
                 };
+
                 let touched = batch
                     .filter_map(|event| event.name.map(std::ffi::OsStr::to_owned))
                     .any(|name| name == CONFIG_FILE);

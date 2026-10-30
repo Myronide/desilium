@@ -3,6 +3,7 @@ use crate::{
     model::Entry,
 };
 use gio::prelude::*;
+
 const ATTRIBUTES: &str = "standard::name,standard::display-name,standard::type,standard::size,standard::is-hidden,time::modified,standard::content-type,standard::target-uri";
 
 pub fn list(
@@ -13,6 +14,7 @@ pub fn list(
     let children =
         folder.enumerate_children(ATTRIBUTES, gio::FileQueryInfoFlags::NONE, Some(cancel))?;
     let mut entries = Vec::new();
+    
     while let Some(info) = children.next_file(Some(cancel))? {
         let child = folder.child(info.name());
         entries.push(Entry {
@@ -34,9 +36,11 @@ pub fn list(
             ),
         });
     }
+    
     if let (_, Some(error)) = children.close(Some(cancel)) {
         return Err(error);
     }
+    
     Ok(entries)
 }
 
@@ -51,6 +55,7 @@ pub fn create_folder(
         .make_directory(Some(cancel))
         .map_err(|error| error.to_string())
 }
+
 pub fn rename(location: &Location, name: &str, cancel: &gio::Cancellable) -> Result<(), String> {
     valid_name(name)?;
     gio::File::for_uri(&location.0)
@@ -73,6 +78,7 @@ pub fn transfer(
     }
     let name = source.basename().ok_or("This location has no file name.")?;
     let target = target_folder.child(name);
+    
     if cut {
         return source
             .move_(
@@ -83,6 +89,7 @@ pub fn transfer(
             )
             .map_err(|error| error.to_string());
     }
+    
     copy_tree(&source, &target, cancel, 0)
         .map_err(|error| format!("Copy stopped: {error}. Files already copied were retained."))
 }
@@ -95,6 +102,7 @@ fn copy_tree(
     if depth > 128 {
         return Err("The folder tree is too deep.".into());
     }
+    
     let kind = source.query_file_type(gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS, Some(cancel));
     if kind != gio::FileType::Directory {
         return source
@@ -106,6 +114,7 @@ fn copy_tree(
             )
             .map_err(|error| error.to_string());
     }
+    
     target
         .make_directory(Some(cancel))
         .map_err(|error| error.to_string())?;
@@ -116,6 +125,7 @@ fn copy_tree(
             Some(cancel),
         )
         .map_err(|error| error.to_string())?;
+    
     while let Some(info) = children
         .next_file(Some(cancel))
         .map_err(|error| error.to_string())?
@@ -127,8 +137,10 @@ fn copy_tree(
             depth + 1,
         )?;
     }
+    
     if let (_, Some(error)) = children.close(Some(cancel)) {
         return Err(error.to_string());
     }
+    
     Ok(())
 }

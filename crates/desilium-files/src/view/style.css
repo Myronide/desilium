@@ -1,309 +1,367 @@
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
+
 body {
-  margin: 0;
-  font-family: var(--font-ui, "Inter", sans-serif);
-  font-size: 13px;
-  color: var(--text, #e8edf5);
-  background: var(--surface-1, #151923);
+    margin: 0;
+    font-family: var(--font-ui, "Inter", sans-serif);
+    font-size: 13px;
+    color: var(--text, #e8edf5);
+    background: var(--surface-1, #151923);
 }
+
 button,
 input {
-  font: inherit;
-  color: inherit;
+    font: inherit;
+    color: inherit;
 }
+
 button {
-  background: var(--surface-3, #293244);
-  border: 0;
-  border-radius: 8px;
-  padding: 7px 12px;
-  cursor: pointer;
+    background: var(--surface-3, #293244);
+    border: 0;
+    border-radius: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
 }
+
 button:hover {
-  background: var(--surface-4, #3a4d6b);
+    background: var(--surface-4, #3a4d6b);
 }
+
 button:focus-visible,
 input:focus-visible {
-  outline: 2px solid var(--accent, #9bbdff);
+    outline: 2px solid var(--accent, #9bbdff);
 }
+
 input {
-  background: var(--surface-2, #1c2330);
-  border: 1px solid var(--border, #3d4a60);
-  border-radius: 8px;
-  padding: 8px 12px;
-  min-width: 0;
+    background: var(--surface-2, #1c2330);
+    border: 1px solid var(--border, #3d4a60);
+    border-radius: 8px;
+    padding: 8px 12px;
+    min-width: 0;
 }
+
 .files {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  background: var(--surface-1, #151923);
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    background: var(--surface-1, #151923);
 }
+
 .files aside {
-  width: 200px;
-  flex-shrink: 0;
-  background: var(--surface-2, #1c2330);
-  padding: 16px 10px;
-  overflow-y: auto;
+    width: 200px;
+    flex-shrink: 0;
+    background: var(--surface-2, #1c2330);
+    padding: 16px 10px;
+    overflow-y: auto;
 }
+
 .app-title {
-  font-size: 15px;
-  font-weight: 600;
-  padding: 2px 10px 14px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 2px 10px 14px;
 }
+
 h4 {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-2, #93a6c0);
-  margin: 18px 10px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-2, #93a6c0);
+    margin: 18px 10px 6px;
 }
+
 nav {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
 }
+
 .place {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  background: transparent;
-  width: 100%;
-  padding: 7px 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    background: transparent;
+    width: 100%;
+    padding: 7px 10px;
 }
+
 .place span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
+
 .place svg {
-  flex-shrink: 0;
-  color: var(--text-2, #93a6c0);
+    flex-shrink: 0;
+    color: var(--text-2, #93a6c0);
 }
+
 .place.active {
-  background: var(--accent, #a9c6ff);
-  color: var(--text-on-accent, #fff);
+    background: var(--accent, #a9c6ff);
+    color: var(--text-on-accent, #fff);
 }
+
 .place.active svg {
-  color: var(--text-on-accent, #fff);
+    color: var(--text-on-accent, #fff);
 }
+
 .pinrow {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
 }
+
 .pinrow .place {
-  flex: 1;
-  min-width: 0;
+    flex: 1;
+    min-width: 0;
 }
+
 .quiet {
-  background: transparent;
-  padding: 4px 7px;
-  color: var(--text-2, #93a6c0);
+    background: transparent;
+    padding: 4px 7px;
+    color: var(--text-2, #93a6c0);
 }
+
 .disk-space {
-  width: 100%;
-  font-size: 10px;
-  color: var(--text-2, #93a6c0);
-  padding: 0 10px 6px 36px;
+    width: 100%;
+    font-size: 10px;
+    color: var(--text-2, #93a6c0);
+    padding: 0 10px 6px 36px;
 }
+
 main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
 }
+
 header {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  padding: 12px 16px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 12px 16px;
 }
+
 .nav-group {
-  display: flex;
-  gap: 2px;
+    display: flex;
+    gap: 2px;
 }
+
 .icon-btn {
-  background: transparent;
-  padding: 6px 9px;
-  color: var(--text-2, #93a6c0);
+    background: transparent;
+    padding: 6px 9px;
+    color: var(--text-2, #93a6c0);
 }
+
 .icon-btn:hover {
-  color: var(--text, #e8edf5);
+    color: var(--text, #e8edf5);
 }
+
 #address {
-  flex: 1;
+    flex: 1;
 }
+
 #search {
-  width: 170px;
+    width: 170px;
 }
+
 #listing {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 16px 8px;
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 16px 8px;
 }
+
 .actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0 10px;
 }
+
 .actions button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  padding: 6px 11px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 6px 11px;
 }
+
 .sel-name {
-  max-width: 220px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-2, #93a6c0);
-  font-size: 12px;
-  padding-right: 6px;
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-2, #93a6c0);
+    font-size: 12px;
+    padding-right: 6px;
 }
+
 .danger:hover {
-  background: #b3453d;
-  color: #fff;
+    background: #b3453d;
+    color: #fff;
 }
+
 .spacer {
-  flex: 1;
+    flex: 1;
 }
+
 .columns,
 .file-row {
-  display: grid;
-  grid-template-columns: minmax(160px, 1fr) 100px 80px;
-  align-items: center;
-  gap: 12px;
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) 100px 80px;
+    align-items: center;
+    gap: 12px;
 }
+
 .columns {
-  height: 32px;
-  padding: 0 10px;
+    height: 32px;
+    padding: 0 10px;
 }
+
 .columns button {
-  background: transparent;
-  text-align: left;
-  color: var(--text-2, #93a6c0);
-  font-size: 11px;
-  padding: 4px 0;
+    background: transparent;
+    text-align: left;
+    color: var(--text-2, #93a6c0);
+    font-size: 11px;
+    padding: 4px 0;
 }
+
 .columns button.on {
-  color: var(--text, #e8edf5);
+    color: var(--text, #e8edf5);
 }
+
 .file-row {
-  min-height: 38px;
-  padding: 0 10px;
-  cursor: pointer;
-  border-radius: 8px;
+    min-height: 38px;
+    padding: 0 10px;
+    cursor: pointer;
+    border-radius: 8px;
 }
+
 .file-row:hover {
-  background: var(--surface-2, #1c2330);
+    background: var(--surface-2, #1c2330);
 }
+
 .file-row.selected {
-  background: var(--accent, #304b72);
-  color: var(--text-on-accent, #fff);
+    background: var(--accent, #304b72);
+    color: var(--text-on-accent, #fff);
 }
+
 .file-name {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
 }
+
 .file-name span {
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
+
 .file-name svg {
-  color: var(--accent, #a9c6ff);
-  flex-shrink: 0;
+    color: var(--accent, #a9c6ff);
+    flex-shrink: 0;
 }
+
 .file-row.selected .file-name svg,
 .file-row.selected .meta {
-  color: var(--text-on-accent, #fff);
+    color: var(--text-on-accent, #fff);
 }
+
 .meta {
-  font-size: 12px;
-  color: var(--text-2, #93a6c0);
+    font-size: 12px;
+    color: var(--text-2, #93a6c0);
 }
+
 .empty {
-  padding: 90px 25px;
-  text-align: center;
-  color: var(--text-2, #93a6c0);
+    padding: 90px 25px;
+    text-align: center;
+    color: var(--text-2, #93a6c0);
 }
+
 .statusline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--text-2, #93a6c0);
-  padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-2, #93a6c0);
+    padding: 8px 18px;
 }
+
 .statusline button {
-  padding: 3px 8px;
-  font-size: 11px;
+    padding: 3px 8px;
+    font-size: 11px;
 }
+
 .notice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  background: var(--surface-3, #2c3548);
-  padding: 9px 16px;
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--surface-3, #2c3548);
+    padding: 9px 16px;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
 }
+
 .hint {
-  font-size: 11px;
-  color: var(--text-2, #93a6c0);
-  line-height: 1.6;
-  padding: 0 10px;
+    font-size: 11px;
+    color: var(--text-2, #93a6c0);
+    line-height: 1.6;
+    padding: 0 10px;
 }
+
 .scrim {
-  position: absolute;
-  inset: 0;
-  background: #060b14a0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    position: absolute;
+    inset: 0;
+    background: #060b14a0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
+
 .dialog {
-  width: 440px;
-  background: var(--surface-2, #202a3a);
-  border: 1px solid var(--border-strong, #52637f);
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 20px 70px #0008;
+    width: 440px;
+    background: var(--surface-2, #202a3a);
+    border: 1px solid var(--border-strong, #52637f);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 20px 70px #0008;
 }
+
 .dialog h2 {
-  font-size: 18px;
-  margin: 0 0 12px;
+    font-size: 18px;
+    margin: 0 0 12px;
 }
+
 .dialog p {
-  line-height: 1.7;
-  color: var(--text-2, #b1c1d8);
+    line-height: 1.7;
+    color: var(--text-2, #b1c1d8);
 }
+
 .dialog label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 12px 0;
-  font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 12px 0;
+    font-size: 12px;
 }
+
 .dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
 }
+
 .primary {
-  background: var(--accent, #a9c6ff);
-  color: var(--text-on-accent, #183054);
+    background: var(--accent, #a9c6ff);
+    color: var(--text-on-accent, #183054);
 }
+
 .dialog .hint {
-  padding: 0;
+    padding: 0;
 }

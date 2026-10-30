@@ -7,8 +7,10 @@ pub fn volume_id(volume: &gio::Volume) -> String {
         .or_else(|| volume.uuid())
         .map_or_else(|| format!("volume:{}", volume.name()), Into::into)
 }
+
 pub fn snapshot(monitor: &gio::VolumeMonitor) -> Vec<Device> {
     let mut devices = Vec::new();
+
     for volume in monitor.volumes() {
         let mount = volume.get_mount();
         devices.push(Device {
@@ -22,6 +24,7 @@ pub fn snapshot(monitor: &gio::VolumeMonitor) -> Vec<Device> {
             can_unmount: mount.is_some_and(|mount| mount.can_unmount()),
         });
     }
+
     for mount in monitor.mounts() {
         let location = Location(mount.root().uri().into());
         if mount.is_shadowed()
@@ -40,6 +43,7 @@ pub fn snapshot(monitor: &gio::VolumeMonitor) -> Vec<Device> {
             can_unmount: mount.can_unmount(),
         });
     }
+
     devices.sort_by_key(|device| device.name.to_lowercase());
     devices
 }
@@ -49,6 +53,7 @@ fn space(file: &gio::File) -> Option<(u64, u64)> {
     let info = file
         .query_filesystem_info("filesystem::size,filesystem::free", gio::Cancellable::NONE)
         .ok()?;
+
     Some((
         info.attribute_uint64("filesystem::size"),
         info.attribute_uint64("filesystem::free"),

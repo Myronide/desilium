@@ -15,15 +15,15 @@ desilium-theme = { path = "../desilium-theme" }
 desilium-config = { path = "../desilium-config" }
 calloop = "0.14"
 inotify = "0.11"
-gio = "0.21.5"
+gio = "0.22"
 serde.workspace = true
-toml = "0.8"
+toml = "1.1"
 thiserror.workspace = true
 url = "2"
 tracing.workspace = true
 tracing-subscriber.workspace = true
 async-channel = "2"
-png = "0.17"
+png = "0.18"
 
 [dev-dependencies]
 tempfile = "3"

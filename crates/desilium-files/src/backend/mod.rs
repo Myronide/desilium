@@ -3,12 +3,13 @@ pub mod devices;
 pub mod files;
 mod operations;
 use std::sync::{Arc, Mutex};
-type ActiveJob = Arc<Mutex<Option<gio::Cancellable>>>;
 use crate::{
     location::Location,
     model::{Device, Entry},
 };
 use gio::prelude::*;
+
+type ActiveJob = Arc<Mutex<Option<gio::Cancellable>>>;
 pub type EventSender = calloop::channel::Sender<Event>;
 
 pub enum Command {
@@ -29,6 +30,7 @@ pub enum Command {
     },
     Open(Location),
 }
+
 pub enum Event {
     Listed {
         location: Location,
@@ -46,15 +48,19 @@ pub enum Event {
     },
     Refresh,
 }
+
 pub struct Worker {
     sender: async_channel::Sender<(Command, gio::Cancellable)>,
     active: ActiveJob,
 }
+
 impl Worker {
+    
     pub fn spawn(events: EventSender) -> Result<Self, String> {
         let (sender, receiver) = async_channel::bounded(16);
         let active: ActiveJob = Arc::new(Mutex::new(None));
         let current = active.clone();
+        
         std::thread::Builder::new()
             .name("doria-files".into())
             .spawn(move || {
@@ -67,17 +73,22 @@ impl Worker {
                 }
             })
             .map_err(|error| error.to_string())?;
+        
         Ok(Self { sender, active })
     }
+    
     pub fn send(&mut self, command: Command) -> Result<(), String> {
         let cancel = gio::Cancellable::new();
+        
         self.sender
             .try_send((command, cancel.clone()))
             .map_err(|_| {
                 "The file service is busy. Try again after the current operation.".to_owned()
             })?;
+        
         Ok(())
     }
+    
     pub fn cancel(&self) {
         if let Ok(active) = self.active.lock()
             && let Some(cancel) = &*active
@@ -86,6 +97,7 @@ impl Worker {
         }
     }
 }
+
 async fn run(
     receiver: async_channel::Receiver<(Command, gio::Cancellable)>,
     events: EventSender,
@@ -94,6 +106,7 @@ async fn run(
     let monitor = gio::VolumeMonitor::get();
     watch_devices(&monitor, &events);
     let mut directory_monitor = None;
+    
     while let Ok((command, cancel)) = receiver.recv().await {
         if let Ok(mut active) = active.lock() {
             *active = Some(cancel.clone());
@@ -115,17 +128,21 @@ async fn run(
             }
             continue;
         }
+        
         let result = execute(command, &monitor, &cancel, &events).await;
         if let Ok(mut active) = active.lock() {
             *active = None;
         }
+        
         let _ = events.send(Event::Devices(devices::snapshot(&monitor)));
         if let Some(result) = result {
             let _ = events.send(Event::Finished(result));
         }
     }
+    
     drop(directory_monitor);
 }
+
 async fn list_mounted(
     location: &Location,
     cancel: &gio::Cancellable,
@@ -141,6 +158,7 @@ async fn list_mounted(
         Err(error) => Err(friendly(error)),
     }
 }
+
 fn friendly(error: gio::glib::Error) -> String {
     if error.matches(gio::IOErrorEnum::NotSupported) {
         return format!(
@@ -149,6 +167,7 @@ fn friendly(error: gio::glib::Error) -> String {
     }
     error.to_string()
 }
+
 async fn execute(
     command: Command,
     monitor: &gio::VolumeMonitor,
@@ -175,8 +194,10 @@ async fn execute(
         }
         Command::List { .. } => return None,
     };
+    
     Some(result.map(|()| "Done.".into()))
 }
+
 async fn mount(
     monitor: &gio::VolumeMonitor,
     id: &str,
@@ -188,11 +209,14 @@ async fn mount(
         .into_iter()
         .find(|volume| devices::volume_id(volume) == id)
         .ok_or("The drive is no longer available.")?;
+    
     let operation = auth::operation(events.clone());
     operations::volume(&volume, &operation, cancel).await?;
+    
     if let Some(mount) = volume.get_mount() {
         let _ = events.send(Event::Navigate(Location(mount.root().uri().into())));
     }
+    
     Ok("Drive connected.".into())
 }
 async fn unmount(
@@ -206,12 +230,14 @@ async fn unmount(
         .find(|device| device.id == id)
         .ok_or("The drive is no longer available.")?;
     let location = device.location.ok_or("The drive is not mounted.")?;
+    
     let mount = monitor
         .mounts()
         .into_iter()
         .find(|mount| mount.root().uri().as_str() == location.0)
         .ok_or("The drive is no longer mounted.")?;
     let operation = auth::operation(events.clone());
+    
     operations::unmount(&mount, &operation, cancel).await?;
     Ok("Drive safely unmounted.".into())
 }
@@ -220,6 +246,7 @@ fn watch_directory(location: &Location, events: &EventSender) -> Option<gio::Fil
         .monitor_directory(gio::FileMonitorFlags::WATCH_MOVES, gio::Cancellable::NONE)
         .ok()?;
     let sender = events.clone();
+    
     monitor.connect_changed(move |_, _, _, _| {
         let _ = sender.send(Event::Refresh);
     });
@@ -230,18 +257,22 @@ fn watch_devices(monitor: &gio::VolumeMonitor, events: &EventSender) {
     monitor.connect_volume_added(move |monitor, _| {
         let _ = sender.send(Event::Devices(devices::snapshot(monitor)));
     });
+    
     let sender = events.clone();
     monitor.connect_volume_removed(move |monitor, _| {
         let _ = sender.send(Event::Devices(devices::snapshot(monitor)));
     });
+    
     let sender = events.clone();
     monitor.connect_mount_added(move |monitor, _| {
         let _ = sender.send(Event::Devices(devices::snapshot(monitor)));
     });
+    
     let sender = events.clone();
     monitor.connect_mount_removed(move |monitor, _| {
         let _ = sender.send(Event::Devices(devices::snapshot(monitor)));
     });
+    
     let sender = events.clone();
     monitor.connect_mount_changed(move |monitor, _| {
         let _ = sender.send(Event::Devices(devices::snapshot(monitor)));

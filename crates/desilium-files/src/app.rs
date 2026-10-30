@@ -19,12 +19,14 @@ pub enum Dialog {
     Trash,
     Authenticate(backend::auth::Challenge, backend::auth::Credentials),
 }
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Refresh {
     None,
     Items,
     All,
 }
+
 pub struct App {
     pub browser: Browser,
     pub home: PathBuf,
@@ -35,6 +37,7 @@ pub struct App {
     pub clipboard: Option<(Location, bool)>,
     pub worker: Worker,
 }
+
 impl App {
     pub fn new(home: PathBuf, start: Location, places_path: PathBuf, worker: Worker) -> Self {
         let loaded = Places::load(&places_path);
@@ -58,6 +61,7 @@ impl App {
             worker,
         }
     }
+
     pub fn load(&mut self) {
         self.browser.generation = self.browser.generation.wrapping_add(1);
         self.browser.busy = true;
@@ -67,17 +71,20 @@ impl App {
         };
         self.submit(command);
     }
+
     pub fn navigate(&mut self, location: Location) {
         self.browser.navigate(location);
         self.browser.entries.clear();
         self.load();
     }
+
     fn submit(&mut self, command: Command) {
         if let Err(error) = self.worker.send(command) {
             self.browser.notice = error;
             self.browser.busy = false;
         }
     }
+
     pub fn backend(&mut self, event: Event) -> Refresh {
         match event {
             Event::Listed {
@@ -139,6 +146,7 @@ impl App {
                     reply,
                 })
             }
+
             Event::Authenticate(challenge) => {
                 let credentials = backend::auth::Credentials {
                     username: challenge.username.clone(),
@@ -150,6 +158,7 @@ impl App {
         }
         Refresh::All
     }
+
     pub fn event(&mut self, event: &UiEvent) -> Refresh {
         match event {
             UiEvent::Action(action) => {
@@ -169,6 +178,7 @@ impl App {
             _ => Refresh::None,
         }
     }
+
     fn text(&mut self, key: &str, value: &str) -> Refresh {
         if key == "search" {
             self.browser.query = value.into();
@@ -191,6 +201,7 @@ impl App {
         }
         Refresh::None
     }
+
     pub fn action(&mut self, action: &str, arg: &str) -> Refresh {
         match action {
             "go" => self.go_text(arg),
@@ -293,6 +304,7 @@ impl App {
         }
         Refresh::All
     }
+
     fn open(&mut self, arg: &str) {
         let index = arg.parse::<usize>().ok().or(self.browser.selected);
         let entry = index
@@ -306,6 +318,7 @@ impl App {
             }
         }
     }
+
     fn go_text(&mut self, text: &str) {
         let text = text.trim();
         if text.is_empty() {
@@ -328,16 +341,19 @@ impl App {
             Err(error) => self.browser.notice = error,
         }
     }
+
     fn pin(&mut self) {
         if !self.browser.loaded {
             self.browser.notice = "Open a readable folder before pinning it.".into();
             return;
         }
+
         if !self.places_healthy {
             self.browser.notice =
                 "Reset saved places before adding pins; your damaged file is preserved.".into();
             return;
         }
+
         let before = self.places.clone();
         let name = self
             .browser
@@ -349,11 +365,13 @@ impl App {
             })
             .unwrap_or_else(|| self.browser.current.label());
         self.places.toggle(&self.browser.current, name);
+
         if let Err(error) = self.places.save(&self.places_path) {
             self.places = before;
             self.browser.notice = error;
         }
     }
+
     fn unpin(&mut self, uri: &str) {
         let before = self.places.clone();
         self.places.pins.retain(|pin| pin.uri != uri);
@@ -362,6 +380,7 @@ impl App {
             self.browser.notice = error;
         }
     }
+
     fn reset_places(&mut self) {
         let backup = self.places_path.with_extension("backup.toml");
         if backup.exists() {
@@ -369,6 +388,7 @@ impl App {
                 "A saved-places backup already exists; it was left untouched.".into();
             return;
         }
+
         match std::fs::rename(&self.places_path, &backup) {
             Ok(()) => {
                 self.places = Places::default();
@@ -379,10 +399,12 @@ impl App {
             Err(error) => self.browser.notice = error.to_string(),
         }
     }
+
     fn paste(&mut self) {
         let Some((source, cut)) = self.clipboard.clone() else {
             return;
         };
+
         self.browser.busy = true;
         self.submit(Command::Transfer {
             source,
@@ -390,10 +412,12 @@ impl App {
             cut,
         });
     }
+
     fn confirm(&mut self) {
         let Some(dialog) = self.dialog.take() else {
             return;
         };
+
         let command = match dialog {
             Dialog::Question { reply, .. } => {
                 let _ = reply.send(None);
@@ -421,9 +445,11 @@ impl App {
                 return;
             }
         };
+
         self.browser.busy = true;
         self.submit(command);
     }
+
     fn cancel_dialog(&mut self) {
         match self.dialog.take() {
             Some(Dialog::Authenticate(challenge, _)) => {
@@ -435,14 +461,17 @@ impl App {
             _ => {}
         }
     }
+
     pub fn key(&mut self, event: &KeyEvent, typing: bool) -> Refresh {
         if event.key == Key::Escape {
             self.cancel_dialog();
             return Refresh::All;
         }
+
         if typing {
             return Refresh::None;
         }
+
         if matches!(event.key, Key::ArrowUp | Key::ArrowDown) && !event.modifiers.alt {
             let rows = self.browser.visible();
             let current = rows
@@ -457,6 +486,7 @@ impl App {
             self.browser.page = at / 100;
             return Refresh::Items;
         }
+
         let action = match (&event.key, event.modifiers.ctrl, event.modifiers.alt) {
             (Key::ArrowLeft, _, true) => "back",
             (Key::ArrowRight, _, true) => "forward",
@@ -470,6 +500,7 @@ impl App {
             (Key::Delete, _, _) => "trash",
             _ => return Refresh::None,
         };
+
         self.action(action, "")
     }
 }

@@ -19,6 +19,7 @@ pub struct Device {
     pub can_unmount: bool,
     pub space: Option<(u64, u64)>,
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Sort {
     #[default]
@@ -43,7 +44,9 @@ pub struct Browser {
     pub loaded: bool,
     pub notice: String,
 }
+
 impl Browser {
+    
     pub fn new(current: Location) -> Self {
         Self {
             current,
@@ -62,21 +65,25 @@ impl Browser {
             notice: String::new(),
         }
     }
+    
     pub fn navigate(&mut self, location: Location) {
         if self.current != location {
             self.back.push(self.current.clone());
             self.forward.clear();
             self.current = location;
         }
+        
         self.selected = None;
         self.page = 0;
         self.loaded = false;
         self.query.clear();
     }
+    
     pub fn back(&mut self) -> bool {
         let Some(previous) = self.back.pop() else {
             return false;
         };
+        
         self.forward.push(self.current.clone());
         self.current = previous;
         self.selected = None;
@@ -85,10 +92,12 @@ impl Browser {
         self.query.clear();
         true
     }
+    
     pub fn forward(&mut self) -> bool {
         let Some(next) = self.forward.pop() else {
             return false;
         };
+        
         self.back.push(self.current.clone());
         self.current = next;
         self.selected = None;
@@ -97,6 +106,7 @@ impl Browser {
         self.query.clear();
         true
     }
+    
     pub fn visible(&self) -> Vec<(usize, &Entry)> {
         let query = self.query.to_lowercase();
         let mut rows: Vec<_> = self
@@ -107,6 +117,7 @@ impl Browser {
                 (self.show_hidden || !entry.hidden) && entry.name.to_lowercase().contains(&query)
             })
             .collect();
+        
         rows.sort_by(|(_, left), (_, right)| {
             right
                 .directory
@@ -118,8 +129,10 @@ impl Browser {
                 })
                 .then_with(|| left.name.cmp(&right.name))
         });
+        
         rows
     }
+    
     pub fn selection(&self) -> Option<&Entry> {
         self.entries.get(self.selected?)
     }

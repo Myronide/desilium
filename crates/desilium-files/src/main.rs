@@ -1,4 +1,5 @@
 use std::process::ExitCode;
+
 fn main() -> ExitCode {
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -14,6 +15,7 @@ fn main() -> ExitCode {
         }
     }
 }
+
 fn arguments() -> Result<(), desilium_files::runtime::Error> {
     use desilium_files::runtime::{self, Error};
     let mut args = std::env::args().skip(1);

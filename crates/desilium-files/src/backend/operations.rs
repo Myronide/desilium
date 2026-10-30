@@ -1,5 +1,6 @@
 //! Mount futures wired to the same cancellable as ordinary file jobs.
 use gio::prelude::*;
+
 async fn result(
     receiver: async_channel::Receiver<Result<(), gio::glib::Error>>,
 ) -> Result<(), String> {
@@ -9,6 +10,7 @@ async fn result(
         .map_err(|_| "The mount service disconnected.".to_owned())?
         .map_err(super::friendly)
 }
+
 pub(super) async fn location(
     file: &gio::File,
     operation: &gio::MountOperation,
@@ -23,8 +25,10 @@ pub(super) async fn location(
             let _ = sender.try_send(value);
         },
     );
+    
     result(receiver).await
 }
+
 pub(super) async fn volume(
     volume: &gio::Volume,
     operation: &gio::MountOperation,
@@ -39,8 +43,10 @@ pub(super) async fn volume(
             let _ = sender.try_send(value);
         },
     );
+
     result(receiver).await
 }
+
 pub(super) async fn unmount(
     mount: &gio::Mount,
     operation: &gio::MountOperation,
@@ -55,5 +61,6 @@ pub(super) async fn unmount(
             let _ = sender.try_send(value);
         },
     );
+
     result(receiver).await
 }

@@ -36,10 +36,12 @@ pub fn set_geometry(uuid: &str, rect: (i32, i32, i32, i32)) -> Result<(), KwinEr
     let runtime = std::env::var_os("XDG_RUNTIME_DIR").ok_or(KwinError::NoRuntimeDir)?;
     let directory = PathBuf::from(runtime).join(DIRECTORY);
     fs::create_dir_all(&directory)?;
+    
     let number = COUNTER.fetch_add(1, Ordering::Relaxed);
     let plugin = format!("{PLUGIN_PREFIX}{}-{number}", std::process::id());
     let file = directory.join(format!("{plugin}.js"));
     fs::write(&file, source)?;
+    
     let result = run_script(&file, &plugin);
     let _ = fs::remove_file(&file);
     result
@@ -48,15 +50,18 @@ pub fn set_geometry(uuid: &str, rect: (i32, i32, i32, i32)) -> Result<(), KwinEr
 fn run_script(file: &std::path::Path, plugin: &str) -> Result<(), KwinError> {
     let connection = Connection::session()?;
     let scripting = Proxy::new(&connection, SERVICE, SCRIPTING_PATH, SCRIPTING_INTERFACE)?;
+    
     let id: i32 = scripting.call("loadScript", &(file.to_string_lossy().as_ref(), plugin))?;
     if id < 0 {
         return Err(KwinError::ScriptRejected(format!(
             "loadScript returned {id} for {plugin}"
         )));
     }
+    
     let path = format!("{SCRIPTING_PATH}/Script{id}");
     let run = Proxy::new(&connection, SERVICE, path, SCRIPT_INTERFACE)
         .and_then(|script| script.call_method("run", &()).map(|_| ()));
+    
     let unloaded: Result<bool, _> = scripting.call("unloadScript", &(plugin,));
     if let Err(error) = unloaded {
         tracing::debug!(%error, plugin, "script could not be unloaded");
